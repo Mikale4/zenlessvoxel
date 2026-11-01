@@ -83,13 +83,14 @@
       Object.assign(accounts[id], patch || {}); persist(accounts); return pub(accounts[id]);
     },
     /* a finished battle: count it, and keep the best rank per battleground and encounter
-       (a Proxy Clash: won and lost, the best rank and fastest win, per rival Proxy) */
+       (a Proxy Clash: won and lost, the best rank and fastest win, per rival Proxy, and won / lost per mode) */
     record(r) {
       const id = read(SESSION), accounts = store(), a = id && accounts[id]; if (!a) return null;
       if (r.clash) {
         a.duels = (a.duels || 0) + 1; if (r.win) a.duelWins = (a.duelWins || 0) + 1;
         a.clash = a.clash || {}; const c = a.clash[r.rival] || (a.clash[r.rival] = { w: 0, l: 0, best: null, time: 0 }), order = 'FCBAS';
         if (r.win) { c.w++; if (order.indexOf(r.rank) > order.indexOf(c.best || 'F')) c.best = r.rank; if (!c.time || r.time < c.time) c.time = r.time; } else c.l++;
+        if (r.mode) { c.modes = c.modes || {}; const m = c.modes[r.mode] || (c.modes[r.mode] = { w: 0, l: 0 }); if (r.win) m.w++; else m.l++; }   // and per mode
         persist(accounts); return pub(a);
       }
       a.battles = (a.battles || 0) + 1; if (r.win) a.clears = (a.clears || 0) + 1;

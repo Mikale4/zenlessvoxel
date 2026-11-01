@@ -1,9 +1,9 @@
 // Screenshots of Proxy Clash, front to back: the cabinets on Sixth Street, the setup screen, a fight, the results.
-//   node tools/clash-shots.js outdir [phone]
+//   node tools/clash-shots.js outdir [phone|desktop] [mode]
 const path = require('path');
 const { chromium } = require('playwright');
 (async () => {
-  const out = process.argv[2] || '.', phone = process.argv[3] === 'phone';
+  const out = process.argv[2] || '.', phone = process.argv[3] === 'phone', mode = process.argv[4] || 'tag3';
   const b = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
   const ctx = await b.newContext(phone ? { viewport: { width: 390, height: 844 }, deviceScaleFactor: 1, isMobile: true, hasTouch: true } : { viewport: { width: 1280, height: 720 } });
   const p = await ctx.newPage();
@@ -14,7 +14,7 @@ const { chromium } = require('playwright');
   await p.waitForFunction('window.__ready === true');
   const shot = async (name, ms) => { await p.waitForTimeout(ms || 400); await p.screenshot({ path: path.join(out, name) }); console.log('saved', name); };
   // an account, Belle, at the cabinets
-  await p.evaluate(async () => { localStorage.clear(); const r = await Auth.register('ClashTester', 'pass1234'); Auth.update({ proxy: 'belle', seenIntro: true }); MENU.loadAccount(); MENU.lobby({ spawn: [-3.9, -1.2] }); });
+  await p.evaluate(async mode => { localStorage.clear(); const r = await Auth.register('ClashTester', 'pass1234'); Auth.update({ proxy: 'belle', seenIntro: true }); U.store.ns = Auth.current().id; U.store.set('clash', { mode, squad: ['caesar', 'burnice', 'aria'], rival: 'vesper', rsquad: null, arena: 'stage' }); MENU.loadAccount(); MENU.lobby({ spawn: [-3.9, -1.2] }); }, mode);
   await p.evaluate(() => { for (let i = 0; i < 40; i++) { Lobby.update(1 / 30); FX.update(1 / 30, 1 / 30); } });
   await shot('clash-1-lobby.png', 600);
   // the setup screen

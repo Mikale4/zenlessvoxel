@@ -386,6 +386,22 @@
   };
 
   /* --------------------------------------------------------- PROXY CLASH --
+     The five ways to fight a rival Proxy. Tag Team: one Agent per side on the
+     field at a time, the rest swap in (assists, Chain Attacks, Quick Assists as
+     in the Hollow). All-Out: every Agent of both squads on the field at once;
+     you lead one (move her, call her EX and Ultimate) and the rest fight on their
+     own, and a Swap on a flash sends a teammate dashing in to help whoever it is
+     aimed at. hp: how much deeper both squads' HP runs in that mode (on top of
+     the Battle Lab's Agent HP in Proxy Clash). */
+  const CLASH_MODES = {
+    duel: { id: 'duel', size: 1, allOut: false, name: '1v1', title: 'DUEL', hp: 1.2, sub: 'One Agent each. No swaps, no assists: just the two of them.' },
+    tag2: { id: 'tag2', size: 2, allOut: false, name: '2v2', title: 'TAG TEAM', hp: 1.0, sub: 'One on the field at a time: swap, assist, chain.' },
+    all2: { id: 'all2', size: 2, allOut: true, name: '2v2', title: 'ALL-OUT', hp: 3.0, sub: 'Both of yours against both of theirs, all at once.' },
+    tag3: { id: 'tag3', size: 3, allOut: false, name: '3v3', title: 'TAG TEAM', hp: 1.0, sub: 'One on the field at a time: swap, assist, chain.' },
+    all3: { id: 'all3', size: 3, allOut: true, name: '3v3', title: 'ALL-OUT', hp: 4.2, sub: 'All six Agents on the field at once.' },
+  };
+
+  /* ------------------------------------------------------- the rival Proxies --
      Rival Proxies (this game's own characters, not from the official game) who
      command a squad of Agents against yours. reflex and dodge scale how well
      their Agents dodge (as the Battle Lab's Perfect Dodge skill does yours);
@@ -393,23 +409,28 @@
      teammate swaps in to parry one of your heavy hits (it costs them an Assist
      Point; assistStart is how many they begin with); ult how readily they fire
      an Ultimate; dbRate the Decibels their on-field Agent builds each second on top
-     of what her hits earn; dmg [1-on-1, 2-on-2, 3-on-3] scales their Agents'
-     damage: it is high because yours carry buffs, Anomalies, Assists, Chain
-     Attacks and Follow-Ups that theirs do not (fewer of those, the fewer Agents
-     there are); hp scales their HP; swap [min,max] seconds between
-     their rotations. */
+     of what her hits earn; escape the chance they swap a Stunned Agent out before
+     your Chain Attacks (Tag Team; you can do the same); dmg, by mode, scales their
+     Agents' damage: it runs above 1 because yours carry buffs, Anomalies and
+     Disorders, Abloom, Afterburn and the Aegis that theirs do not (the more of
+     your Agents fight, the more of those); hp scales their HP; swap [min,max]
+     seconds between their rotations. Calibrated with tools/clash-test.js against
+     a squad on AUTO. */
   const RIVALS = {
     patch: { id: 'patch', name: 'Patch', tier: 'Rookie', color: '#5ac8ff', line: 'Easy: still learning the ropes',
       blurb: 'Two weeks into the Proxy business, out of Brant Street. Slow on the swap and easy to read, though the Agents hit just as hard whoever gives the orders.',
-      reflex: 0.4, dodge: 0.5, react: [0.3, 0.6], assist: 0.12, ult: 0.35, dbRate: 15, dmg: [2.3, 3.6, 4.9], hp: 0.9, swap: [16, 24], assistStart: 2,
+      reflex: 0.4, dodge: 0.5, react: [0.3, 0.6], assist: 0.12, ult: 0.35, dbRate: 15, escape: 0, hp: 0.9, swap: [16, 24], assistStart: 2,
+      dmg: { duel: 2.0, tag2: 3.0, all2: 3.0, tag3: 4.0, all3: 4.0 },
       hello: 'U-um, hi! I just got my Proxy license. Go easy on me?', win: 'I... I won? I WON! Wait till I tell the forums!', lose: 'Okay. Okay! Next time I\'m reading the manual first.' },
     vesper: { id: 'vesper', name: 'Vesper', tier: 'Ace', color: '#b08cff', line: 'A fair fight',
       blurb: 'A freelancer with a spotless record on the Inter-Knot. Methodical: rotates on a schedule, saves her Assists for your big hits, and fires Ultimates when they count.',
-      reflex: 0.75, dodge: 0.8, react: [0.12, 0.32], assist: 0.3, ult: 0.75, dbRate: 25, dmg: [3.5, 5.2, 7.0], hp: 1.0, swap: [11, 17], assistStart: 3,
+      reflex: 0.75, dodge: 0.8, react: [0.12, 0.32], assist: 0.3, ult: 0.75, dbRate: 25, escape: 0.3, hp: 1.0, swap: [11, 17], assistStart: 3,
+      dmg: { duel: 3.0, tag2: 5.8, all2: 5.0, tag3: 7.2, all3: 8.0 },
       hello: 'Random Play\'s Proxy. I\'ve seen your work. Let\'s see it up close.', win: 'Clean. Watch the replay: you dropped your guard after every Chain.', lose: 'Well played. My record needed a blemish anyway.' },
     mirage: { id: 'mirage', name: 'Mirage', tier: 'Legend', color: '#ff4a5a', line: 'Very hard: reads your every move',
       blurb: 'Signs every job "Phaethon". Nobody has seen their face, and their Agents move like they can read yours: near-perfect dodges, and a parry waiting for every heavy hit.',
-      reflex: 1.0, dodge: 1.0, react: [0.05, 0.18], assist: 0.5, ult: 1.0, dbRate: 35, dmg: [3.5, 6.9, 8.6], hp: 1.1, swap: [9, 14], assistStart: 4,
+      reflex: 1.0, dodge: 1.0, react: [0.05, 0.18], assist: 0.5, ult: 1.0, dbRate: 35, escape: 0.55, hp: 1.1, swap: [9, 14], assistStart: 4,
+      dmg: { duel: 3.6, tag2: 6.4, all2: 5.9, tag3: 7.0, all3: 6.0 },
       hello: 'They call you Phaethon? Funny. They call me that too.', win: 'There\'s only room for one legend on Sixth Street.', lose: '...Impressive. Maybe the name does suit you.' },
   };
 
@@ -452,5 +473,5 @@
   ];
   const TUNING_DEFAULTS = {}; for (const d of TUNING_DEFS) if (d.key) TUNING_DEFAULTS[d.key] = d.def;
 
-  window.DATA = { RULES, ATTR, ANOMALY, SPEC, AGENTS, ENEMIES, ENCOUNTERS, RIVALS, TUNING_DEFS, TUNING_DEFAULTS };
+  window.DATA = { RULES, ATTR, ANOMALY, SPEC, AGENTS, ENEMIES, ENCOUNTERS, CLASH_MODES, RIVALS, TUNING_DEFS, TUNING_DEFAULTS };
 })();

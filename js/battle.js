@@ -11,7 +11,11 @@
    stick); she still picks and throws her attacks herself.
    PROXY CLASH (opts.clash): the "enemies" are a rival Proxy's Agents, fought
    with their own kits; clash.js drives them and the hooks below hand it the
-   rival's hits, the hits on a rival, and its swaps, downs and win.
+   rival's hits, the hits on a rival, and its swaps, downs and win. In an
+   All-Out clash (B.allOut) your whole squad is on the field at once: active()
+   is the one you lead, fielded() all of them; Swap then picks whom you lead,
+   and assists, Quick Assists and Chain Attacks send a teammate in without a
+   swap.
    Rules follow the official game (data.js RULES); numbers are tunable.
    ========================================================================== */
 (function () {
@@ -29,6 +33,12 @@
   };
   const active = () => BT.B && BT.B.squad[BT.B.active];
   BT.active = active;
+  /* the Agents on the field: the one you lead, or (an All-Out Proxy Clash) every one still standing */
+  const fielded = () => { const B = BT.B; if (!B) return []; if (B.allOut) return B.squad.filter(a => a.alive); const a = active(); return a && a.alive ? [a] : []; };
+  BT.fielded = fielded;
+  const onFieldA = a => BT.B.allOut ? a.alive : a === active();
+  // moves an Agent will not be pulled out of to help a teammate
+  const BUSY = ['ult', 'ult2', 'chain', 'assist', 'quick'];
   const alive = list => list.filter(e => e.alive);
   const sockWorld = (e, name, out) => {
     const s = e.model.sockets && e.model.sockets[name];
@@ -93,7 +103,7 @@
   BT.init = (world, tuning) => { BT.world = world; BT.T = tuning; };
   BT.start = opts => {
     BT.end();
-    const T = BT.T, clash = !!(opts.clash && window.CLASH);
+    const T = BT.T, clash = !!(opts.clash && window.CLASH), allOut = clash && CLASH.modeOf(opts.clash, opts.squad.length).allOut;
     const enc = clash ? { name: 'Proxy Clash', waves: [[]] } : D.ENCOUNTERS[opts.arena][opts.encounter];
     const built = BT.world.loadArena(opts.arena);
     const B = BT.B = {
@@ -101,7 +111,7 @@
       t: 0, real: 0, phase: 'intro', introT: 0, squad: opts.squad.map((id, i) => makeAgent(id, i, opts.look)), active: 0, enemies: [], projs: [], threats: [], zones: [],
       wave: 0, waves: enc.waves, enc, addsDone: false, assist: Math.min(R.assistPointsMax, T.assistPoints != null ? T.assistPoints : R.assistPointsStart),
       swapCd: 0, chain: null, cutin: null, slow: null, freeze: 0, paused: false, aegis: null, veil: 0, fandom: [], focus: null,
-      cam: { x: 0, z: 2, zoom: 1, yaw: 0, k: 4, shake: 0, shot: null }, hazardT: rnd(8, 12), result: null, auto: !!T.auto,
+      cam: { x: 0, z: 2, zoom: 1, yaw: 0, k: 4, shake: 0, shot: null }, hazardT: rnd(8, 12), result: null, auto: !!T.auto, allOut,
       eh: { swing: 0, out: 0, assist: 0, perfect: 0, dodged: 0, inv: 0, block: 0, hit: 0 },
       stats: { dmg: 0, perfect: 0, assists: 0, chains: 0, stuns: 0, anomalies: 0, disorders: 0, ults: 0, taken: 0, maxHit: 0 },
     };
@@ -110,7 +120,10 @@
     for (const c of B.companions) if (c.owner === a) showCompanion(c, true);
     if (clash) {
       // Agent against Agent: both squads get the same deeper HP pool, so a fight lasts
-      for (const s of B.squad) { s.hpMax = Math.round(s.baseHp * (T.clashHp || 1)); s.hp = s.hpMax; }
+      const hpK = (T.clashHp || 1) * CLASH.modeOf(opts.clash, B.squad.length).hp;
+      for (const s of B.squad) { s.hpMax = Math.round(s.baseHp * hpK); s.hp = s.hpMax; }
+      // All-Out: the whole squad takes the field, side by side
+      if (allOut) B.squad.forEach((s, i) => { s.obj.visible = true; s.x = (i - (B.squad.length - 1) / 2) * 2.6; s.z = 4.5; s.face = Math.PI; for (const c of B.companions) if (c.owner === s) showCompanion(c, true); });
       CLASH.start(B);
     } else spawnWave(0);
     log(`${B.arena.name}: ${enc.name}`, 'sys');
@@ -298,7 +311,7 @@
     const ag = C.opts[idx]; if (!ag || !ag.alive) return false;
     const v = C.tgt; B.chain = null; if (BT.hooks.chainClose) BT.hooks.chainClose();
     v.chainsUsed++; B.chainCount = (B.chainCount || 0) + 1;
-    swapIn(ag, 'chain', v);
+    if (B.allOut) pullIn(ag); else swapIn(ag, 'chain', v);
     ag.x = v.x + Math.sin(ang(v, ag) || 0) * (v.rad + 1.2); ag.z = v.z + Math.cos(ang(v, ag) || 0) * (v.rad + 1.2); ag.face = ang(ag, v);
     const A = startAct(ag, ag.def.kit.chain, { tgt: v, kind: 'chain' }); B.chainLast = A;
     onSkillStart(ag, ag.def.kit.chain, A);
@@ -520,18 +533,18 @@
         p.fx.position.set(p.x, p.y, p.z);
         if (Math.random() < 0.6) FX.p({ x: p.x, y: p.y, z: p.z, life: 0.25, size: 0.14, col: FX.colors(p.attr)[0] });
       } else {
-        // enemy shots fly straight at where the Agent was when they were fired
-        const ag = active();
+        // enemy shots fly straight at where the Agent was when they were fired, and hit whoever they meet
         p.x += p.dx * step; p.z += p.dz * step; p.y += (p.y1 - p.y) * Math.min(1, dt * 3); p.fx.position.set(p.x, p.y, p.z);
         if (Math.random() < 0.5) FX.p({ x: p.x, y: p.y, z: p.z, life: 0.2, size: 0.12, col: p.col || 0xff6a4a });
-        if (ag && ag.alive && Math.hypot(ag.x - p.x, ag.z - p.z) < ag.rad + 0.25) { FX.kill(p.fx); B.projs.splice(i, 1); if (p.e && p.e.rival) CLASH.projHit(p, ag); else BT.incoming(p.e, p.h, p.threat, ag); continue; }
+        const ag = fielded().find(a => a.obj.visible && Math.hypot(a.x - p.x, a.z - p.z) < a.rad + 0.25);
+        if (ag) { FX.kill(p.fx); B.projs.splice(i, 1); if (p.e && p.e.rival) CLASH.projHit(p, ag); else BT.incoming(p.e, p.h, p.threat && p.threat.target === ag ? p.threat : null, ag); if (p.threat && p.threat.target !== ag) p.threat.done = true; continue; }
         if (p.t > p.life) { FX.kill(p.fx); B.projs.splice(i, 1); if (p.threat) p.threat.done = true; }
       }
     }
   }
   const PROJ_COL = { fireball: 0xff8a2a, miasmaBolt: 0xff3a8a, etherBolt: 0xc8ff3a, talisman: 0xffcf4a, bignote: 0xff7ab8 };
-  BT.spawnEnemyProj = (e, h, threat) => {
-    const B = BT.B, ag = active(), from = new THREE.Vector3();
+  BT.spawnEnemyProj = (e, h, threat, tgt) => {
+    const B = BT.B, ag = tgt || (threat && threat.target) || active(), from = new THREE.Vector3();
     const ex = window.CHOREO && CHOREO.ext;
     if (!(ex && ex.origin(e, h, from))) sockWorld(e, e.model.sockets && e.model.sockets.muzzle ? 'muzzle' : 'weapon', from);
     if (from.y < 0.6) from.y = 1.1;
@@ -616,10 +629,11 @@
   BT.swapIn = swapIn;
   /* the live assist opportunity: an incoming flashed hit on the on-field Agent */
   function assistThreat() {
-    const B = BT.B, T = BT.T, ag = active();
+    const B = BT.B, F = fielded();
     let best = null;
     for (const th of B.threats) {
-      if (th.done || th.assist || !th.flash || th.target !== ag) continue;
+      if (th.done || th.assist || !th.flash || !F.includes(th.target)) continue;
+      if (B.allOut && !helperFor(th.target)) continue;
       if (B.t >= th.flashAt - 0.05 && B.t <= th.impactAt + 0.06) { if (!best || th.impactAt < best.impactAt) best = th; }
     }
     return best;
@@ -634,6 +648,7 @@
   /* the Swap command: an Assist on a flash, a Quick Assist when launched, a plain swap otherwise */
   BT.cmdSwap = (dirOrAgent) => {
     const B = BT.B; if (!B || B.phase !== 'fight' || B.cutin || B.chain || B.paused) return false;
+    if (B.allOut) return allOutCommand(dirOrAgent);
     const T = BT.T, out = active();
     const ag = typeof dirOrAgent === 'object' ? dirOrAgent : nextAlive(dirOrAgent || 1);
     if (!ag || !ag.alive || ag === out) return false;
@@ -646,12 +661,42 @@
     log(`Swap: ${ag.def.short} is on the field.`, 'cmd');
     return true;
   };
+  /* All-Out: Swap is a command to the squad on the field. On a flash a teammate dashes in to help
+     whoever it is aimed at; when one of yours is launched, a teammate's Quick Assist; otherwise
+     it picks which Agent you lead (the one you move, whose EX and Ultimate you call). */
+  function helperFor(target, prefer) {
+    const B = BT.B;
+    const ok = s => s && s.alive && s !== target && !(s.stun > 0) && !['down', 'getup', 'stun', 'dead'].includes(s.state) && !(s.act && BUSY.includes(s.act.kind));
+    if (ok(prefer)) return prefer;
+    return B.squad.filter(ok).sort((x, y) => dist(x, target) - dist(y, target))[0] || null;
+  }
+  BT.helperFor = helperFor;
+  function allOutCommand(dirOrAgent) {
+    const B = BT.B, lead = active();
+    const ag = typeof dirOrAgent === 'object' ? dirOrAgent : nextAlive(dirOrAgent || 1);
+    const th = assistThreat();
+    if (th) { const h = helperFor(th.target, ag); if (h) return doAssist(h, th); }
+    const down = B.squad.find(s => s.alive && s.launchedUntil > B.t);
+    if (down) { const h = helperFor(down, ag); if (h) return doQuickAssist(h, down); }
+    if (!ag || !ag.alive || ag === lead) return false;
+    B.active = B.squad.indexOf(ag);
+    FX.ring(ag.x, ag.z, 0.3, 1.3, 0xf4d35e, 0.35); SFX.play('swap');
+    log(`You lead ${ag.def.short}.`, 'cmd');
+    if (BT.hooks.swap) BT.hooks.swap(lead, ag, 'lead');
+    return true;
+  }
+  /* a teammate stepping in: whatever she was doing stops */
+  function pullIn(ag) {
+    if (ag.act && window.CHOREO) CHOREO.end(ag, ag.act);
+    ag.act = null; ag.queue.length = 0; ag.dodge = null; ag.state = 'idle'; ag.anim.state = 'idle'; ag.airY = 0; ag.swapInv = BT.B.t + 0.35;
+    FX.burst(ag.x, 1, ag.z, 10, { col: [0xffffff, D.ATTR[ag.def.attr].hex], speed: 3, size: 0.09, life: 0.3, g: -2 });
+  }
   function doAssist(ag, th) {
-    const B = BT.B, out = active();
+    const B = BT.B, out = B.allOut ? th.target : active();
     const cost = th.hit && th.hit.freeAssist ? 0 : (th.heavy || th.launch) ? (ag.id === 'caesar' ? 1 : R.assistCostHeavy) : R.assistCostLight;
     const e = th.e, defensive = th.flash === 'gold' && B.assist >= cost;
-    swapIn(ag, 'assist', e);
-    const toward = ang(e, ag), dd = e.rad + 1.1;
+    if (B.allOut) pullIn(ag); else swapIn(ag, 'assist', e);
+    const toward = ang(e, B.allOut ? th.target : ag), dd = e.rad + 1.1;     // (All-Out: between the attacker and her teammate)
     ag.x = e.x + Math.sin(toward) * dd; ag.z = e.z + Math.cos(toward) * dd; ag.face = ang(ag, e);
     const def = ag.def.kit.assist;
     if (defensive) {
@@ -661,12 +706,14 @@
       log(`${ag.def.short}: ${def.name} (${cost ? `${cost} Assist Point${cost > 1 ? 's' : ''}` : 'free'})`, 'assist');
     } else {
       th.assist = { agent: ag, type: 'evade' };
-      ag.dodge = { t0: th.impactAt - 0.05, until: th.impactAt + 0.3, assist: true };
-      ag.state = 'dodge'; ag.anim.state = 'dodge'; ag.anim.t = 0; ag.anim.side = 1; ag.stT = 0;
+      const who = B.allOut ? th.target : ag;           // All-Out: she pulls her teammate clear
+      if (who.act && window.CHOREO) CHOREO.end(who, who.act); who.act = null;
+      who.dodge = { t0: th.impactAt - 0.05, until: th.impactAt + 0.3, assist: true };
+      who.state = 'dodge'; who.anim.state = 'dodge'; who.anim.t = 0; who.anim.side = 1; who.stT = 0;
       callout(B.assist < cost && th.flash === 'gold' ? 'NO ASSIST POINTS' : 'PERFECT DODGE', 'assist', 'Assist on a red flash');
-      log(`${ag.def.short} switches in on a ${th.flash === 'red' ? 'red flash' : 'flash with no Assist Points'}: Perfect Dodge.`, 'assist');
+      log(B.allOut ? `${ag.def.short} pulls ${th.target.def.short} clear of a ${th.flash === 'red' ? 'red flash' : 'flash (no Assist Points)'}: Perfect Dodge.` : `${ag.def.short} switches in on a ${th.flash === 'red' ? 'red flash' : 'flash with no Assist Points'}: Perfect Dodge.`, 'assist');
     }
-    if (out.id === 'yixuan' && e.type === 'enemy' && squadHas(s => ['Stun', 'Support', 'Defense'].includes(s.def.spec))) {   // Auric Ink Undercurrent: the lightning strike
+    if (!B.allOut && out.id === 'yixuan' && e.type === 'enemy' && squadHas(s => ['Stun', 'Support', 'Defense'].includes(s.def.spec))) {   // Auric Ink Undercurrent: the lightning strike
       const dmg = Math.round(out.st.sheer * 2.25 * resMult(e, 'auric') * stunMult(e) * BT.T.agentDmg);
       hurtEnemy(e, dmg, { attr: 'auric', src: out, cls: 'afterburn' }); gainEnergy(out, 5, true);
       FX.beam(new THREE.Vector3(e.x, 8, e.z), new THREE.Vector3(e.x, 0.5, e.z), 0xffcf4a, 0.25, 0.25);
@@ -674,10 +721,10 @@
     B.stats.assists++;
     return true;
   }
-  function doQuickAssist(ag) {
-    const B = BT.B, out = active();
+  function doQuickAssist(ag, who) {
+    const B = BT.B, out = who || active();
     const tgt = BT.pickTarget(out) || B.enemies.find(e => e.alive);
-    swapIn(ag, 'quick', tgt);
+    if (B.allOut) pullIn(ag); else swapIn(ag, 'quick', tgt);
     out.launchedUntil = 0;
     const A = startAct(ag, ag.def.kit.quick, { tgt, kind: 'quick' });
     callout('QUICK ASSIST', 'assist', ag.def.kit.quick.name.replace('Quick Assist: ', ''));
@@ -689,11 +736,11 @@
   BT.cmdUlt = (agent) => {
     const B = BT.B; if (!B || B.phase !== 'fight' || B.cutin) return false;
     let ag = agent || active();
-    if (!ag.alive) return false;
+    if (!ag || !ag.alive || ag.stun > 0) return false;
     const yix = ag.id === 'yixuan' && ag.tp >= 120;            // Endless Talisman Suppression (Technique Points) has priority
     if (!yix && ag.decibels < R.decibelMax) return false;
     if (B.chain) { if (ag !== active()) return false; B.chain = null; if (BT.hooks.chainClose) BT.hooks.chainClose(); }
-    if (ag !== active()) swapIn(ag, 'ult');
+    if (ag !== active() && !B.allOut) swapIn(ag, 'ult');
     ag.act = null; ag.dodge = null; ag.queue.length = 0;
     const def = yix ? ag.def.kit.ult2 : ag.def.kit.ult;
     if (!yix) ag.decibels -= R.decibelMax;
@@ -721,9 +768,7 @@
     if (th) th.done = true;
     // a Perfect Assist swapped in on this hit
     const EH = B.eh;
-    if (th && th.assist && th.assist.agent === ag) {
-      if (th.assist.type === 'defensive') { EH.assist++; return parry(ag, e, h); }
-    }
+    if (th && th.assist && th.assist.type === 'defensive' && th.assist.agent.alive && (th.assist.agent === ag || B.allOut)) { EH.assist++; return parry(th.assist.agent, e, h); }
     // dodging: a Perfect Dodge if the dodge started just before the hit
     if (ag.dodge && B.t <= ag.dodge.until) {
       if (!ag.dodge.perfectDone && B.t - ag.dodge.t0 <= T.perfectWin + 0.02) { EH.perfect++; return perfectDodge(ag, e, ag.dodge.assist); }
@@ -776,7 +821,7 @@
   BT.perfectDodge = perfectDodge;
   function hurtAgent(ag, e, h) {
     const B = BT.B, T = BT.T;
-    let dmg = e.atk * (e.enhanced ? 1.3 : 1) * h.mult / 100 * defMult(ag.st.def) * T.enemyDmg;
+    let dmg = e.atk * (e.enhanced ? 1.3 : 1) * h.mult / 100 * defMult(ag.st.def) * T.enemyDmg * (ag.stun > 0 ? R.stunMult : 1);
     if (ag.act && ag.act.def.dr) dmg *= 1 - ag.act.def.dr;
     dmg = Math.round(dmg * rnd(0.95, 1.05));
     if (B.aegis && B.aegis.hp > 0 && B.aegis.until > B.t) { const ab = Math.min(B.aegis.hp, dmg); B.aegis.hp -= ab; dmg -= ab; if (B.aegis.hp <= 0) { log('Radiant Aegis breaks.', 'warn'); B.aegis.atkUntil = B.t + 5; } }
@@ -787,6 +832,7 @@
     gainDecibels(ag, 30);
     const shielded = B.aegis && B.aegis.hp > 0 && B.aegis.until > B.t;
     if (ag.hp <= 0) return agentDown(ag);
+    if (ag.stun > 0) return;                                     // Stunned (Proxy Clash): she just takes it
     const anti = (ag.act && ag.act.def.dr) || shielded;
     if (h.launch) {
       if (ag.act && window.CHOREO) CHOREO.end(ag, ag.act);
@@ -805,7 +851,7 @@
   function agentDown(ag) {
     const B = BT.B;
     if (ag.act && window.CHOREO) CHOREO.end(ag, ag.act);
-    ag.hp = 0; ag.alive = false; ag.act = null; ag.state = 'dead'; ag.anim.state = 'dead'; ag.stT = 0; ag.queue.length = 0;
+    ag.hp = 0; ag.alive = false; ag.act = null; ag.state = 'dead'; ag.anim.state = 'dead'; ag.stT = 0; ag.queue.length = 0; ag.stun = 0; ag.dodge = null;
     log(`${ag.def.name} is down!`, 'warn'); callout(`${ag.def.short.toUpperCase()} DOWN`, 'warn');
     B.downSwap = 1.0;
   }
@@ -873,13 +919,20 @@
     const B = BT.B, C = B.cam, cam = BT.world.camera, ag = active();
     let tx = 0, tz = 1, zoom = 1.05, yaw = 0, roll = 0, rate = 3;
     const pts = [];
-    if (ag && ag.obj.visible) pts.push(ag);
-    const tgt = ag && BT.pickTarget(ag); if (tgt) pts.push(tgt);
-    for (const v of B.enemies) if (v.alive && v !== tgt && pts.length < 4 && ag && dist(v, ag) < 7) pts.push(v);
+    if (B.allOut) {                                              // All-Out: everybody still fighting, the one you lead weighted in
+      for (const a of fielded()) pts.push(a);
+      for (const v of B.enemies) if (v.alive && pts.length < 8) pts.push(v);
+      if (ag && ag.alive) pts.push(ag, ag);
+    } else {
+      if (ag && ag.obj.visible) pts.push(ag);
+      const tgt = ag && BT.pickTarget(ag); if (tgt) pts.push(tgt);
+      for (const v of B.enemies) if (v.alive && v !== tgt && pts.length < 4 && ag && dist(v, ag) < 7) pts.push(v);
+    }
     if (pts.length) {
       let x0 = 1e9, x1 = -1e9, z0 = 1e9, z1 = -1e9; for (const p of pts) { x0 = Math.min(x0, p.x); x1 = Math.max(x1, p.x); z0 = Math.min(z0, p.z); z1 = Math.max(z1, p.z); }
       tx = (x0 + x1) / 2; tz = (z0 + z1) / 2 + 0.4; const spread = Math.hypot(x1 - x0, (z1 - z0) * 1.4);
-      zoom = clamp(0.72 + spread * 0.07, 0.8, 1.45); yaw = clamp(-tx * 0.025, -0.25, 0.25);
+      if (B.allOut && ag && ag.alive) { tx = tx * 0.75 + ag.x * 0.25; tz = tz * 0.75 + (ag.z + 0.4) * 0.25; }
+      zoom = clamp(0.72 + spread * 0.07, 0.8, B.allOut ? 1.7 : 1.45); yaw = clamp(-tx * 0.025, -0.25, 0.25);
     }
     if (B.cutin) {
       const a = B.cutin.agent, f = a.face, k = U.easeOut(Math.min(1, B.cutin.t / 0.35));
@@ -941,6 +994,7 @@
     if (e.flash > 0) e.flash = Math.max(0, e.flash - rdt * 6);
     const B = BT.B, m = e.rig.mat;
     let r = e.flash * 0.9, g = e.flash * 0.9, b = e.flash * 0.9;
+    if (e.type === 'agent' && e.stun > 0) { const s = 0.25 + 0.15 * Math.sin(B.real * 10); r += s; g += s * 0.85; }
     if (e.type === 'enemy' && e.alive) {
       if (e.stun > 0) { const s = 0.25 + 0.15 * Math.sin(B.real * 10); r += s; g += s * 0.85; }
       else if (e.anom) { const c = D.ATTR[D.ANOMALY[e.anom.type].attr].hex, s = 0.12 + 0.08 * Math.sin(B.real * 8); r += ((c >> 16) & 255) / 255 * s; g += ((c >> 8) & 255) / 255 * s; b += (c & 255) / 255 * s; }
@@ -958,7 +1012,7 @@
       if (a.dodgeCd > 0) { a.dodgeCd -= dt; if (a.dodgeCd <= 0) a.dodgeCharges = R.dodgeCharges; }
       if (!a.act && a.airY > 0) a.airY = Math.max(0, a.airY - dt * 9);
       if (a.dodge && B.t > a.dodge.until) { a.dodge = null; if (a.state === 'dodge') { a.state = 'idle'; a.anim.state = 'idle'; } }
-      const on = a === ag;
+      const on = onFieldA(a);
       if (a.def.resource === 'adrenaline') gainEnergy(a, (on ? 2.2 : 1.0) * dt + (a.adrBoost > B.t ? 2 * dt : 0), true);
       else gainEnergy(a, a.st.er * (on ? 1 : 0.45) * dt);
       if (a.id === 'burnice' && !a.nitro && a.heat >= 50) a.nitro = true;
@@ -996,7 +1050,12 @@
     // the on-field Agent went down: bring in the next one
     if (B.downSwap > 0) {
       B.downSwap -= dt;
-      if (B.downSwap <= 0) { const nx = nextAlive(1); if (nx) { swapIn(nx, 'forced'); log(`${nx.def.short} steps in.`, 'cmd'); } else return finish('lose'); }
+      if (B.downSwap <= 0) {
+        if (B.allOut) {                                          // All-Out: nobody steps in; you lead whoever is left
+          const left = B.squad.filter(s => s.alive); if (!left.length) return finish('lose');
+          if (!active().alive) { B.active = B.squad.indexOf(left[0]); log(`You lead ${left[0].def.short}.`, 'cmd'); }
+        } else { const nx = nextAlive(1); if (nx) { swapIn(nx, 'forced'); log(`${nx.def.short} steps in.`, 'cmd'); } else return finish('lose'); }
+      }
     }
     // the wave is cleared
     if (B.phase === 'fight' && !B.rival && B.enemies.length && B.enemies.every(e => !e.alive) && !B.waveDelay) B.waveDelay = 1.6;
@@ -1012,7 +1071,7 @@
   function finish(result) {
     const B = BT.B; if (B.result) return;
     B.result = result; B.phase = 'end'; closeChain();
-    const ag = active(); if (result === 'win' && ag && ag.alive) { ag.state = 'win'; ag.anim.state = 'win'; ag.act = null; }
+    for (const ag of fielded()) if (result === 'win' && ag.alive && !(ag.stun > 0)) { if (ag.act && window.CHOREO) CHOREO.end(ag, ag.act); ag.state = 'win'; ag.anim.state = 'win'; ag.act = null; }
     SFX.play(result === 'win' ? 'win' : 'lose');
     const clash = !!B.rival;
     callout(result === 'win' ? (clash ? 'VICTORY' : 'MISSION CLEAR') : (clash ? 'DEFEAT' : 'MISSION FAILED'), result === 'win' ? 'clear' : 'fail');

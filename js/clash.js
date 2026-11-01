@@ -46,18 +46,26 @@
   const EN = { basic: 1.0, dash: 1.2, special: 2, counter: 5, quick: 4, followup: 5, hold: 0.8, charged: 2, core: 1.5 };
   const DB = { basic: 8, dash: 8, special: 18, ex: 30, ex2: 30, counter: 40, quick: 60, followup: 60, chain: 40, hold: 8, charged: 30, core: 25 };
 
-  const onField = () => { const B = B_(), RV = B && B.rival, r = RV && RV.squad[RV.active]; return r && !r.benched ? r : null; };
-  CLASH.onField = onField;
+  // your Agents' Daze bar and Stun in a clash: the same as a rival Agent's (symmetric)
+  const DAZE = 3000, STUN = 3.5;
+  CLASH.DAZE = DAZE; CLASH.STUN = STUN;
+
+  /* the rival on the field (Tag Team), or the first one still standing (All-Out) */
+  const onField = () => { const B = B_(), RV = B && B.rival; if (!RV) return null; if (RV.allOut) return RV.squad.find(r => r.alive) || null; const r = RV.squad[RV.active]; return r && !r.benched ? r : null; };
+  const fieldRivals = () => { const RV = B_().rival; return RV ? RV.squad.filter(r => !r.benched && r.alive) : []; };
+  CLASH.onField = onField; CLASH.fieldRivals = fieldRivals;
   CLASH.randomSquad = n => Object.keys(D.AGENTS).sort(() => Math.random() - 0.5).slice(0, n);
+  /* the five modes (data.js CLASH_MODES); an old save without one: Tag Team at its size */
+  CLASH.modeOf = (o, n) => D.CLASH_MODES[o && o.mode] || D.CLASH_MODES[n >= 3 ? 'tag3' : n === 2 ? 'tag2' : 'duel'];
 
   /* ---------------------------------------------------- a rival Agent -- */
-  function makeRival(id, look, slot, diff) {
+  function makeRival(id, look, slot, diff, mode) {
     const T = T_(), A = D.AGENTS[id], modelId = BT.modelFor(id, look);
     const def = {
-      name: A.name, short: A.short, agent: A, kit: A.kit, ai: A.ai, attr: A.attr, spec: A.spec, faction: A.faction, color: A.color, color2: A.color2,
-      rank: 'elite', poise: 0, weak: [], resist: [], daze: 3000, stunDur: 3.5, buMax: 1500, stance: A.stance, model: modelId, attacks: [], info: A.blurb,
+      name: `Rival ${A.short}`, short: A.short, agent: A, kit: A.kit, ai: A.ai, attr: A.attr, spec: A.spec, faction: A.faction, color: A.color, color2: A.color2,
+      rank: 'elite', poise: 0, weak: [], resist: [], daze: DAZE, stunDur: STUN, buMax: 1500, stance: A.stance, model: modelId, attacks: [], info: A.blurb,
     };
-    const e = BT.makeEnt('enemy', id, def, modelId), hp = Math.round(A.stats.hp * (T.clashHp || 1) * (diff.hp || 1));
+    const e = BT.makeEnt('enemy', id, def, modelId), hp = Math.round(A.stats.hp * (T.clashHp || 1) * (diff.hp || 1) * mode.hp);
     Object.assign(e, {
       rival: true, slot, modelId, st: Object.assign({}, A.stats), baseHp: A.stats.hp,
       rank: 'elite', poise: 0, hpMax: hp, hp, atk: A.stats.atk, def_: A.stats.def, daze: 0, dazeMax: def.daze, stun: 0, stunMax: def.stunDur, chainsLeft: 0, chainsUsed: 0,
@@ -71,24 +79,28 @@
 
   /* ---------------------------------------------------------- the start -- */
   CLASH.start = B => {
-    const o = B.opts.clash, diff = D.RIVALS[o.rival] || D.RIVALS.vesper;
+    const o = B.opts.clash, diff = D.RIVALS[o.rival] || D.RIVALS.vesper, mode = CLASH.modeOf(o, B.squad.length);
     const ids = (o.squad && o.squad.length ? o.squad : CLASH.randomSquad(B.squad.length)).slice(0, 3);
     const RV = B.rival = {
-      id: diff.id, diff, squad: ids.map((id, i) => makeRival(id, o.look || {}, i, diff)), active: 0,
-      dmg: Array.isArray(diff.dmg) ? diff.dmg[clamp(ids.length, 1, 3) - 1] : diff.dmg,   // by the size of the fight (data.js)
-      assist: diff.assistStart, assistCd: 0, assistRegen: 22, swapT: rnd(diff.swap[0], diff.swap[1]), retreatT: 0, downT: 0, aegis: null, intro: false,
-      stats: { perfect: 0, dodges: 0, assists: 0, blocks: 0, ults: 0, exs: 0 },
+      id: diff.id, diff, mode, allOut: !!B.allOut, squad: ids.map((id, i) => makeRival(id, o.look || {}, i, diff, mode)), active: 0,
+      dmg: typeof diff.dmg === 'object' ? diff.dmg[mode.id] : diff.dmg,   // by mode (data.js)
+      assist: diff.assistStart, assistCd: 0, assistRegen: 22, swapT: rnd(diff.swap[0], diff.swap[1]), retreatT: 0, downT: 0, aegis: null, intro: false, escapeAt: null,
+      stats: { perfect: 0, dodges: 0, assists: 0, blocks: 0, ults: 0, exs: 0, chains: 0, stuns: 0, escapes: 0 },
     };
     for (const r of RV.squad) if (r.id === 'yixuan') B.companions.push(BT.makeCompanion(r, 'inkbird'));
-    RV.ring = groundRing();
-    enter(RV.squad[0], 'start');
+    RV.rings = RV.squad.map(() => groundRing(0xff3a4a));
+    if (RV.allOut) RV.lead = groundRing(0xf4d35e);                 // under the Agent you lead
+    // your Agents get a Daze bar too: a rival can Stun them, and her teammates Chain Attack them
+    for (const a of B.squad) Object.assign(a, { daze: 0, dazeMax: DAZE, stun: 0, stunMax: STUN, chainsLeft: 0 });
+    if (RV.allOut) RV.squad.forEach(r => enter(r, 'start')); else enter(RV.squad[0], 'start');
     BT.log(`${diff.name} (${diff.tier} Proxy) fields ${ids.map(id => D.AGENTS[id].short).join(', ')}.`, 'enemy');
     BT.log(`${diff.name}: "${diff.hello}"`, 'enemy');
   };
-  CLASH.end = B => { const g = B.rival && B.rival.ring; if (g) { if (g.m.parent) g.m.parent.remove(g.m); g.geo.dispose(); g.mat.dispose(); } };
-  /* a red ring under the rival on the field: in a mirror match you can tell whose Caesar is whose */
-  function groundRing() {
-    const geo = new THREE.RingGeometry(0.6, 0.76, 40), mat = new THREE.MeshBasicMaterial({ color: 0xff3a4a, transparent: true, opacity: 0.8, depthWrite: false, side: THREE.DoubleSide, toneMapped: false });
+  CLASH.end = B => { const RV = B.rival; if (!RV) return; for (const g of (RV.rings || []).concat(RV.lead ? [RV.lead] : [])) { if (g.m.parent) g.m.parent.remove(g.m); g.geo.dispose(); g.mat.dispose(); } };
+  /* a red ring under each rival on the field: in a mirror match you can tell whose Caesar is whose
+     (All-Out: a yellow one under the Agent you lead) */
+  function groundRing(col) {
+    const geo = new THREE.RingGeometry(0.6, 0.76, 40), mat = new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.8, depthWrite: false, side: THREE.DoubleSide, toneMapped: false });
     const m = new THREE.Mesh(geo, mat); m.rotation.x = -Math.PI / 2; m.position.y = 0.035; m.renderOrder = 2; BT.world.scene.add(m);
     return { m, geo, mat };
   }
@@ -96,11 +108,12 @@
   /* ------------------------------------------------- on and off the field -- */
   function enter(r, why, from) {
     const B = B_(), RV = B.rival, ag = BT.active();
-    RV.active = RV.squad.indexOf(r);
+    if (!RV.allOut) RV.active = RV.squad.indexOf(r);
     Object.assign(r, { benched: false, act: null, state: 'idle', dodge: null, pick: null, vx: 0, vz: 0, airY: 0, gap: why === 'assist' ? 0 : 0.35, swapInv: B.t + 0.4 });
     r.anim.state = 'idle'; r.queue.length = 0; r.plans.length = 0; r.obj.visible = true;
+    if (r.stun > 0) { r.state = 'stun'; r.anim.state = 'stun'; }
     if (from) { r.x = from.x; r.z = from.z; r.face = from.face; }
-    else { r.x = 0; r.z = -3.2; r.face = 0; r.airY = 5; r.spawnT = 0.45; }
+    else { r.x = RV.allOut ? (r.slot - (RV.squad.length - 1) / 2) * 2.6 : 0; r.z = -3.2; r.face = 0; r.airY = 5; r.spawnT = 0.45 + r.slot * 0.12; }
     if (ag && from) r.face = ang(r, ag);
     if (!B.enemies.includes(r)) B.enemies.push(r);
     for (const c of B.companions) if (c.owner === r) { c.obj.visible = true; c.x = r.x + 1; c.z = r.z; c.y = 2.4; }
@@ -121,7 +134,7 @@
     const B = B_(), RV = B.rival, out = onField(); if (!out || out === r || !r.alive) return false;
     const from = { x: out.x, z: out.z, face: out.face };
     leave(out); enter(r, why, from);
-    BT.log(why === 'retreat' ? `${RV.diff.name} pulls ${out.def.short} out: ${r.def.short} steps in.` : `${RV.diff.name} swaps in ${r.def.short}.`, 'enemy');
+    BT.log(why === 'retreat' || why === 'escape' ? `${RV.diff.name} pulls ${out.def.short} out: ${r.def.short} steps in.` : `${RV.diff.name} swaps in ${r.def.short}.`, 'enemy');
     return true;
   }
   /* a rival move stopped part way: its announced hits are off */
@@ -157,12 +170,25 @@
       if (r.dodgeCd > 0) { r.dodgeCd -= dt; if (r.dodgeCd <= 0) r.dodgeCharges = R.dodgeCharges; }
       if (r.dodge && B.t > r.dodge.until) { r.dodge = null; if (r.state === 'dodge') { r.state = 'idle'; r.anim.state = 'idle'; } }
       if (!r.act && r.airY > 0 && !(r.spawnT > 0)) r.airY = Math.max(0, r.airY - dt * 9);
+      // a Stunned rival who was swapped out recovers on the bench (on the field, battle.js counts it)
+      if (r.benched && r.stun > 0) { r.stun -= dt; r.daze = r.dazeMax * Math.max(0, r.stun / r.stunMax); if (r.stun <= 0) { r.stun = 0; r.daze = 0; r.state = 'idle'; r.anim.state = 'idle'; r.chainsLeft = 0; } }
+    }
+    // your Stunned Agents (on the field or swapped out) come round
+    for (const a of B.squad) if (a.stun > 0) {
+      a.stun -= dt; a.daze = a.dazeMax * Math.max(0, a.stun / a.stunMax);
+      if (a.stun <= 0 || !a.alive) { a.stun = 0; a.daze = 0; a.chainsLeft = 0; if (a.state === 'stun') { a.state = 'idle'; a.anim.state = 'idle'; } }
     }
     if (RV.aegis && (RV.aegis.until <= B.t || RV.aegis.hp <= 0)) RV.aegis = null;
     RV.assistRegen -= dt; if (RV.assistRegen <= 0) { RV.assistRegen = 22; RV.assist = Math.min(R.assistPointsMax, RV.assist + 1); }
+    // the rings: red under each rival on the field, yellow under the Agent you lead (All-Out)
+    RV.squad.forEach((r, i) => { const g = RV.rings[i], show = !r.benched && r.alive && r.obj.visible && !(r.spawnT > 0); g.m.visible = show; if (show) { g.m.position.set(r.x, 0.035, r.z); g.m.scale.setScalar(r.rad / 0.55); } });
+    if (RV.lead) { const a = BT.active(), show = a && a.alive && a.obj.visible; RV.lead.m.visible = !!show; if (show) { RV.lead.m.position.set(a.x, 0.036, a.z); RV.lead.m.scale.setScalar(a.rad / 0.55); } }
+    // All-Out: nobody steps in; the clash is won when the last of them is down
+    if (RV.allOut) {
+      if (B.phase === 'fight' && RV.squad.every(r => !r.alive)) { RV.downT += dt; if (RV.downT > 1.5 && !B.result) BT.finish('win'); }
+      return;
+    }
     const cur = RV.squad[RV.active];
-    // the ring under the rival on the field
-    if (RV.ring) { const show = cur && !cur.benched && cur.alive && cur.obj.visible; RV.ring.m.visible = !!show; if (show) { RV.ring.m.position.set(cur.x, 0.035, cur.z); RV.ring.m.scale.setScalar(cur.rad / 0.55); } }
     // the rival on the field is down: the next one steps in (or that was the last)
     if (B.phase === 'fight' && cur && !cur.alive) {
       RV.downT += dt;
@@ -179,12 +205,22 @@
     }
     if (B.phase === 'fight' && !B.chain) commander();
   };
-  /* swaps: a rotation, so every rival Agent gets field time; a badly hurt one pulled out for a fresher one */
+  /* swaps: a rotation, so every rival Agent gets field time; a badly hurt one pulled out for a fresher
+     one; and (as you can) a Stunned one pulled out before your Chain Attacks land, the sharper the Proxy
+     the more often */
   function commander() {
     const B = B_(), RV = B.rival, cur = onField(), Dd = RV.diff;
-    if (!cur || !cur.alive || cur.stun > 0 || cur.state === 'dodge' || cur.state === 'hit') return;
+    if (!cur || !cur.alive) return;
+    if (cur.stun > 0) {
+      if (RV.escapeAt == null) RV.escapeAt = Math.random() < Dd.escape ? B.t + rnd(0.2, 0.5) : Infinity;
+      const o = RV.squad.filter(r => r.alive && r.benched && !(r.stun > 0)).sort((x, y) => y.hp / y.hpMax - x.hp / x.hpMax)[0];
+      if (o && B.t >= RV.escapeAt) { RV.escapeAt = Infinity; RV.stats.escapes++; swapTo(o, 'escape'); BT.callout('STUN ESCAPE', 'rival', `${RV.diff.name} swaps ${cur.def.short} out`); }
+      return;
+    }
+    RV.escapeAt = null;
+    if (cur.state === 'dodge' || cur.state === 'hit') return;
     if (cur.act && cur.act.kind !== 'basic') return;
-    const bench = RV.squad.filter(r => r.alive && r.benched); if (!bench.length) return;
+    const bench = RV.squad.filter(r => r.alive && r.benched && !(r.stun > 0)); if (!bench.length) return;
     const hr = cur.hp / cur.hpMax;
     if (hr < 0.3 && RV.retreatT <= B.t) {
       RV.retreatT = B.t + 8;
@@ -198,8 +234,24 @@
   }
 
   /* -------------------------------------------- the rival Agent, each frame -- */
+  /* whom a rival Agent fights: in Tag Team, whoever you have on the field; All-Out, she picks
+     (whoever is hitting her, whoever no teammate is on, a hurt or Stunned one) and sticks to it a while */
+  function targetFor(e) {
+    const B = B_(), RV = B.rival, F = BT.fielded().filter(a => a.obj.visible);
+    if (!F.length) { e.tgt = null; return null; }
+    if (!RV.allOut) return (e.tgt = F[0]);
+    if (e.tgt && F.includes(e.tgt) && B.t < (e.tgtUntil || 0) && !(e.tgt.stun > 0 && false)) return e.tgt;
+    let best = null, bv = -1e9;
+    for (const a of F) {
+      let v = -dist(e, a) * 0.6 + (a.lastTgt === e ? 2 : 0) + (1 - a.hp / a.hpMax) * 1.5 + (a.stun > 0 ? 3 : 0) + (a === e.tgt ? 0.8 : 0);
+      v -= 1.5 * RV.squad.filter(r => r !== e && r.alive && !r.benched && r.tgt === a).length;
+      if (v > bv) { bv = v; best = a; }
+    }
+    e.tgt = best; e.tgtUntil = B.t + rnd(2.5, 4.5);
+    return best;
+  }
   CLASH.think = (e, dt) => {
-    const B = B_(), ag = BT.active();
+    const B = B_(), ag = targetFor(e);
     e.stT += dt;
     if (e.stun > 0) { BT.physics(e, dt, true); return; }
     // dodges planned when your Agent's moves began
@@ -212,8 +264,8 @@
     }
     if (e.act) {
       const A = e.act;
-      if (ag && A.tgt && A.tgt !== ag && A.tgt.type === 'agent') A.tgt = ag;       // you swapped: the move goes on at whoever came in
-      lockTargets(e, A, ag);
+      if (ag && A.tgt && A.tgt !== ag && A.tgt.type === 'agent' && !B.rival.allOut) A.tgt = ag;   // you swapped: the move goes on at whoever came in
+      lockTargets(e, A, A.tgt && A.tgt.type === 'agent' && A.tgt.alive ? A.tgt : ag);
       BT.stepAct(e, dt);
       if (A.flashes) for (const f of A.flashes) if (!f.done && B.t >= f.at) {
         f.done = true; const p = new THREE.Vector3(); BT.sock(e, 'head', p);
@@ -239,7 +291,7 @@
     if (Math.random() < dt * 0.4) e.strafe = -e.strafe;
   }
   function decide(e, dt, fromCombo) {
-    const B = B_(), K = e.def.kit, ag = BT.active();
+    const B = B_(), K = e.def.kit, ag = e.tgt;
     e.moving = false;
     if (e.queue.length) {
       const q = e.queue[0]; if (q.delay > 0) { q.delay -= dt; return; }
@@ -400,32 +452,89 @@
   }
   const crit = (e, hh) => Math.random() < e.st.cr ? Object.assign({}, hh, { mult: hh.mult * (1 + e.st.cd), crit: true }) : hh;
   CLASH.hit = (e, h, A) => {
-    const B = B_(), T = T_(), ag = BT.active();
+    const B = B_(), T = T_(), RV = B.rival, F = BT.fielded().filter(a => a.obj.visible);
     const th = A.threats && A.threats.find(t => t.hit === h && !t.done);
-    if (!ag || !ag.alive || !ag.obj.visible) { if (th) th.done = true; return; }
+    const ag = A.tgt && A.tgt.type === 'agent' && A.tgt.alive && F.includes(A.tgt) ? A.tgt : (RV.allOut ? null : F[0]);
+    if (!ag) { if (th) th.done = true; return; }
     const i = A.def.hits.indexOf(h), hh = th ? th.hh : scaled(e, h, A, i, A.def.hits.length - 1);
     const attr = h.attr || e.def.attr, cols = FX.colors(attr), dir = A.dir;
-    if (h.shape === 'proj') { BT.spawnEnemyProj(e, hh, th); SFX.play(attr === 'fire' ? 'fire' : 'ether'); return; }
+    if (h.shape === 'proj') { BT.spawnEnemyProj(e, hh, th, ag); SFX.play(attr === 'fire' ? 'fire' : 'ether'); return; }
     const [cx, cz] = center(e, h, A, ag), r = h.r || (A.def.reach || 1.6) + 0.7, shape = h.shape || 'arc';
     // the look of it, as the same move looks in your Agents' hands
     if (h.fx) FX.named(h.fx, { x: cx, z: cz, yaw: dir, attr, r, fromX: e.x, fromZ: e.z, len: h.len, y: 1 });
     if (shape === 'arc' && !h.fx) FX.slash(e.x, 1.0, e.z, Math.min(2.4, r), dir, cols[1], { tilt: rnd(-0.6, 0.6), arc: (h.arc || 120) * Math.PI / 180 + 0.4 });
     SFX.play(h.heavy ? 'heavy' : attr === 'fire' && h.fx ? 'fire' : 'swing');
     if (h.heavy) B.cam.shake = Math.max(B.cam.shake, A.kind === 'ult' ? 0.3 : 0.12);
-    const inRange = reaches(e, h, A, ag, 0);
-    // a Perfect Dodge counts if the dodge started on time, even if it carried her clear
-    const perfectish = ag.dodge && B.t <= ag.dodge.until && !ag.dodge.perfectDone && B.t - ag.dodge.t0 <= T.perfectWin + 0.02 && reaches(e, h, A, ag, 3);
+    // whom it reaches: the Agent it was aimed at (a Perfect Dodge counts if the dodge started on time,
+    // even if it carried her clear; one who swapped in on it resolves it either way), and in an All-Out
+    // clash anyone else of yours standing in it
+    const victims = [];
+    for (const a of RV.allOut ? F : [ag]) {
+      const aimed = a === ag, inRange = reaches(e, h, A, a, 0);
+      const perfectish = aimed && a.dodge && B.t <= a.dodge.until && !a.dodge.perfectDone && B.t - a.dodge.t0 <= T.perfectWin + 0.02 && reaches(e, h, A, a, 3);
+      if (inRange || perfectish || (aimed && th && th.assist)) victims.push(a);
+    }
     B.eh.swing++;
-    if (inRange || perfectish || (th && th.assist)) {             // (an Agent who swapped in on it resolves it either way)
-      const hp0 = ag.hp; BT.incoming(e, crit(e, hh), th, ag);
-      if (ag.hp < hp0) landed(e, A.kind);
-    } else { B.eh.out++; if (th) th.done = true; }
+    if (!victims.length) { B.eh.out++; if (th) th.done = true; return; }
+    for (const a of victims) {
+      const hp0 = a.hp, wasStun = a.stun > 0;
+      BT.incoming(e, crit(e, hh), a === ag ? th : null, a);
+      if (a.hp < hp0) {
+        landed(e, A.kind);
+        if (!wasStun) dazeAgent(a, e.st.impact * (h.daze || 0) / 100, e);
+        else if (h.heavy) rivalChain(e, a, A);
+      }
+    }
+    if (th && !victims.includes(ag)) th.done = true;
   };
   CLASH.projHit = (p, ag) => {
     FX.named(p.h.fx === 'fireball' ? 'explode' : 'sound', { x: p.x, z: p.z, r: p.h.fx === 'fireball' ? 1.3 : 1.0, attr: p.h.attr || p.e.def.attr });
-    const hp0 = ag.hp; BT.incoming(p.e, crit(p.e, p.h), p.threat, ag);
-    if (ag.hp < hp0) landed(p.e, p.h.kind || 'basic');
+    const hp0 = ag.hp, wasStun = ag.stun > 0;
+    BT.incoming(p.e, crit(p.e, p.h), p.threat && p.threat.target === ag ? p.threat : null, ag);
+    if (p.threat && p.threat.target !== ag) p.threat.done = true;
+    if (ag.hp < hp0) { landed(p.e, p.h.kind || 'basic'); if (!wasStun) dazeAgent(ag, p.e.st.impact * (p.h.daze || 0) / 100, p.e); else if (p.h.heavy) rivalChain(p.e, ag, null); }
   };
+
+  /* ----------------------------------------- Daze and Stun on your Agents --
+     A rival Agent's landed hits build Daze on yours exactly as yours do on hers. A full bar Stuns
+     her for a few seconds: she cannot act, takes x1.5 DMG, and a rival heavy hit on her opens a
+     Chain Attack by one of the rival's teammates (up to two per Stun). In Tag Team, swap her out. */
+  function dazeAgent(a, n, from) {
+    if (!(a.dazeMax > 0) || !(n > 0) || a.stun > 0 || !a.alive) return;
+    a.daze += n * T_().dazeRate;
+    if (a.daze >= a.dazeMax) stunAgent(a, from);
+  }
+  CLASH.dazeAgent = dazeAgent;
+  function stunAgent(a, from) {
+    const B = B_(), RV = B.rival;
+    if (a.act && window.CHOREO) CHOREO.end(a, a.act);
+    Object.assign(a, { act: null, dodge: null, state: 'stun', stun: a.stunMax, daze: a.dazeMax, launchedUntil: 0, guardUntil: 0, airY: 0 });
+    a.queue.length = 0; a.anim.state = 'stun'; a.anim.t = 0;
+    a.chainsLeft = Math.min(2, RV.squad.filter(r => r.alive && r !== from).length);
+    RV.stats.stuns++; if (from) decibels(from, 150);
+    BT.callout('STUNNED', 'warn', RV.allOut ? `${a.def.short} · keep them off her` : `${a.def.short} · swap her out!`);
+    BT.log(`${a.def.short} is Stunned!${RV.allOut ? '' : ' Swap her out before their Chain Attacks.'}`, 'warn'); SFX.play('stun');
+    FX.glow(a.x, a.height * 0.8, a.z, 2.5, 0xfff0a0, 0.4, { size1: 4 });
+  }
+  /* a rival teammate follows a heavy hit on your Stunned Agent with her Chain Attack */
+  function rivalChain(e, a, A) {
+    const B = B_(), RV = B.rival;
+    if (!(a.stun > 0) || !(a.chainsLeft > 0) || B.chain || B.cutin) return;
+    const free = r => r !== e && r.alive && !(r.stun > 0) && !['dodge', 'hit'].includes(r.state) && !(r.act && LOCKED.includes(r.act.kind));
+    const helpers = RV.squad.filter(r => free(r) && (RV.allOut ? !r.benched : r.benched));
+    if (!helpers.length) return;
+    const r = U.pick(helpers), K = r.def.kit;
+    a.chainsLeft--;
+    if (RV.allOut) { if (r.act) cancelAct(r); r.state = 'idle'; r.anim.state = 'idle'; }
+    else { const from = { x: e.x, z: e.z, face: e.face }; leave(e); enter(r, 'chain', from); }
+    const d = ang(a, r) || 0; r.x = a.x + Math.sin(d) * (a.rad + 1.2); r.z = a.z + Math.cos(d) * (a.rad + 1.2); r.face = ang(r, a); r.swapInv = B.t + 0.3;
+    const A2 = BT.startAct(r, K.chain, { tgt: a, kind: 'chain' }); A2.dir = ang(r, a); A2.tele = []; A2.locks = {}; r.tgt = a; r.tgtUntil = B.t + 3;
+    announce(r, A2);
+    RV.stats.chains++; RV.assist = Math.min(R.assistPointsMax, RV.assist + 1); decibels(r, 300);
+    BT.callout('RIVAL CHAIN ATTACK', 'rivalult', `${r.def.short} · ${K.chain.name.replace('Chain Attack: ', '')}`);
+    BT.log(`Rival ${r.def.short}: ${K.chain.name} on ${a.def.short}!`, 'enemy');
+    BT.shot({ x: a.x, z: a.z, zoom: 0.75, dur: 0.9, pri: 3, yaw: rnd(-0.4, 0.4) });
+  }
 
   /* ------------------------------------------- your hits on a rival Agent -- */
   /* true: the hit does not land (a dodge, i-frames, a Perfect Block, a teammate's parry) */
@@ -458,22 +567,28 @@
     SFX.play('parry'); B.freeze = Math.max(B.freeze, 0.08); RV.stats.blocks++;
     BT.callout('PERFECT BLOCK', 'rival', `Rival ${v.def.short}`); BT.log(`Rival ${v.def.short}: Perfect Block!`, 'enemy');
     FX.glow(v.x, 1.2, v.z, 2.2, 0xfff0a0, 0.3, { size1: 3.6 });
-    staggerAgent(a, 0.4, v);
+    staggerAgent(a, 0.4, v); dazeAgent(a, v.st.impact * 3, v);
     decibels(v, 150);
     if (v.id === 'caesar' && K.thrust) { cancelAct(v); v.queue.unshift({ def: K.thrust, kind: 'special', delay: 0.05 }); }
     else gain(v, 10);
   }
-  /* a teammate swaps in on one of your heavy hits and parries it (a rival Assist Point) */
+  /* a teammate swaps in (All-Out: dashes over) on one of your heavy hits and parries it (a rival Assist Point) */
   function teammateParry(v, a) {
     const B = B_(), RV = B.rival, Dd = RV.diff;
     if (RV.assist < 1 || RV.assistCd > B.t || B.chain) return false;
-    const bench = RV.squad.filter(r => r.alive && r.benched); if (!bench.length) return false;
+    const free = r => r !== v && r.alive && !(r.stun > 0) && !['dodge', 'hit'].includes(r.state) && !(r.act && LOCKED.includes(r.act.kind));
+    const bench = RV.squad.filter(r => free(r) && (RV.allOut ? !r.benched : r.benched)); if (!bench.length) return false;
     RV.assistCd = B.t + 0.8;                                              // one look at a time
     if (Math.random() >= Dd.assist) return false;
-    const r = bench.slice().sort((x, y) => y.hp / y.hpMax - x.hp / x.hpMax)[0], K = r.def.kit;
+    const r = RV.allOut ? bench.sort((x, y) => dist(x, v) - dist(y, v))[0] : bench.sort((x, y) => y.hp / y.hpMax - x.hp / x.hpMax)[0], K = r.def.kit;
     RV.assist -= 1; RV.assistCd = B.t + 5; RV.stats.assists++;
-    leave(v); enter(r, 'assist', { x: v.x, z: v.z, face: ang(v, a) });
-    r.swapInv = B.t + 0.6;
+    if (RV.allOut) {
+      if (r.act) cancelAct(r);
+      const d = ang(v, a); r.x = v.x + Math.sin(d) * (v.rad + 0.7); r.z = v.z + Math.cos(d) * (v.rad + 0.7); r.face = ang(r, a);
+      Object.assign(r, { state: 'idle', dodge: null, pick: null, gap: 0, airY: 0 }); r.anim.state = 'idle'; r.queue.length = 0;
+      FX.burst(r.x, 1, r.z, 12, { col: [0xffffff, 0xff3a4a], speed: 3, size: 0.09, life: 0.3, g: -2 });
+    } else { leave(v); enter(r, 'assist', { x: v.x, z: v.z, face: ang(v, a) }); }
+    r.swapInv = B.t + 0.6; r.tgt = a; r.tgtUntil = B.t + 3;
     const A2 = BT.startAct(r, K.assist, { tgt: a, kind: 'assist', dur: 0.5 }); A2.dir = ang(r, a); A2.threats = []; A2.flashes = []; A2.tele = []; A2.locks = {};
     r.queue.push({ def: K.followup, kind: 'followup', delay: 0.02 });
     SFX.play('parry'); B.freeze = Math.max(B.freeze, 0.12);
@@ -481,7 +596,7 @@
     FX.glow(p.x, p.y, p.z, 2.6, 0xff9aa0, 0.3, { size1: 4.5 }); FX.burst(p.x, p.y, p.z, 30, { col: [0xffffff, 0xff9aa0, 0xff3a4a], speed: 8, size: 0.1, life: 0.4 });
     BT.callout('RIVAL ASSIST', 'rival', K.assist.name.replace('Defensive Assist: ', '') + ' · your hit is parried');
     BT.log(`${Dd.name}: ${r.def.short} swaps in and parries (${K.assist.name}).`, 'enemy');
-    staggerAgent(a, 0.55, r);
+    staggerAgent(a, 0.55, r); dazeAgent(a, r.st.impact * (K.assist.daze || 400) / 100, r);
     decibels(r, 250); gain(r, 8);
     BT.shot({ x: (r.x + a.x) / 2, z: (r.z + a.z) / 2, zoom: 0.78, dur: 0.5, pri: 2 });
     return true;
@@ -520,7 +635,7 @@
   };
   CLASH.down = v => {
     const RV = B_().rival; RV.downT = 0;
-    BT.log(`Rival ${v.def.name} is down!`, 'kill'); BT.callout(`RIVAL ${v.def.short.toUpperCase()} DOWN`, 'perfect', `${RV.squad.filter(r => r.alive).length} left`);
+    BT.log(`${v.def.name} is down!`, 'kill'); BT.callout(`RIVAL ${v.def.short.toUpperCase()} DOWN`, 'perfect', `${RV.squad.filter(r => r.alive).length} left`);
   };
 
   /* ------------------------------------- your Agent's move: dodge it? --
@@ -528,7 +643,7 @@
      move begins, whether to dodge it and when (on time: a Perfect Dodge). */
   CLASH.onAgentAct = (a, A) => {
     const B = B_(), T = T_(), RV = B.rival; if (!RV || B.phase !== 'fight') return;
-    const v = onField(); if (!v || !v.alive || v.stun > 0) return;
+    const v = A.tgt && A.tgt.rival ? A.tgt : onField(); if (!v || !v.alive || v.benched || v.stun > 0) return;
     const d = A.def; if (!d.hits || !d.hits.length || (A.tgt && A.tgt !== v)) return;
     if (dist(a, v) > (d.reach || 2) + 7) return;
     const hi = d.hits.findIndex(h => h.heavy), h = d.hits[hi >= 0 ? hi : 0], sp = A.speed || 1;
@@ -560,8 +675,8 @@
 
   /* ------------------------------------------------------------ the end -- */
   CLASH.finish = (B, result) => {
-    const RV = B.rival, r = onField();
-    if (result === 'lose' && r && r.alive) { cancelAct(r); r.state = 'win'; r.anim.state = 'win'; }
+    const RV = B.rival;
+    if (result === 'lose') for (const r of fieldRivals()) if (!(r.stun > 0)) { cancelAct(r); r.state = 'win'; r.anim.state = 'win'; }
     BT.log(`${RV.diff.name}: "${result === 'win' ? RV.diff.lose : RV.diff.win}"`, 'enemy');
   };
 

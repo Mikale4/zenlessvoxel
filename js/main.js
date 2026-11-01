@@ -140,9 +140,10 @@
       const ids = Object.keys(D.AGENTS).sort(() => Math.random() - 0.5).slice(0, 3), arenas = Object.keys(D.ENCOUNTERS);
       const arena = U.pick(arenas), enc = Math.random() < 0.65 ? 'patrol' : 'elite';
       // now and then the title shows a Proxy Clash instead: two squads of Agents
-      const clash = Math.random() < 0.3 ? { rival: U.pick(Object.keys(D.RIVALS)), squad: CLASH.randomSquad(3), look: { aria: Math.random() < 0.5 ? 'idol' : 'construct' } } : null;
+      const mode = Math.random() < 0.3 ? D.CLASH_MODES[U.pick(['tag3', 'all3', 'all2', 'tag2'])] : null;
+      const clash = mode ? { rival: U.pick(Object.keys(D.RIVALS)), squad: CLASH.randomSquad(mode.size), look: { aria: Math.random() < 0.5 ? 'idol' : 'construct' }, mode: mode.id } : null;
       GAME.mode = 'title'; quiet(true);
-      BT.start({ squad: ids, arena, encounter: enc, attract: true, clash });
+      BT.start({ squad: mode ? ids.slice(0, mode.size) : ids, arena, encounter: enc, attract: true, clash });
       BT.B.auto = true;
       if (window.MENU && MENU.liveText) MENU.liveText();
     },
@@ -164,7 +165,8 @@
   };
 
   /* -------------------------------------------------------------- input --
-     Q / W swap (previous / next; on a flash it is an Assist), E calls an EX,
+     Q / W swap (previous / next; on a flash it is an Assist; in an All-Out
+     Proxy Clash they switch whom you lead), E calls an EX,
      R the Ultimate, 1-3 a squad slot, Tab the focus, T AUTO, Esc Tactics.
      With AUTO off the arrow keys move the on-field Agent. During a Chain
      Attack, Q / W (or 1 / 2) pick the left or right Agent. */

@@ -42,9 +42,10 @@ const { chromium } = require('playwright');
   // out to the arcade cabinets: Proxy Clash, a short fight, retreat, the results, back to the street
   await p.evaluate(() => Lobby.goUse('clash')); await step(260); await shot('12_clash_setup');
   const clashMode = await p.evaluate(() => GAME.mode + (document.querySelector('.setup.clash') ? ':clash' : ''));
+  await p.click('.modes .opt.mode.allout >> nth=0'); await p.waitForTimeout(300); await shot('12b_clash_all2');   // 2v2 All-Out
   await p.click('.setup.clash .deploy .btn:not(.dark)'); await p.waitForTimeout(300);
   await step(300, 1 / 60); await p.evaluate(() => HUD.update(BT.B, 0.1)); await shot('13_clash_fight');
-  const fight = await p.evaluate(() => ({ rival: BT.B.rival.diff.name, theirs: BT.B.rival.squad.map(r => r.id), onField: CLASH.onField() && CLASH.onField().id, threats: BT.B.threats.length, t: +BT.B.t.toFixed(1) }));
+  const fight = await p.evaluate(() => ({ mode: BT.B.rival.mode.id, allOut: BT.B.allOut, mine: BT.fielded().map(a => a.id), rival: BT.B.rival.diff.name, theirs: CLASH.fieldRivals().map(r => r.id), threats: BT.B.threats.length, t: +BT.B.t.toFixed(1) }));
   await p.evaluate(() => { BT.retreat(); }); await p.waitForTimeout(400); await shot('14_clash_results');
   await p.click('.results >> text=SIXTH STREET'); await p.waitForTimeout(500); await step(30); await shot('15_back_at_cabinets');
   const acc = await p.evaluate(() => Auth.current());

@@ -1,6 +1,7 @@
 // Proxy Clash, fast-forwarded headless with your side on AUTO.
 //   node tools/clash-test.js squad=caesar,aria rival=vesper rsquad=burnice,yixuan arena=stage grep=Rival
-//   node tools/clash-test.js batch=6 size=3 rival=patch,vesper,mirage     (calibration: win rate and length per rival)
+//   node tools/clash-test.js batch=6 mode=all3 rival=patch,vesper,mirage     (calibration: win rate and length per rival)
+//   modes: duel tag2 all2 tag3 all3 (size= alone means Tag Team at that size)
 const path = require('path');
 const { chromium } = require('playwright');
 const args = Object.fromEntries(process.argv.slice(2).map(a => a.split('=')));
@@ -15,7 +16,7 @@ const args = Object.fromEntries(process.argv.slice(2).map(a => a.split('=')));
   const run = o => p.evaluate(o => {
     const lines = [];
     BT.T.auto = true; BT.T.dmgNumbers = false; if (o.hp) BT.T.clashHp = o.hp;
-    GAME.startBattle({ squad: o.squad, arena: o.arena, look: {}, clash: { rival: o.rival, squad: o.rsquad, look: {} } }); BT.B.auto = true;
+    GAME.startBattle({ squad: o.squad, arena: o.arena, look: {}, clash: { rival: o.rival, squad: o.rsquad, look: {}, mode: o.mode } }); BT.B.auto = true;
     const lg = BT.hooks.log, co = BT.hooks.callout;
     if (o.log) {
       BT.hooks.log = (t, c) => { lines.push(`${BT.B ? BT.B.t.toFixed(1) : ''} ${t}`); if (lg) lg(t, c); };
@@ -25,6 +26,7 @@ const args = Object.fromEntries(process.argv.slice(2).map(a => a.split('=')));
     for (let i = 0; i < o.seconds * 60; i++) {
       if (!BT.B || BT.B.result) break; BT.update(1 / 60); maxThreats = Math.max(maxThreats, BT.B.threats.length);
       const e = CLASH.onField(), a = BT.active();
+      for (const s of BT.B.squad) if (s.stun > 0) mineProf.stunned = (mineProf.stunned || 0) + 1 / 60;
       if (e && BT.B.phase === 'fight') {
         const k = !e.alive ? 'down' : e.stun > 0 ? 'stun' : e.act ? 'act:' + e.act.kind : e.state !== 'idle' ? e.state : e.gap > 0 ? 'gap' : e.moving ? 'approach' : 'idle';
         prof[k] = (prof[k] || 0) + 1 / 60;
@@ -44,20 +46,21 @@ const args = Object.fromEntries(process.argv.slice(2).map(a => a.split('=')));
   }, o);
   const AG = ['caesar', 'burnice', 'aria', 'yixuan'], pick = n => AG.slice().sort(() => Math.random() - 0.5).slice(0, n);
   if (args.batch) {
-    const rivals = (args.rival || 'patch,vesper,mirage').split(','), n = +args.batch, size = +(args.size || 3);
+    const MODES = { duel: 1, tag2: 2, all2: 2, tag3: 3, all3: 3 };
+    const mode = args.mode || ({ 1: 'duel', 2: 'tag2', 3: 'tag3' })[args.size || 3], rivals = (args.rival || 'patch,vesper,mirage').split(','), n = +args.batch, size = MODES[mode];
     for (const rival of rivals) {
       let wins = 0, tsum = 0, tl = [], ex = {};
       for (let i = 0; i < n; i++) {
-        const out = await run({ squad: pick(size), rsquad: pick(size), rival, arena: ['outer', 'summit', 'stage'][i % 3], seconds: +(args.seconds || 420), hp: +args.hp || 0 });
+        const out = await run({ squad: pick(size), rsquad: pick(size), rival, mode, arena: ['outer', 'summit', 'stage'][i % 3], seconds: +(args.seconds || 420), hp: +args.hp || 0 });
         if (out.result === 'win') wins++; tsum += out.t; tl.push(`${out.result[0]}${out.t}`);
         for (const k in out.rstats) ex[k] = (ex[k] || 0) + out.rstats[k];
-        ex.dealt = (ex.dealt || 0) + out.stats.dmg / 1000; ex.taken = (ex.taken || 0) + out.stats.taken / 1000; ex.chains = (ex.chains || 0) + out.stats.chains; ex.stuns = (ex.stuns || 0) + out.stats.stuns; ex.perfectMine = (ex.perfectMine || 0) + out.stats.perfect; ex.assistsMine = (ex.assistsMine || 0) + out.stats.assists;
+        ex.stunnedMine = (ex.stunnedMine || 0) + (out.mineProf.stunned || 0); ex.dealt = (ex.dealt || 0) + out.stats.dmg / 1000; ex.taken = (ex.taken || 0) + out.stats.taken / 1000; ex.chains = (ex.chains || 0) + out.stats.chains; ex.stuns = (ex.stuns || 0) + out.stats.stuns; ex.perfectMine = (ex.perfectMine || 0) + out.stats.perfect; ex.assistsMine = (ex.assistsMine || 0) + out.stats.assists;
       }
       for (const k in ex) ex[k] = +(ex[k] / n).toFixed(1);
-      console.log(`${rival.padEnd(7)} wins ${wins}/${n}  avg ${(tsum / n).toFixed(0)}s  [${tl.join(' ')}]  per fight ${JSON.stringify(ex)}`);
+      console.log(`${mode} ${rival.padEnd(7)} wins ${wins}/${n}  avg ${(tsum / n).toFixed(0)}s  [${tl.join(' ')}]  per fight ${JSON.stringify(ex)}`);
     }
   } else {
-    const out = await run({ squad: (args.squad || 'caesar,aria,yixuan').split(','), rsquad: args.rsquad ? args.rsquad.split(',') : null, rival: args.rival || 'vesper', arena: args.arena || 'stage', seconds: +(args.seconds || 420), log: true, hp: +args.hp || 0 });
+    const out = await run({ squad: (args.squad || 'caesar,aria,yixuan').split(','), rsquad: args.rsquad ? args.rsquad.split(',') : null, rival: args.rival || 'vesper', mode: args.mode, arena: args.arena || 'stage', seconds: +(args.seconds || 420), log: true, hp: +args.hp || 0 });
     const re = new RegExp(args.grep || '.', 'i');
     for (const l of out.lines) if (re.test(l)) console.log(l);
     console.log('RESULT', out.result, 't', out.t, '| mine', out.mine, '| theirs', out.theirs);

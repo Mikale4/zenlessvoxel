@@ -25,8 +25,9 @@
     const B = B_(), I = B.bounds;
     if (damp) { const d = Math.exp(-dt * 7); e.vx *= d; e.vz *= d; }
     e.x += e.vx * dt; e.z += e.vz * dt;
-    // personal space: nobody stands inside anybody else
-    const others = e.type === 'enemy' ? [...B.enemies, BT.active()] : B.enemies;
+    // personal space: nobody stands inside anybody else (All-Out: teammates neither)
+    const F = BT.fielded();
+    const others = e.type === 'enemy' ? B.enemies.concat(F) : B.allOut ? B.enemies.concat(F) : B.enemies;
     for (const o of others) {
       if (!o || o === e || !o.alive || o.spawnT > 0 || (o.type === 'agent' && !o.obj.visible)) continue;
       const dx = e.x - o.x, dz = e.z - o.z, d = Math.hypot(dx, dz), min = (e.rad + o.rad) * (e.type !== o.type ? 0.92 : 1.05);
@@ -51,7 +52,9 @@
     for (const v of B.enemies) {
       if (!v.alive || v.spawnT > 0) continue;
       const d = dist(a, v);
-      const val = -d + (v.stun > 0 ? 4 : 0) + (v.rank === 'boss' ? 2 : v.rank === 'elite' ? 1 : 0) + (v === a.lastTgt ? 1.5 : 0) - v.hp / v.hpMax;
+      let val = -d + (v.stun > 0 ? 4 : 0) + (v.rank === 'boss' ? 2 : v.rank === 'elite' ? 1 : 0) + (v === a.lastTgt ? 1.5 : 0) - v.hp / v.hpMax;
+      // All-Out: answer whoever is coming at you, and spread out rather than all pile on one
+      if (B.allOut) val += (v.tgt === a ? 2 : 0) - 1.2 * B.squad.filter(s => s !== a && s.alive && s.lastTgt === v).length;
       if (val > bv) { bv = val; best = v; }
     }
     a.lastTgt = best; return best;
@@ -59,10 +62,15 @@
 
   /* ------------------------------------------------------------ Agents -- */
   BT.thinkAgents = dt => {
-    const B = B_(), a = BT.active();
+    const B = B_();
     for (const s of B.squad) if (s.state === 'dead' && s.obj.visible) { s.anim.t += dt; physics(s, dt, true); }
+    for (const a of BT.fielded()) thinkAgent(a, dt);     // the one you lead (All-Out: every Agent on the field)
+  };
+  function thinkAgent(a, dt) {
+    const B = B_();
     if (!a || !a.alive) return;
     a.stT += dt;
+    if (a.stun > 0) { a.state = 'stun'; a.anim.state = 'stun'; a.anim.t += dt; physics(a, dt, true); return; }   // Stunned (Proxy Clash; clash.js counts it down)
     // carry out defensive plans (dodges, blocks) made when attacks were announced
     for (const th of B.threats) if (th.target === a && th.plan && !th.plan.done && B.t >= th.plan.at) { th.plan.done = true; execPlan(a, th); }
     switch (a.state) {
@@ -78,12 +86,14 @@
       if (A && A.kind === 'basic' && A.t >= (A.def.cancel || A.dur)) decide(a, dt, true);
       return;
     }
-    if (a.guardUntil > B.t) { a.anim.state = 'guard'; a.state = 'guard'; physics(a, dt, true); if (a.queue.length || (!B.auto && moveInput())) { a.guardUntil = 0; a.state = 'idle'; } else return; }
+    if (a.guardUntil > B.t) { a.anim.state = 'guard'; a.state = 'guard'; physics(a, dt, true); if (a.queue.length || (manual(a) && moveInput())) { a.guardUntil = 0; a.state = 'idle'; } else return; }
     else if (a.state === 'guard') { a.state = 'idle'; a.anim.state = 'idle'; }
     if (a.gap > 0) { a.gap -= dt; physics(a, dt, true); return; }
     decide(a, dt, false);
     physics(a, dt, !a.moving);
-  };
+  }
+  /* you steer the Agent you lead when AUTO is off; everyone else moves on her own */
+  const manual = a => !B_().auto && a === BT.active();
 
   function decide(a, dt, fromCombo) {
     const B = B_(), T = T_(), K = a.def.kit;
@@ -96,7 +106,7 @@
     }
     if (a.counterUntil > B.t) { a.counterUntil = 0; startSkill(a, K.counter, 'counter', a.counterTgt && a.counterTgt.alive ? a.counterTgt : BT.pickTarget(a)); return; }
     // AUTO off: you move her (arrow keys or a drag); she still fights on her own
-    if (!B.auto) {
+    if (manual(a)) {
       const mv = moveInput();
       if (mv) { if (fromCombo && a.act) BT.endAct(a); steerManual(a, mv, dt); return; }
       return decideManual(a, dt, fromCombo);
@@ -178,7 +188,8 @@
     const exOk = a.energy >= K.ex.cost;
     if (!fromCombo) {
       if (a.exCall && exOk) { a.exCall = false; return pickEx(a); }
-      if (T.autoUlt && !B.auto && (a.decibels >= R.decibelMax || (id === 'yixuan' && a.tp >= 120))) { if (BT.cmdUlt(a)) return null; }
+      // (All-Out: the teammates you are not leading fire their own Ultimates)
+      if (((T.autoUlt && !B.auto) || (B.allOut && a !== BT.active() && !B.auto)) && (a.decibels >= R.decibelMax || (id === 'yixuan' && a.tp >= 120)) && (tgt.stun > 0 || Math.random() < 0.02)) { if (BT.cmdUlt(a)) return null; }
       if (id === 'yixuan' && a.auric > 0) return { def: K.auric, kind: 'auric' };
       if (id === 'burnice' && a.nitro && a.heat >= 20 && (a.cds.hold || 0) <= B.t && (!tgt.scorched || Math.random() < 0.25)) return { def: K.hold, kind: 'hold' };
       if (id === 'aria') {
@@ -512,7 +523,16 @@
     const C = B.cmdr || (B.cmdr = { next: 0, rot: B.t + rnd(10, 15), qa: 0 });
     if (B.chain) { if (!C.chainAt) C.chainAt = B.real + rnd(0.45, 0.9); if (B.real >= C.chainAt) { C.chainAt = 0; BT.chainPick(BT.bestChain()); } return; }
     C.chainAt = 0;
+    if (B.allOut) return commandAllOut(C);
     if (B.cutin || !ag.alive) return;
+    // Proxy Clash: a Stunned Agent is pulled out before the rival's Chain Attacks land
+    if (ag.stun > 0) {
+      if (!C.unstun) C.unstun = B.t + rnd(0.25, 0.6);
+      const o = B.squad.filter(s => s.alive && s !== ag && !(s.stun > 0)).sort((x, y) => y.hp / y.hpMax - x.hp / x.hpMax)[0];
+      if (o && B.t >= C.unstun && B.swapCd <= 0) { C.unstun = 0; BT.cmdSwap(o); }
+      return;
+    }
+    C.unstun = 0;
     // Assists on flashes the on-field Agent is not going to Perfect Dodge herself
     const th = BT.assistThreat();
     if (th && th.cmdAt == null) {
@@ -540,4 +560,25 @@
       if (o && (o.energy > ag.energy + 15 || Math.random() < 0.4)) BT.cmdSwap(o);
     }
   };
+  /* AUTO in an All-Out clash: assists for whoever is about to be hit, Quick Assists, Ultimates */
+  function commandAllOut(C) {
+    const B = B_(), T = T_();
+    if (B.cutin) return;
+    const th = BT.assistThreat();
+    if (th && th.cmdAt == null) {
+      const self = th.plan && th.plan.type === 'dodge' && th.impactAt - th.plan.at <= T.perfectWin;
+      th.cmdAt = !self && Math.random() < 0.6 ? Math.min(th.impactAt - 0.04, B.t + rnd(0.08, 0.32)) : Infinity;
+    }
+    if (th && B.t >= th.cmdAt) { th.cmdAt = Infinity; BT.cmdSwap(BT.helperFor(th.target)); return; }
+    const down = B.squad.find(s => s.alive && s.launchedUntil > B.t);
+    if (down) { if (!C.qa) C.qa = B.t + rnd(0.15, 0.35); if (B.t >= C.qa) { C.qa = 0; BT.cmdSwap(BT.helperFor(down)); } return; }
+    C.qa = 0;
+    if (B.t < C.next) return;
+    C.next = B.t + 0.4;
+    for (const a of BT.fielded()) {
+      if (!(a.decibels >= R.decibelMax || (a.id === 'yixuan' && a.tp >= 120)) || (a.act && ['chain', 'ult', 'ult2', 'assist'].includes(a.act.kind))) continue;
+      const tgt = BT.pickTarget(a);
+      if (tgt && (tgt.stun > 0 || tgt.rank !== 'minion' || Math.random() < 0.3)) { BT.cmdUlt(a); return; }
+    }
+  }
 })();

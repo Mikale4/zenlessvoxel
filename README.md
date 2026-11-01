@@ -17,7 +17,8 @@ Or locally: open `index.html` in a browser (no server or install needed).
 - **Twelve real enemies**, three encounters per battleground (Patrol, Elite, Notorious boss):
   Hollow Thug Raider / Pyromaniac / Bulky Enforcer and **Corrupted Overlord - Pompey**; Miasma Spawn, Miasma Walker - Arcavor,
   Miasma Ravager - Huskron and the **Miasma Priest**; Faun, Specter, Dullahan and **Notorious - Dead End Butcher**.
-- **Proxy Clash**: Agents against Agents. A rival Proxy's squad against yours, 1-on-1 up to 3-on-3.
+- **Proxy Clash**: Agents against Agents, a rival Proxy's squad against yours, in five modes: 1v1 Duel, 2v2 and 3v3
+  Tag Team (one on the field at a time), 2v2 and 3v3 All-Out (everyone at once).
 - **The Battle Lab**: every rule and number as a toggle or slider, saved in your browser.
 
 ## Signing in, and Sixth Street
@@ -38,35 +39,64 @@ goes straight to every place. Out front, two **arcade cabinets** run **Proxy Cla
 
 ## Proxy Clash: Agent against Agent
 
-At the arcade cabinets in front of Random Play, a **rival Proxy** dials in with a squad of their own. Pick your squad
-(one to three Agents: that sets the size of the fight, 1-on-1 up to 3-on-3), pick the rival, pick their squad or let
-them choose (mirror matches are fine: their Agent stands on a red ring), pick the battleground, and fight.
+At the arcade cabinets in front of Random Play, a **rival Proxy** dials in with a squad of their own. Pick a mode, your
+squad, the rival, their squad (or let them choose: mirror matches are fine, their Agents stand on red rings), the
+battleground, and fight. Five modes:
+
+| Mode | How it plays |
+|---|---|
+| **1v1 Duel** | One Agent each. No swaps, no assists, no Chain Attacks: just the two of them. |
+| **2v2 Tag Team** · **3v3 Tag Team** | One Agent per side on the field at a time, as in the Hollow: swap, Defensive Assist, Quick Assist, Chain Attack. |
+| **2v2 All-Out** · **3v3 All-Out** | Every Agent of both squads on the field at once. |
+
+In **All-Out** you **lead** one Agent (the yellow ring): you move her (AUTO off) and call her EX and Ultimate; `W` / `Q`
+or a squad card switch whom you lead. The others fight on their own and fire their own Ultimates. On a flash aimed at any
+of yours, `W` / `Q` sends a teammate dashing in to **parry** it (gold) or **pull her clear** (red); when one is launched,
+a teammate's **Quick Assist**. Your teammates spread out over their rivals rather than all piling onto one, and theirs do
+the same.
 
 Their Agents fight with **the same kits as yours**: basic combos and their cancels, Specials, EX Specials and the
 follow-ups the kits chain, each Agent's core move (Burnice's Mixed Flame Blend and her hop back, Aria's Perfect Pitch,
 Caesar's Dead End), dodges, Perfect Dodges and Dodge Counters, Perfect Blocks (Caesar, Yixuan), Ultimates. Their Proxy
-rotates the squad, pulls a hurt Agent out, and spends **Assist Points**: a benched teammate can swap in, **parry one of
-your heavy hits** and follow up. You command yours exactly as in the Hollow.
+rotates the squad, pulls a hurt Agent out, and spends **Assist Points**: a teammate can step in, **parry one of your
+heavy hits** and follow up. You command yours exactly as in the Hollow.
 
-- Their **heavy hits flash gold**: swap for a Defensive Assist. The finisher of their **Ultimate flashes red**: dodge it
+- Their **heavy hits flash gold**: a Defensive Assist parries. The finisher of their **Ultimate flashes red**: dodge it
   (the big area hits are marked on the ground).
 - Only a **high-level skill's heavy hit** (EX Special, Dodge Counter, Chain Attack, Ultimate, Assist Follow-Up, Quick
   Assist) staggers an Agent, theirs or yours. Anything else is a flinch.
-- Daze still **Stuns**: a Stunned rival is open to your Chain Attacks. Anomalies, Disorder and your Agents' buffs all work.
-- Both squads get the same extra HP (Battle Lab: *Agent HP in Proxy Clash*, ×18 by default).
+- **Daze works both ways.** A Stunned rival is open to your Chain Attacks; and their landed hits Daze your Agents (the
+  orange bar under HP). Stunned, she cannot act, takes ×1.5 DMG, and a heavy hit on her opens a **rival Chain Attack**
+  (up to two per Stun). In Tag Team, swap her out; the sharper rivals swap theirs out of a Stun too.
+- Anomalies, Disorder and your Agents' buffs all work on them.
+- Both squads get the same extra HP (Battle Lab: *Agent HP in Proxy Clash*, ×18 by default; All-Out runs deeper still).
 - The panel under the clock shows their squad and Assist Points; the target bar says when one has an EX or her
   Ultimate ready.
 
 | Rival | Tier | How they play |
 |---|---|---|
-| **Patch** | Rookie | Two weeks into the job: slow swaps, few dodges, rarely an Assist. |
+| **Patch** | Rookie | Two weeks into the job: slow swaps, few dodges, rarely an Assist, never ducks out of a Stun. |
 | **Vesper** | Ace | Methodical: rotates on a schedule, saves Assists for your big hits, fires Ultimates when they count. A fair fight. |
-| **Mirage** | Legend | Signs every job "Phaethon". Near-perfect dodges and a parry waiting for every heavy hit. |
+| **Mirage** | Legend | Signs every job "Phaethon". Near-perfect dodges, a parry waiting for every heavy hit, out of a Stun before you can chain it. |
 
-The rival Proxies are this game's own characters. The notice board keeps your record against each (won / lost, best
-rank, fastest win). The rivals were calibrated against your squad on AUTO over batches of simulated fights
-(`tools/clash-test.js batch=...`) at every size: AUTO beats Patch nearly every time, Vesper about half the time, and
-Mirage less often than that. A single fight swings a lot with the matchup.
+The rival Proxies are this game's own characters. The notice board keeps your record against each, per mode, with the
+best rank and fastest win.
+
+**Balance.** Their Agents' damage is set per rival and per mode (`data.js` RIVALS): it runs above your Agents' because
+yours carry buffs, Anomalies, Disorders, Abloom, Afterburn and the Aegis that theirs do not. It was calibrated with
+`tools/clash-test.js` (`batch=6 mode=all3`, ...): your squad on AUTO against each rival, over random matchups on all
+three battlegrounds. How often AUTO won at the final settings (pooled rounds; small samples, so read them as rough):
+
+| Mode | vs Patch | vs Vesper | vs Mirage | A fight lasts |
+|---|---|---|---|---|
+| 1v1 Duel | 15 of 17 | 8 of 17 | 4 of 12 | 30-50 s |
+| 2v2 Tag Team | 11 of 11 | 5 of 8 | 4 of 12 | 45-55 s |
+| 2v2 All-Out | 11 of 11 | 6 of 12 | 2 of 8 | 35-45 s |
+| 3v3 Tag Team | 11 of 11 | 3 of 6 | 4 of 11 | 60-75 s |
+| 3v3 All-Out | 11 of 11 | 8 of 15 | 4 of 12 | 30-50 s |
+
+A single fight swings a lot with the matchup (two Anomaly Agents lean on Anomalies that do not land on Agents; a
+Yixuan and Caesar pair hits hard). You playing by hand will land somewhere else entirely: tell me what feels off.
 
 ## How the enemies fight
 

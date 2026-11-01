@@ -415,3 +415,17 @@ table.keys { border-collapse: collapse; font-size: 13px; } table.keys td { paddi
 }
 /* a wide phone on its side: the six dock buttons keep their labels whole */
 @media (max-height: 520px) and (min-width: 821px) { .lb-btn { flex: 0 0 auto; min-width: 0; padding: 6px 10px; } .lb-btn b { font-size: 15px; } }
+/* Proxy Clash: your Agents' Daze bars, Stun, the teammates you are not leading (All-Out) */
+.squad .bar.daze { height: 4px; margin-top: 2px; } .squad .bar.daze > i.v { background: var(--daze); }
+.squad .bar.daze.stun > i.v { background: linear-gradient(90deg, #ffd04a, #fff6c0); animation: pulse .4s infinite alternate; }
+.asub .bar.daze { height: 3px; margin-top: 2px; }
+.asub.stun { box-shadow: inset 0 0 0 2px var(--yel); } .asub.stun img { filter: sepia(.6) brightness(1.2); }
+.hpfloat.ally i { background: var(--hp); } .hpfloat.ally { box-shadow: 0 0 0 1px rgba(99, 224, 122, .6); } .hpfloat.stun b { background: var(--yel); }
+.rv-row.stun img { box-shadow: 0 0 0 2px var(--yel); }
+/* the five Proxy Clash modes */
+.modes { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 5px; }
+.opt.mode { text-align: center; padding: 6px 4px; } .opt.mode b { display: block; font-size: 22px; } .opt.mode small { font-size: 9px; letter-spacing: .5px; margin-top: 1px; }
+.opt.mode.allout b { color: #ff9aa8; } .opt.mode.sel { background: linear-gradient(180deg, #3a2f10, #1c160a); }
+.hint.mode-sub { line-height: 1.4; }
+.records table.clash-rec th, .records table.clash-rec td { padding: 4px 4px; font-size: 11px; text-align: center; } .records table.clash-rec td:first-child { text-align: left; }
+.records table.clash-rec td small { color: var(--mute); font-size: 9px; } .records table.clash-rec td.wl { font: 15px/1 var(--disp); letter-spacing: 1px; color: #d8d8de; }
