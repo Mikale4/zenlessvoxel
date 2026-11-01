@@ -4,7 +4,9 @@ An unofficial, non-commercial **Zenless Zone Zero** fan game in voxels, built ar
 battles feel like? Like *Pallet to Pewter*, your Agents fight **on their own, in real time**, and **you are the commander**.
 Flip on **AUTO** and the game gives the commands too.
 
-**Play:** open `index.html` in a browser (no server or install needed; the fonts come from Google Fonts when online).
+**Play:** https://mikale4.github.io/zenlessvoxel/ (computer or phone). Settings are saved in your browser.
+
+Or locally: open `index.html` in a browser (no server or install needed).
 
 ## What's in it so far
 
