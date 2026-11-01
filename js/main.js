@@ -80,12 +80,14 @@
     r.setPixelRatio(1); r.setSize(size, size);
     const sc = new THREE.Scene(), cam = new THREE.PerspectiveCamera(30, 1, 0.05, 50);
     sc.add(new THREE.HemisphereLight(0xffffff, 0x404050, 0.9)); const dl = new THREE.DirectionalLight(0xffffff, 0.7); dl.position.set(2, 3, 4); sc.add(dl);
-    const list = []; for (const id in D.AGENTS) { list.push([id, id]); const f = D.AGENTS[id].forms; if (f) for (const k in f) if (f[k].model !== id && MODELS[f[k].model]) list.push([f[k].model, id]); }
-    for (const [id, agent] of list) {
+    const list = []; for (const id in D.AGENTS) { list.push([id, D.AGENTS[id].color]); const f = D.AGENTS[id].forms; if (f) for (const k in f) if (f[k].model !== id && MODELS[f[k].model]) list.push([f[k].model, D.AGENTS[id].color]); }
+    list.push(['wise', 0x3a5a9a], ['belle', 0xf07a20], ['eous', 0xb8ff3a]);
+    for (const [id, color] of list) {
+      if (!MODELS[id]) continue;
       const R = VX.rig(id, MODELS[id]); sc.add(R.root); R.root.rotation.y = 0.35;
-      const h = R.height;
-      cam.position.set(0.35, h * 0.86, 1.55); cam.lookAt(0, h * 0.8, 0);
-      const bg = new THREE.Color(D.AGENTS[agent].color); sc.background = bg.multiplyScalar(0.35);
+      const h = R.height, bang = MODELS[id].kind === 'bangboo';
+      cam.position.set(0.35 * (bang ? 0.7 : 1), h * (bang ? 0.62 : 0.86), bang ? 1.35 : 1.55); cam.lookAt(0, h * (bang ? 0.58 : 0.8), 0);
+      const bg = new THREE.Color(color); sc.background = bg.multiplyScalar(0.35);
       r.render(sc, cam); P[id] = r.domElement.toDataURL('image/png');
       sc.remove(R.root);
     }
@@ -117,15 +119,39 @@
       preview = { key, built, ents, comps, t: 0 };
     },
     startBattle(opts) {
-      clearPreview(); GAME.mode = 'battle'; U.$('screens').innerHTML = '';
+      leaveLobby(); clearPreview(); GAME.mode = 'battle'; U.$('screens').innerHTML = '';
+      quiet(false);
       BT.T.auto = !!BT.T.auto;
       BT.start(opts);
       HUD.build(BT.B);
     },
-    toMenu() { BT.end(); HUD.destroy(); GAME.mode = 'menu'; if (typeof endPress === 'function') endPress(); },
+    toMenu() { leaveLobby(); BT.end(); HUD.destroy(); quiet(false); GAME.mode = 'menu'; clearPreview(); if (typeof endPress === 'function') endPress(); },
+    /* behind the title: a real battle on AUTO, a random squad in a random place, over and over */
+    attract() {
+      leaveLobby(); clearPreview(); HUD.destroy(); endPress();
+      const ids = Object.keys(D.AGENTS).sort(() => Math.random() - 0.5).slice(0, 3), arenas = Object.keys(D.ENCOUNTERS);
+      const arena = U.pick(arenas), enc = Math.random() < 0.65 ? 'patrol' : 'elite';
+      GAME.mode = 'title'; quiet(true);
+      BT.start({ squad: ids, arena, encounter: enc, attract: true });
+      BT.B.auto = true;
+      if (window.MENU && MENU.liveText) MENU.liveText();
+    },
+    /* the lobby: Sixth Street (lobby.js) */
+    toLobby(opts) {
+      BT.end(); HUD.destroy(); clearPreview(); endPress(); quiet(false);
+      GAME.mode = 'lobby'; clearPreview();
+      Lobby.start(opts);
+    },
+    stickState: () => stick,
   };
   window.GAME = GAME;
-  BT.hooks.finish = B => { MENU.results(B); };
+  function leaveLobby() { if (window.Lobby && Lobby.running) Lobby.stop(); }
+  /* the title's battle makes no sound and shows no numbers */
+  function quiet(on) { SFX.quiet = on; FX.noNumbers = on; }
+  BT.hooks.finish = B => {
+    if (B.opts.attract) { if (GAME.mode === 'title') GAME.attract(); return; }
+    MENU.results(B);
+  };
 
   /* -------------------------------------------------------------- input --
      Q / W swap (previous / next; on a flash it is an Assist), E calls an EX,
@@ -175,7 +201,8 @@
   let press = null, stick = null, stickEl = null;
   canvas.addEventListener('pointerdown', ev => {
     SFX.unlock();
-    if (GAME.mode !== 'battle' || !BT.B || press || (ev.pointerType === 'mouse' && ev.button > 0)) return;
+    if (!(GAME.mode === 'battle' && BT.B) && GAME.mode !== 'lobby') return;
+    if (press || (ev.pointerType === 'mouse' && ev.button > 0)) return;
     press = { id: ev.pointerId, x0: ev.clientX, y0: ev.clientY, bx: ev.clientX, by: ev.clientY, drag: false };
     try { canvas.setPointerCapture(ev.pointerId); } catch (err) { /* moves still arrive */ }
   });
@@ -192,11 +219,15 @@
     stick.dx = dx / (d || 1); stick.dy = dy / (d || 1);
     drawStick(dx, dy);
   });
-  const up = ev => { if (!press || ev.pointerId !== press.id) return; const p = press; endPress(); if (ev.type === 'pointerup' && !p.drag && BT.B) tapFocus(p.x0, p.y0); };
+  const up = ev => {
+    if (!press || ev.pointerId !== press.id) return; const p = press; endPress();
+    if (ev.type !== 'pointerup' || p.drag) return;
+    if (GAME.mode === 'lobby') Lobby.tap(p.x0, p.y0); else if (GAME.mode === 'battle' && BT.B) tapFocus(p.x0, p.y0);
+  };
   canvas.addEventListener('pointerup', up); canvas.addEventListener('pointercancel', up);
   function endPress() { press = null; stick = null; if (stickEl) stickEl.hidden = true; }
   function drawStick(dx, dy) {
-    if (!BT.B || BT.B.auto) { if (stickEl) stickEl.hidden = true; return; }
+    if (!(GAME.mode === 'lobby' || (GAME.mode === 'battle' && BT.B && !BT.B.auto))) { if (stickEl) stickEl.hidden = true; return; }
     if (!stickEl) { stickEl = U.el('div', { class: 'stick' }, U.el('i')); document.body.append(stickEl); }
     stickEl.hidden = false;
     stickEl.style.transform = `translate(${press.bx.toFixed(1)}px,${press.by.toFixed(1)}px)`;
@@ -220,6 +251,8 @@
     const dt = Math.min(0.1, (now - last) / 1000); last = now;
     fpsAcc += dt; fpsN++; if (fpsAcc > 1) { window.__stats.fps = Math.round(fpsN / fpsAcc); fpsAcc = 0; fpsN = 0; }
     if (GAME.mode === 'battle' && BT.B) { readInput(); BT.update(dt); HUD.update(BT.B, dt); govern(dt); }
+    else if (GAME.mode === 'title' && BT.B) { BT.update(dt); govern(dt); }
+    else if (GAME.mode === 'lobby') { Lobby.update(dt); FX.update(dt, dt); govern(dt); }
     else if (preview) {
       preview.t += dt; const t = preview.t;
       for (const e of preview.ents) { e.anim.t += dt; ANIM.apply(e, dt, t); }
@@ -236,7 +269,7 @@
   /* --------------------------------------------------------------- boot -- */
   try { window.PORTRAITS = makePortraits(); } catch (e) { console.warn('portraits failed', e); window.PORTRAITS = {}; }
   U.$('boot').remove();
-  MENU.title();
+  MENU.boot();
   requestAnimationFrame(frame);
   window.__ready = true;
 })();

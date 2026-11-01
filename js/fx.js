@@ -131,7 +131,7 @@
   /* ------------------------------------------------------ damage numbers -- */
   const nums = [];
   FX.number = (x, y, z, text, cls, color) => {
-    if (!numLayer) return;
+    if (!numLayer || FX.noNumbers) return;
     const el = document.createElement('div'); el.className = 'dmg ' + (cls || ''); el.textContent = text; if (color) el.style.color = color;
     numLayer.appendChild(el);
     nums.push({ el, x: x + rnd(-0.3, 0.3), y, z: z + rnd(-0.2, 0.2), t: 0, life: cls && cls.includes('big') ? 1.2 : 0.85, vy: 1.6 });

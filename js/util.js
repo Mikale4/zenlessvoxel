@@ -36,9 +36,12 @@
   };
 
   /* persisted settings: a JSON blob in localStorage; every access is guarded */
+  /* (signed in, each account keeps its own: U.store.ns is the account id) */
   U.store = {
-    get(key, def) { try { const v = localStorage.getItem('zvz.' + key); return v == null ? def : JSON.parse(v); } catch (e) { return def; } },
-    set(key, val) { try { localStorage.setItem('zvz.' + key, JSON.stringify(val)); } catch (e) { /* private mode: keep going */ } },
+    ns: null,
+    k(key) { return 'zvz.' + (U.store.ns ? U.store.ns + '.' : '') + key; },
+    get(key, def) { try { const v = localStorage.getItem(U.store.k(key)); return v == null ? def : JSON.parse(v); } catch (e) { return def; } },
+    set(key, val) { try { localStorage.setItem(U.store.k(key), JSON.stringify(val)); } catch (e) { /* private mode: keep going */ } },
   };
 
   window.U = U;

@@ -67,20 +67,21 @@
   HUD.saveAuto = () => { if (window.MENU) MENU.saveTuning(); };
 
   /* ------------------------------------------------------------ hooks -- */
+  const off = () => !root || root.hidden;   // no HUD (the title's battle): the hooks stay quiet
   BT.hooks.log = (text, cls) => {
-    if (!E.log) return;
+    if (!E.log || off()) return;
     const d = el('div', { class: cls || '' }, text); E.log.append(d);
     while (E.log.children.length > 7) E.log.firstChild.remove();
     [...E.log.children].forEach((c, i, a) => c.classList.toggle('old', i < a.length - 3));
   };
   BT.hooks.callout = (text, cls, sub) => {
-    if (!E.co) return;
+    if (!E.co || off()) return;
     const d = el('div', { class: 'co ' + (cls || '') }, text, sub ? el('small', null, sub) : null);
     E.co.append(d); while (E.co.children.length > 3) E.co.firstChild.remove();
     setTimeout(() => d.remove(), 950);
   };
   BT.hooks.chainOpen = C => {
-    if (!E.chain) return;
+    if (!E.chain || off()) return;
     E.chain.innerHTML = ''; E.chain.hidden = false;
     const card = (a, i) => el('div', { class: 'cc', onpointerdown: ev => { ev.preventDefault(); BT.chainPick(i); } },
       el('img', { src: portrait(a.modelId || a.id), alt: '' }), el('div', null, el('b', null, a.def.short), el('small', null, a.def.kit.chain.name.replace('Chain Attack: ', '')), el('kbd', null, i === 0 ? 'Q / 1' : 'W / 2')));
@@ -92,7 +93,7 @@
   };
   BT.hooks.chainClose = () => { if (E.chain) E.chain.hidden = true; };
   BT.hooks.cutin = (a, def) => {
-    if (!E.cut || !BT.T.cutins) return;
+    if (!E.cut || !BT.T.cutins || off()) return;
     const col = a.def.color;
     E.cut.innerHTML = ''; E.cut.hidden = false;
     E.cut.append(el('div', { class: 'stripe', style: { background: `linear-gradient(90deg, transparent, ${col} 15%, ${a.def.color2} 60%, transparent)` } }),
@@ -100,8 +101,8 @@
   };
   BT.hooks.cutinEnd = () => { if (E.cut) E.cut.hidden = true; };
   let vigT = 0;
-  BT.hooks.flash = (color) => { vigT = 0.18; if (E.vig) E.vig.className = color; };
-  BT.hooks.glitch = () => { if (!E.vig) return; E.vig.className = 'glitch'; vigT = 0.5; };
+  BT.hooks.flash = (color) => { if (off()) return; vigT = 0.18; if (E.vig) E.vig.className = color; };
+  BT.hooks.glitch = () => { if (!E.vig || off()) return; E.vig.className = 'glitch'; vigT = 0.5; };
 
   /* ----------------------------------------------------------- update -- */
   const _v = new THREE.Vector3();

@@ -19,6 +19,22 @@ Or locally: open `index.html` in a browser (no server or install needed).
   Miasma Ravager - Huskron and the **Miasma Priest**; Faun, Specter, Dullahan and **Notorious - Dead End Butcher**.
 - **The Battle Lab**: every rule and number as a toggle or slider, saved in your browser.
 
+## Signing in, and Sixth Street
+
+As in Post Parade, the title screen runs a **live battle** behind the logo (a random squad on AUTO). **Register a Proxy**
+(a name and password, kept in this browser; each Proxy has its own squad, Battle Lab settings and records) or **log in**.
+A new Proxy chooses who they are, as in the real game: **Wise** or **Belle**, the siblings who run Random Play. The other
+one minds the shop.
+
+Home is **Sixth Street at dusk**, in voxels, to walk around in. **Random Play** (walk in through the door: its front
+comes away) has the **Hollow Deep Dive System** in the back room (into battle), the **shop computer** (Battle Lab), the
+**tutorial tapes** (How to Play) and the **notice board** by the door (your records: dives, clears, best rank on every
+battleground). Your sibling is behind the counter, **Eous** waddles after you, and the Agents are out on the street:
+Caesar by her bike, Burnice at Chop's Noodles, Aria at Bardic Needle, Yixuan meditating on a bench under her bird. Talk
+to one to read her file and take her into the Hollow. Walk with **WASD / arrows** (Shift runs), **E** uses what has a
+sign over it; or click / tap where to go (a sign: go and use it), or drag to steer on a phone. The dock at the bottom
+goes straight to every place.
+
 ## How the enemies fight
 
 Each enemy's moves follow its official combat notes (Zenless Zone Zero Wiki) and the enemy attacks in the official skill
@@ -77,7 +93,9 @@ Plain JavaScript and three.js (r128, vendored in `lib/`), no build step. Every m
 | File | What it does |
 |---|---|
 | `js/voxel.js` | Voxel grid, mesher (ambient occlusion), rigs |
-| `js/models-*.js` | Agents, companions and enemies, matched to official art |
+| `js/models-*.js` | Agents, companions, enemies, and the Proxies (Wise, Belle) and Eous, matched to official art |
+| `js/auth.js` | Proxy accounts: register / sign in (salted SHA-256 in this browser), per-account saves and records |
+| `js/lobby.js` | Sixth Street: the walkable home screen, its places, people and signs |
 | `js/arenas.js` | The three battlegrounds |
 | `js/data.js` | **All the numbers**: rules, kits, enemies, encounters, Battle Lab defaults |
 | `js/battle.js` | The battle: damage, Daze/Stun/Chains, anomalies, assists, ultimates, hazards, camera |
@@ -86,7 +104,7 @@ Plain JavaScript and three.js (r128, vendored in `lib/`), no build step. Every m
 | `js/enemy-moves.js` | How the enemies move and attack: poses, footwork, props (Pompey's bike and hover guns), effects |
 | `js/anim.js` · `js/fx.js` · `js/audio.js` | Procedural animation, effects, synthesized sound |
 | `js/hud.js` · `js/menu.js` · `js/main.js` | HUD, menus, boot and input |
-| `tools/` | Dev only: a model/arena viewer and headless test scripts (`node tools/play.js`, `tools/moves-test.js`, `tools/enemy-test.js`) |
+| `tools/` | Dev only: a model/arena viewer and headless test scripts (`node tools/play.js`, `tools/moves-test.js`, `tools/enemy-test.js`, `tools/flow-test.js`, `tools/phone-test.js`) |
 
 Zenless Zone Zero, its characters and enemies belong to HoYoverse / miHoYo. This is a non-commercial fan project, not
 affiliated with or endorsed by them, and will come down on request.

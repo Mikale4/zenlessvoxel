@@ -50,7 +50,7 @@
   };
   const last = {};
   S.play = (name, minGap) => {
-    if (!ctx || S.vol <= 0 || !lib[name]) return;
+    if (!ctx || S.vol <= 0 || S.quiet || !lib[name]) return;
     const t = performance.now(); if (last[name] && t - last[name] < (minGap || 40)) return; last[name] = t;
     try { lib[name](); } catch (e) { /* never let sound break the game */ }
   };
