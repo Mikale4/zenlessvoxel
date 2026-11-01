@@ -93,7 +93,7 @@ three battlegrounds. How often AUTO won at the final settings (pooled rounds; sm
 | 2v2 Tag Team | 11 of 11 | 5 of 8 | 4 of 12 | 45-55 s |
 | 2v2 All-Out | 11 of 11 | 6 of 12 | 2 of 8 | 35-45 s |
 | 3v3 Tag Team | 11 of 11 | 3 of 6 | 4 of 11 | 60-75 s |
-| 3v3 All-Out | 11 of 11 | 8 of 15 | 4 of 12 | 30-50 s |
+| 3v3 All-Out | 11 of 11 | 7 of 15 | 4 of 12 | 30-50 s |
 
 A single fight swings a lot with the matchup (two Anomaly Agents lean on Anomalies that do not land on Agents; a
 Yixuan and Caesar pair hits hard). You playing by hand will land somewhere else entirely: tell me what feels off.
