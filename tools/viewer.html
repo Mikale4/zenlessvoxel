@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Voxel Viewer</title>
+<style>
+  html,body{margin:0;height:100%;background:#15161c;color:#ddd;font:13px system-ui,sans-serif;overflow:hidden}
+  #info{position:fixed;left:8px;top:6px;z-index:2;white-space:pre;text-shadow:0 1px 2px #000}
+  canvas{display:block}
+</style>
+</head>
+<body>
+<div id="info"></div>
+<script src="../lib/three.min.js"></script>
+<script src="../js/util.js"></script>
+<script src="../js/voxel.js"></script>
+<script>window.MODELS = window.MODELS || {}; window.ARENAS = window.ARENAS || {};</script>
+<script src="../js/models-base.js"></script>
+<script src="../js/models-agents.js" onerror="void 0"></script>
+<script src="../js/models-enemies.js" onerror="void 0"></script>
+<script src="../js/arenas.js" onerror="void 0"></script>
+<script>
+/* Dev viewer (not part of the game).
+   ?model=id[,id2,...]  line models up side by side      &yaw=0.5  &pose=walk|attack|tpose  &zoom=1
+   ?arena=id            show a battleground from the battle camera   &cam=wide|close|side
+   Sets window.__ready = true once the first frame is drawn (for screenshots). */
+const Q = new URLSearchParams(location.search);
+const W = innerWidth, H = innerHeight;
+const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+renderer.setPixelRatio(1); renderer.setSize(W, H);
+renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+document.body.appendChild(renderer.domElement);
+const scene = new THREE.Scene();
+const cam = new THREE.PerspectiveCamera(36, W / H, 0.1, 400);
+const info = document.getElementById('info');
+const t0 = performance.now();
+
+function lights(L) {
+  L = L || {};
+  scene.add(new THREE.HemisphereLight(L.hemiSky || 0xdde6ff, L.hemiGround || 0x30303a, L.hemiI || 0.75));
+  const sun = new THREE.DirectionalLight(L.sun || 0xffffff, L.sunI || 0.85);
+  const d = L.sunDir || [6, 14, 8]; sun.position.set(d[0], d[1], d[2]);
+  sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
+  const sc = sun.shadow.camera; sc.left = -16; sc.right = 16; sc.top = 16; sc.bottom = -16; sc.near = 1; sc.far = 60;
+  sun.shadow.bias = -0.0008;
+  scene.add(sun); scene.add(sun.target);
+}
+
+let animFn = null;
+const arenaId = Q.get('arena');
+if (arenaId) {
+  const A = ARENAS[arenaId];
+  if (!A) { info.textContent = 'no arena ' + arenaId; }
+  else {
+    const S = A.sky || {};
+    scene.background = new THREE.Color(S.bottom || 0x222233);
+    VX.sky(scene, S.top != null ? S.top : 0x223, S.mid, S.bottom);
+    if (S.fog != null) scene.fog = new THREE.Fog(S.fog, S.fogNear || 30, S.fogFar || 90);
+    lights(A.light);
+    const tb = performance.now();
+    const built = A.build(scene) || {};
+    const ms = performance.now() - tb;
+    let tris = 0; scene.traverse(o => { if (o.isMesh && o.geometry.index) tris += o.geometry.index.count / 3; });
+    const b = built.bounds || [-11, -7, 11, 7];
+    // the bounds of the fight area, drawn as a thin outline
+    const pts = [[b[0], b[1]], [b[2], b[1]], [b[2], b[3]], [b[0], b[3]], [b[0], b[1]]].map(p => new THREE.Vector3(p[0], 0.05, p[1]));
+    if (Q.get('bounds') !== '0') scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: 0x00ffaa })));
+    const mode = Q.get('cam') || 'wide';
+    if (mode === 'wide') { cam.position.set(0, 10.5, 15.5); cam.lookAt(0, 0.6, -0.8); }
+    else if (mode === 'close') { cam.position.set(2, 4.2, 8); cam.lookAt(0, 1, 0); }
+    else if (mode === 'side') { cam.position.set(18, 7, 4); cam.lookAt(0, 1, -1); }
+    else if (mode === 'top') { cam.position.set(0, 30, 0.1); cam.lookAt(0, 0, 0); }
+    // a few stand-ins at fighting positions, for scale
+    if (Q.get('dummies') !== '0' && MODELS.caesar) {
+      for (const [id, x, z, ry] of [['caesar', -2.5, 1, 0.9], ['burnice', 2.5, -1, -2.2]]) {
+        if (!MODELS[id]) continue; const R = VX.rig(id, MODELS[id]); R.root.position.set(x, 0, z); R.root.rotation.y = ry; scene.add(R.root);
+      }
+    }
+    info.textContent = `${A.name || arenaId}  build ${ms.toFixed(0)} ms  ${Math.round(tris / 1000)}k tris`;
+    if (built.anim) animFn = built.anim;
+  }
+} else {
+  scene.background = new THREE.Color(0x2a2c36);
+  lights();
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(60, 60), new THREE.MeshLambertMaterial({ color: 0x4a4d58 }));
+  ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
+  const ids = (Q.get('model') || Object.keys(MODELS).join(',')).split(',').filter(Boolean);
+  const yaw = parseFloat(Q.get('yaw') || '0.45'), pose = Q.get('pose') || '';
+  let x = 0, maxH = 0; const rigs = [];
+  for (const id of ids) {
+    const D = MODELS[id]; if (!D) continue;
+    const R = VX.rig(id, D); const w = (D.width || 14) * D.scale;
+    R.root.position.set(x + w / 2, D.kind === 'float' ? 1.7 : 0, 0); R.root.rotation.y = yaw; scene.add(R.root); // floaters fly
+    rigs.push(R); x += w + 0.6; maxH = Math.max(maxH, R.height);
+    const P = R.parts;
+    if (pose === 'walk') { if (P.legL) P.legL.rotation.x = -0.6; if (P.legR) P.legR.rotation.x = 0.6; if (P.armL) P.armL.rotation.x = 0.6; if (P.armR) P.armR.rotation.x = -0.6;
+      if (P.legFL) { P.legFL.rotation.x = -0.6; P.legBR.rotation.x = -0.6; P.legFR.rotation.x = 0.6; P.legBL.rotation.x = 0.6; } }
+    if (pose === 'attack') { if (P.armR) { P.armR.rotation.x = -2.2; } if (P.torso) P.torso.rotation.y = 0.5; }
+    if (pose === 'tpose') { if (P.armL) P.armL.rotation.z = 1.4; if (P.armR) P.armR.rotation.z = -1.4; }
+  }
+  const zoom = parseFloat(Q.get('zoom') || '1');
+  const cx = x / 2, span = Math.max(x, maxH * 1.6) / zoom;
+  cam.position.set(cx, maxH * 0.7 + span * 0.12, span * 0.85 + 0.8); cam.lookAt(cx, maxH * 0.5, 0);
+  let tris = 0; scene.traverse(o => { if (o.isMesh && o.geometry.index) tris += o.geometry.index.count / 3; });
+  info.textContent = ids.join('  ') + `   ${Math.round(tris / 1000)}k tris`;
+}
+let frames = 0;
+function loop() {
+  const t = (performance.now() - t0) / 1000;
+  if (animFn) animFn(t, 1 / 60);
+  renderer.render(scene, cam);
+  if (++frames === 3) window.__ready = true;
+  requestAnimationFrame(loop);
+}
+loop();
+</script>
+</body>
+</html>
