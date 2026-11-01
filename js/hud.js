@@ -82,7 +82,7 @@
     if (!E.chain) return;
     E.chain.innerHTML = ''; E.chain.hidden = false;
     const card = (a, i) => el('div', { class: 'cc', onpointerdown: ev => { ev.preventDefault(); BT.chainPick(i); } },
-      el('img', { src: portrait(a.id), alt: '' }), el('div', null, el('b', null, a.def.short), el('small', null, a.def.kit.chain.name.replace('Chain Attack: ', '')), el('kbd', null, i === 0 ? '1 / ←' : '2 / →')));
+      el('img', { src: portrait(a.modelId || a.id), alt: '' }), el('div', null, el('b', null, a.def.short), el('small', null, a.def.kit.chain.name.replace('Chain Attack: ', '')), el('kbd', null, i === 0 ? '1 / ←' : '2 / →')));
     E.chainTb = el('i');
     const mid = el('div', { class: 'mid' }, 'CHAIN', el('div', { class: 'tb' }, E.chainTb), el('small', null, `${C.tgt.def.name} · ${C.tgt.chainsLeft + 1} left`), E.chainUlt = el('small', null, ''));
     if (C.opts[0]) E.chain.append(card(C.opts[0], 0));
@@ -121,7 +121,7 @@
     // main panel
     const M = E.main;
     if (ag) {
-      if (M.img.dataset.id !== ag.id) { M.img.src = portrait(ag.id); M.img.dataset.id = ag.id; M.name.textContent = ag.def.name; M.spec.textContent = `${ag.def.spec} · ${D.ATTR[ag.def.attr].name}`; }
+      if (M.img.dataset.id !== ag.modelId) { M.img.src = portrait(ag.modelId || ag.id); M.img.dataset.id = ag.modelId; M.name.textContent = ag.def.name; M.spec.textContent = `${ag.def.spec} · ${D.ATTR[ag.def.attr].name}`; }
       M.hp.style.width = pct(ag.hp, ag.hpMax); M.hpn.textContent = '';
       M.hpn.append(el('span', null, `HP ${U.fmt(Math.max(0, ag.hp))} / ${U.fmt(ag.hpMax)}`), el('span', null, B.aegis && B.aegis.hp > 0 && B.aegis.until > B.t ? `AEGIS ${U.fmt(B.aegis.hp)}` : ''));
       M.sh.style.width = B.aegis && B.aegis.hp > 0 && B.aegis.until > B.t ? pct(B.aegis.hp, B.aegis.max) : '0%';
@@ -146,7 +146,7 @@
     const others = [1, 2].map(k => B.squad[(B.active + k) % n]).filter(Boolean);
     E.subs.forEach((s, i) => {
       const a = others[i]; s.agent = a; s.root.hidden = !a; if (!a) return;
-      if (s.img.dataset.id !== a.id) { s.img.src = portrait(a.id); s.img.dataset.id = a.id; s.nm.textContent = a.def.short; }
+      if (s.img.dataset.id !== a.modelId) { s.img.src = portrait(a.modelId || a.id); s.img.dataset.id = a.modelId; s.nm.textContent = a.def.short; }
       s.hp.style.width = pct(a.hp, a.hpMax); s.en.style.width = pct(a.energy, a.def.energyMax); s.db.style.width = pct(a.decibels, R.decibelMax);
       s.root.classList.toggle('down', !a.alive); s.root.classList.toggle('dbmax', a.decibels >= R.decibelMax);
       s.key.textContent = a === nxt ? 'SPACE' : a === prv ? 'C' : '—';

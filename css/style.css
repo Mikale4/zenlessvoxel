@@ -172,6 +172,9 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .opt { background: var(--panel2); border: 2px solid transparent; padding: 8px 10px; text-align: left; }
 .opt b { font: 20px/1 var(--disp); letter-spacing: 1px; } .opt small { display: block; font: 600 11px var(--font); color: var(--dim); margin-top: 3px; }
 .opt.sel { border-color: var(--yel); }
+.forms { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.forms > span { grid-column: 1 / -1; font: 700 11px var(--font); color: var(--dim); letter-spacing: 1px; }
+.forms .opt small { font-size: 10px; }
 .kit { background: var(--panel); padding: 10px 12px; font-size: 12px; line-height: 1.45; }
 .kit h3 { margin: 0 0 4px; font: 24px/1 var(--disp); letter-spacing: 1px; color: #fff; }
 .kit .tags { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 6px; }

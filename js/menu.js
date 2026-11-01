@@ -12,6 +12,7 @@
   let sel = U.store.get('setup', { squad: ['caesar', 'burnice', 'yixuan'], arena: 'outer', encounter: 'patrol', look: {} });
   if (!sel.squad || !sel.squad.length) sel.squad = ['caesar', 'burnice', 'yixuan'];
   if (!D.ENCOUNTERS[sel.arena]) sel.arena = 'outer';
+  if (!sel.look) sel.look = {};
   let kitFocus = sel.squad[0];
   const save = () => U.store.set('setup', sel);
   MENU.saveTuning = () => U.store.set('tuning', BT.T);
@@ -19,7 +20,7 @@
   /* ---------------------------------------------------------------- title */
   MENU.title = () => {
     scr().innerHTML = '';
-    GAME.preview(sel.arena, sel.squad);
+    GAME.preview(sel.arena, sel.squad, sel.look);
     const s = el('div', { class: 'scr title' }, el('div', { class: 'logo' },
       el('h1', null, 'ZENLESS ', el('span', null, 'VOXEL'), ' ZONE'),
       el('p', null, 'BATTLE LAB · AGENTS FIGHT · YOU COMMAND'),
@@ -31,7 +32,7 @@
   /* ---------------------------------------------------------------- setup */
   MENU.setup = () => {
     scr().innerHTML = '';
-    GAME.preview(sel.arena, sel.squad);
+    GAME.preview(sel.arena, sel.squad, sel.look);
     const left = el('div', { class: 'col' }), mid = el('div', { class: 'col' }), right = el('div', { class: 'col' });
     // squad
     left.append(el('h2', null, 'SQUAD', el('small', null, 'pick 3 · the first is on the field')));
@@ -44,9 +45,9 @@
         if (k >= 0) { if (sel.squad.length > 1) sel.squad.splice(k, 1); }
         else { if (sel.squad.length >= 3) sel.squad.pop(); sel.squad.push(id); }
         save(); MENU.setup();
-      } }, i >= 0 ? el('span', { class: 'ord' }, String(i + 1)) : null, el('img', { src: portrait(id), alt: A.name }), el('b', null, A.name), el('small', null, `${A.spec} · ${D.ATTR[A.attr].name} · ${A.faction}`)));
+      } }, i >= 0 ? el('span', { class: 'ord' }, String(i + 1)) : null, el('img', { src: portrait(BT.modelFor(id, sel.look)), alt: A.name }), el('b', null, A.name), el('small', null, `${A.spec} · ${D.ATTR[A.attr].name} · ${A.faction}`)));
     }
-    left.append(cards, kitPanel(kitFocus));
+    left.append(cards, ...Object.keys(D.AGENTS).filter(id => D.AGENTS[id].forms && (sel.squad.includes(id) || id === kitFocus)).map(formPicker), kitPanel(kitFocus));
     // battleground + encounter
     mid.append(el('div', { style: { flex: 1 } }));
     right.append(el('h2', null, 'BATTLEGROUND'));
@@ -67,6 +68,14 @@
       el('div', { class: 'hint' }, `AUTO is ${BT.T.auto ? 'ON' : 'OFF'} (toggle in battle with T)`)));
     scr().append(el('div', { class: 'scr setup' }, left, mid, right));
   };
+  /* Agents with more than one look (Aria: idol / construct) get a switch */
+  function formPicker(id) {
+    const A = D.AGENTS[id]; if (!A || !A.forms) return null;
+    const cur = sel.look[id] || Object.keys(A.forms)[0];
+    const row = el('div', { class: 'forms' }, el('span', null, `${A.short.toUpperCase()}'S FORM`));
+    for (const k in A.forms) row.append(el('button', { class: 'opt form' + (k === cur ? ' sel' : ''), title: A.forms[k].note, onclick: () => { SFX.play('ui'); sel.look[id] = k; save(); MENU.setup(); } }, el('b', null, A.forms[k].name), el('small', null, A.forms[k].note)));
+    return row;
+  }
   function kitPanel(id) {
     const A = D.AGENTS[id]; if (!A) return el('div');
     const K = A.kit, names = [];
@@ -82,7 +91,7 @@
 
   MENU.deploy = () => {
     scr().innerHTML = '';
-    GAME.startBattle({ squad: sel.squad.slice(), arena: sel.arena, encounter: sel.encounter });
+    GAME.startBattle({ squad: sel.squad.slice(), arena: sel.arena, encounter: sel.encounter, look: Object.assign({}, sel.look) });
   };
 
   /* --------------------------------------------------------- Battle Lab */

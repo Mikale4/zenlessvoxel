@@ -46,8 +46,11 @@
       anim: { state: 'idle', t: 0, th: 0.3, dur: 1, act: null, phase: 0, speed: 0, side: 1 }, state: 'idle', stT: 0, act: null, cds: {}, flash: 0,
     };
   }
-  function makeAgent(id, slot) {
-    const def = D.AGENTS[id], a = makeEnt('agent', id, def, id);
+  /* the model an Agent wears: her chosen form (Aria: idol or construct) */
+  BT.modelFor = (id, look) => { const f = D.AGENTS[id].forms, k = look && look[id]; return f && k && f[k] && MODELS[f[k].model] ? f[k].model : id; };
+  function makeAgent(id, slot, look) {
+    const def = D.AGENTS[id], modelId = BT.modelFor(id, look), a = makeEnt('agent', id, def, modelId);
+    a.modelId = modelId;
     Object.assign(a, {
       slot, st: Object.assign({}, def.stats), hpMax: def.stats.hp, hp: def.stats.hp, energy: def.resource === 'adrenaline' ? def.energyMax : 45, decibels: 600,
       dodgeCharges: R.dodgeCharges, dodgeCd: 0, combo: 0, lastBasic: -9, queue: [], gap: 0, counterUntil: 0, launchedUntil: 0,
@@ -84,7 +87,7 @@
     const built = BT.world.loadArena(opts.arena);
     const B = BT.B = {
       opts, arena: built.A, built, bounds: built.bounds, obstacles: built.obstacles || [], barrels: (built.barrels || []).map(b => Object.assign({ alive: true }, b)),
-      t: 0, real: 0, phase: 'intro', introT: 0, squad: opts.squad.map((id, i) => makeAgent(id, i)), active: 0, enemies: [], projs: [], threats: [], zones: [],
+      t: 0, real: 0, phase: 'intro', introT: 0, squad: opts.squad.map((id, i) => makeAgent(id, i, opts.look)), active: 0, enemies: [], projs: [], threats: [], zones: [],
       wave: 0, waves: enc.waves, enc, addsDone: false, assist: Math.min(R.assistPointsMax, T.assistPoints != null ? T.assistPoints : R.assistPointsStart),
       swapCd: 0, chain: null, cutin: null, slow: null, freeze: 0, paused: false, aegis: null, veil: 0, fandom: [], focus: null,
       cam: { x: 0, z: 2, zoom: 1, yaw: 0, k: 4, shake: 0, shot: null }, hazardT: rnd(8, 12), result: null, auto: !!T.auto,

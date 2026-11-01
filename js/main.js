@@ -52,11 +52,12 @@
     r.setPixelRatio(1); r.setSize(size, size);
     const sc = new THREE.Scene(), cam = new THREE.PerspectiveCamera(30, 1, 0.05, 50);
     sc.add(new THREE.HemisphereLight(0xffffff, 0x404050, 0.9)); const dl = new THREE.DirectionalLight(0xffffff, 0.7); dl.position.set(2, 3, 4); sc.add(dl);
-    for (const id in D.AGENTS) {
+    const list = []; for (const id in D.AGENTS) { list.push([id, id]); const f = D.AGENTS[id].forms; if (f) for (const k in f) if (f[k].model !== id && MODELS[f[k].model]) list.push([f[k].model, id]); }
+    for (const [id, agent] of list) {
       const R = VX.rig(id, MODELS[id]); sc.add(R.root); R.root.rotation.y = 0.35;
       const h = R.height;
       cam.position.set(0.35, h * 0.86, 1.55); cam.lookAt(0, h * 0.8, 0);
-      const bg = new THREE.Color(D.AGENTS[id].color); sc.background = bg.multiplyScalar(0.35);
+      const bg = new THREE.Color(D.AGENTS[agent].color); sc.background = bg.multiplyScalar(0.35);
       r.render(sc, cam); P[id] = r.domElement.toDataURL('image/png');
       sc.remove(R.root);
     }
@@ -70,14 +71,15 @@
   function clearPreview() { if (!preview) return; for (const e of preview.ents) e.rig.dispose(); preview = null; }
   const GAME = {
     mode: 'menu',
-    preview(arenaId, squad) {
+    preview(arenaId, squad, look) {
       if (GAME.mode !== 'menu') return;
-      const key = arenaId + '|' + squad.join(',');
+      const models = squad.map(id => BT.modelFor(id, look));
+      const key = arenaId + '|' + models.join(',');
       if (preview && preview.key === key) return;
       clearPreview();
       const built = world.loadArena(arenaId);
       const ents = squad.map((id, i) => {
-        const R = VX.rig(id, MODELS[id]), obj = new THREE.Group(), body = new THREE.Group(); body.add(R.root); obj.add(body); scene.add(obj);
+        const R = VX.rig(models[i], MODELS[models[i]]), obj = new THREE.Group(), body = new THREE.Group(); body.add(R.root); obj.add(body); scene.add(obj);
         const x = (i - (squad.length - 1) / 2) * 1.8, z = 2 + Math.abs(i - (squad.length - 1) / 2) * -0.6;
         obj.position.set(x, 0, z); obj.rotation.y = -x * 0.08;
         return { rig: R, obj, body, kind: 'humanoid', stance: D.AGENTS[id].stance, seed: i * 3.1, anim: { state: 'idle', t: 0, speed: 0, phase: 0 } };

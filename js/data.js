@@ -150,6 +150,7 @@
       stats: { hp: 7800, atk: 2900, def: 600, impact: 86, ap: 365, am: 160, cr: 0.1, cd: 0.5, er: 1.35, speed: 4.6 },
       ai: { range: 2.2, dodge: 0.82, reflex: 0.6, aggr: 0.95 },
       energyMax: 120, resource: 'fandom',
+      forms: { idol: { name: 'Idol', model: 'aria', note: 'Her projected stage persona: bright and high-energy.' }, construct: { name: 'Construct', model: 'ariaRobot', note: 'Her true form, an A-H0L0 Type Intelligent Tactical Construct: shy, soft-spoken. Same kit.' } },
       core: [
         ['Core Passive: Innate Stage Presence', 'Aria has +45 Anomaly Proficiency. When the 3rd charge level of Perfect Pitch lands as a heavy attack on an enemy suffering an Attribute Anomaly, it triggers Abloom: an extra instance of that anomaly\'s DMG (scaled by Aria\'s Anomaly Mastery), 50% higher if the enemy is Stunned.'],
         ['Fandom Power', 'The 4th hit of Sweet Melody, Full-Sugar Electronica - No Ice, both EX Specials (3 each) and Dream Collab (4) put Fandom Power on the stage, up to 6. Perfect Pitch soaks up nearby Fandom Power: +1 charge level and +10% buildup each (max 2).'],
