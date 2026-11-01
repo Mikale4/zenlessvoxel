@@ -160,7 +160,8 @@
         const n = h3(ix, 3, iz); const edge = Math.abs(x) > 22 || z > 15 || z < -21;
         return edge && n < 0.4 ? MOSS : n < 0.33 ? STONE : n < 0.66 ? STONE2 : STONE3;
       });
-      make(scene, 1.0, g => { g.box(-26, -8, -24, 26, -1, 18, (x, y, z) => y === -1 ? 0x7c7e84 : (h3(x, y, z) < 0.5 ? 0x6e7076 : 0x7c7e84)); g.cut(-25, -8, -23, 25, -2, 17); }, 0, 0.5, 0);
+      // its stone base: the top sits just under the courtyard's slab (level with it, the two faces fought and the floor flickered)
+      make(scene, 1.0, g => { g.box(-26, -8, -24, 26, -1, 18, (x, y, z) => y === -1 ? 0x7c7e84 : (h3(x, y, z) < 0.5 ? 0x6e7076 : 0x7c7e84)); g.cut(-25, -8, -23, 25, -2, 17); }, 0, 0, 0);
       // balustrade around the edge (not at the back, where the temple stands)
       make(scene, 0.25, g => {
         const rail = (x0, z0, x1, z1) => { const n = Math.max(Math.abs(x1 - x0), Math.abs(z1 - z0)); for (let i = 0; i <= n; i++) { const x = x0 + Math.sign(x1 - x0) * i, z = z0 + Math.sign(z1 - z0) * i; g.box(x, 0, z, x, 1, z, 0xc8cace); if (i % 8 === 0) g.box(x, 0, z, x, 4, z, 0xb4b6bc); else g.set(x, 3, z, 0xc8cace); g.set(x, 4, z, i % 8 === 0 ? 0xd8dade : 0xbabcc2); } };
