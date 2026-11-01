@@ -65,7 +65,7 @@
       el('button', { class: 'btn', onclick: () => { SFX.unlock(); MENU.deploy(); } }, 'DEPLOY'),
       el('button', { class: 'btn dark small', onclick: () => MENU.lab() }, 'BATTLE LAB'),
       el('button', { class: 'btn dark small', onclick: () => MENU.howto() }, 'HOW TO PLAY'),
-      el('div', { class: 'hint' }, `AUTO is ${BT.T.auto ? 'ON' : 'OFF'} (toggle in battle with T)`)));
+      el('div', { class: 'hint' }, BT.T.auto ? 'AUTO is ON: the game moves your Agent and gives the commands (T toggles it in battle)' : `AUTO is OFF: you move the Agent (${window.GAME && GAME.touch ? 'drag on the battlefield' : 'arrow keys'}) and give the commands; she fights on her own (T toggles it)`)));
     scr().append(el('div', { class: 'scr setup' }, left, mid, right));
   };
   /* Agents with more than one look (Aria: idol / construct) get a switch */
@@ -124,13 +124,14 @@
   MENU.howto = () => {
     const k = (key, what) => el('tr', null, el('td', null, ...key.split(' ').map(x => el('kbd', null, x))), el('td', null, what));
     const box = el('div', { class: 'box' }, el('h2', null, 'HOW TO PLAY'),
-      el('p', null, 'Like Pallet to Pewter: your Agents fight on their own, in real time. They pick their skills, chain their combos, spend Energy, and try to dodge what they see coming. You are the commander. Turn on AUTO and the game gives the commands too.'),
+      el('p', null, 'Like Pallet to Pewter: your Agents fight on their own, in real time. They pick their skills, chain their combos, spend Energy, and try to dodge what they see coming. You are the commander, and with AUTO off you also move the Agent on the field (arrow keys, or drag anywhere on a phone): she attacks whatever is in range, but goes where you take her. Turn on AUTO and the game moves her and gives the commands too.'),
       el('h4', null, 'Commands'),
-      el('table', { class: 'keys' }, k('Space', 'Swap to the next Agent. During an enemy\'s gold flash this is a Defensive Assist (parry); on a red flash, or with no Assist Points, the incoming Agent Perfect Dodges. While your Agent is launched it is a Quick Assist.'),
-        k('C', 'Swap to the previous Agent (same rules).'), k('1 2 3', 'Swap to that squad slot.'),
-        k('Q', 'Ultimate, when the on-field Agent\'s Decibels are at MAXIMUM (Yixuan: or 120 Technique Points for Endless Talisman Suppression).'),
+      el('table', { class: 'keys' }, k('← ↑ ↓ →', 'Move the Agent on the field (AUTO off). On a phone: drag anywhere on the battlefield; the stick appears under your thumb.'), k('W', 'Swap to the next Agent. During an enemy\'s gold flash this is a Defensive Assist (parry); on a red flash, or with no Assist Points, the incoming Agent Perfect Dodges. While your Agent is launched it is a Quick Assist.'),
+        k('Q', 'Swap to the previous Agent (same rules).'), k('1 2 3', 'Swap to that squad slot.'),
+        k('R', 'Ultimate, when the on-field Agent\'s Decibels are at MAXIMUM (Yixuan: or 120 Technique Points for Endless Talisman Suppression).'),
         k('E', 'Call an EX Special Attack (spends Energy / Adrenaline).'), k('Tab', 'Change the focus target (or click an enemy).'),
-        k('1 2 ← →', 'During a Chain Attack: pick who follows up.'), k('T', 'AUTO on/off.'), k('Esc', 'Tactics menu (stops time).')),
+        k('Q W', 'During a Chain Attack: pick who follows up (left / right; 1 / 2 also work).'), k('T', 'AUTO on/off: AUTO moves your Agent and gives your commands.'), k('Esc', 'Tactics menu (stops time).')),
+      el('p', null, 'On a phone every command has a button; tap an enemy to focus it, tap a squad card to swap to her.'),
       el('h4', null, 'The rules (from the official game)'),
       el('ul', null,
         el('li', null, 'Hits build Daze. A full Daze bar Stuns the enemy: it cannot act and takes ×1.5 DMG. A heavy hit (combo finishers, Specials, EX, counters) on a Stunned enemy opens a Chain Attack: 1 chain on normal enemies, 2 on elites, 3 on bosses.'),

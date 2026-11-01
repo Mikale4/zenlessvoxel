@@ -40,16 +40,17 @@
     // top right
     E.tm = el('div', { class: 'tm' }); E.wv = el('div', { class: 'wv' });
     E.auto = el('button', { class: 'auto pe', onpointerdown: ev => { ev.preventDefault(); BT.setAuto(!BT.B.auto); HUD.saveAuto(); } }, 'AUTO');
-    root.append(el('div', { class: 'topright' }, E.tm, E.wv, E.auto));
+    E.moveHint = el('div', { class: 'movehint' });
+    root.append(el('div', { class: 'topright' }, E.tm, E.wv, E.auto, E.moveHint));
     // log, callouts, floating bars
     E.log = el('div', { class: 'log' }); E.co = el('div', { class: 'callouts' }); E.floats = el('div');
     root.append(E.log, E.co, E.floats);
     // commands
     const cmd = (label, key, fn, cls) => { const b = el('button', { class: 'cmd pe ' + (cls || ''), onpointerdown: ev => { ev.preventDefault(); SFX.unlock(); fn(); } }, el('span', null, label), el('small', null, key)); return b; };
-    E.cPrev = cmd('◀ SWAP', 'C', () => BT.cmdSwap(-1));
-    E.cNext = cmd('SWAP ▶', 'SPACE', () => BT.cmdSwap(1));
+    E.cPrev = cmd('◀ SWAP', 'Q', () => BT.cmdSwap(-1));
+    E.cNext = cmd('SWAP ▶', 'W', () => BT.cmdSwap(1));
     E.cEx = cmd('EX', 'E', () => BT.cmdEx());
-    E.cUlt = cmd('ULT', 'Q', () => BT.cmdUlt(), 'ult');
+    E.cUlt = cmd('ULT', 'R', () => BT.cmdUlt(), 'ult');
     E.cTab = cmd('TARGET', 'TAB', () => BT.cmdFocus());
     E.cMenu = cmd('TACTICS', 'ESC', () => MENU.tactics());
     for (const b of [E.cPrev, E.cNext, E.cEx, E.cUlt, E.cTab, E.cMenu]) b.querySelector('span').className = 'lbl';
@@ -82,7 +83,7 @@
     if (!E.chain) return;
     E.chain.innerHTML = ''; E.chain.hidden = false;
     const card = (a, i) => el('div', { class: 'cc', onpointerdown: ev => { ev.preventDefault(); BT.chainPick(i); } },
-      el('img', { src: portrait(a.modelId || a.id), alt: '' }), el('div', null, el('b', null, a.def.short), el('small', null, a.def.kit.chain.name.replace('Chain Attack: ', '')), el('kbd', null, i === 0 ? '1 / ←' : '2 / →')));
+      el('img', { src: portrait(a.modelId || a.id), alt: '' }), el('div', null, el('b', null, a.def.short), el('small', null, a.def.kit.chain.name.replace('Chain Attack: ', '')), el('kbd', null, i === 0 ? 'Q / 1' : 'W / 2')));
     E.chainTb = el('i');
     const mid = el('div', { class: 'mid' }, 'CHAIN', el('div', { class: 'tb' }, E.chainTb), el('small', null, `${C.tgt.def.name} · ${C.tgt.chainsLeft + 1} left`), E.chainUlt = el('small', null, ''));
     if (C.opts[0]) E.chain.append(card(C.opts[0], 0));
@@ -115,7 +116,7 @@
     if (th && vigT <= 0 && E.vig) E.vig.className = (th.flash === 'gold' && B.assist > 0) ? 'gold' : 'red';
     else if (!th && vigT <= 0 && E.vig && E.vig.className !== '') E.vig.className = '';
     E.bars.classList.toggle('on', !!B.cutin || !!B.chain || !!(ag && ag.act && ['ult', 'ult2', 'chain'].includes(ag.act.kind)));
-    if (B.chain && E.chainTb) { E.chainTb.style.width = pct(B.chain.timer, BT.T.chainWindow); E.chainUlt.textContent = ag && (ag.decibels >= R.decibelMax) ? 'Q: ULTIMATE' : ''; }
+    if (B.chain && E.chainTb) { E.chainTb.style.width = pct(B.chain.timer, BT.T.chainWindow); E.chainUlt.textContent = ag && (ag.decibels >= R.decibelMax) ? 'R: ULTIMATE' : ''; }
     floats(B);
     if (acc < 1 / 30) return; acc = 0;
     // main panel
@@ -141,7 +142,7 @@
       r.push(`DODGE ${ag.dodgeCharges > 0 ? '●'.repeat(ag.dodgeCharges) : '…'}`);
       for (const t of r) M.res.append(el('span', null, t));
     }
-    // the other two: Space brings in the next, C the previous
+    // the other two: W brings in the next, Q the previous
     const n = B.squad.length, nxt = BT.nextAlive(1), prv = BT.nextAlive(-1);
     const others = [1, 2].map(k => B.squad[(B.active + k) % n]).filter(Boolean);
     E.subs.forEach((s, i) => {
@@ -149,7 +150,7 @@
       if (s.img.dataset.id !== a.modelId) { s.img.src = portrait(a.modelId || a.id); s.img.dataset.id = a.modelId; s.nm.textContent = a.def.short; }
       s.hp.style.width = pct(a.hp, a.hpMax); s.en.style.width = pct(a.energy, a.def.energyMax); s.db.style.width = pct(a.decibels, R.decibelMax);
       s.root.classList.toggle('down', !a.alive); s.root.classList.toggle('dbmax', a.decibels >= R.decibelMax);
-      s.key.textContent = a === nxt ? 'SPACE' : a === prv ? 'C' : '—';
+      s.key.textContent = a === nxt ? 'W' : a === prv ? 'Q' : '—';
     });
     E.assist.innerHTML = ''; E.assist.append(el('span', null, 'ASSIST '));
     for (let i = 0; i < R.assistPointsMax; i++) E.assist.append(el('i', { class: i < B.assist ? 'on' : '' }));
@@ -186,6 +187,7 @@
     const s = Math.floor(B.t); E.tm.textContent = `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
     E.wv.textContent = `${B.arena.name.toUpperCase()} · WAVE ${B.wave + 1}/${B.waves.length}`;
     E.auto.classList.toggle('on', !!B.auto); E.auto.textContent = B.auto ? 'AUTO: ON' : 'AUTO: OFF';
+    E.moveHint.textContent = B.auto ? 'She moves on her own' : (window.GAME && GAME.touch ? 'Drag to move' : '← ↑ ↓ → to move');
     // command buttons
     const qa = ag && ag.launchedUntil > B.t;
     for (const [b, who] of [[E.cNext, nxt], [E.cPrev, prv]]) {

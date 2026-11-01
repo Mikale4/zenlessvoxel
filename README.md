@@ -1,8 +1,8 @@
 # Zenless Voxel Zone — Battle Lab
 
 An unofficial, non-commercial **Zenless Zone Zero** fan game in voxels, built around one question first: what should the
-battles feel like? Like *Pallet to Pewter*, your Agents fight **on their own, in real time**, and **you are the commander**.
-Flip on **AUTO** and the game gives the commands too.
+battles feel like? Like *Pallet to Pewter*, your Agents fight **on their own, in real time**, and **you are the commander**: you move the
+Agent on the field and give the commands. Flip on **AUTO** and the game moves her and gives the commands too.
 
 **Play:** https://mikale4.github.io/zenlessvoxel/ (computer or phone). Settings are saved in your browser.
 
@@ -43,15 +43,19 @@ previews. Ground markings fill up until an area attack lands; *How to Play* list
 
 | Key | Command |
 |---|---|
-| `Space` / `C` / `1` `2` `3` | Swap Agents. On an enemy's **gold flash** this is a **Defensive Assist** (parry, costs Assist Points); on a **red flash** (or with no Assist Points) the incoming Agent **Perfect Dodges**. While your Agent is **launched**, it's a **Quick Assist**. |
-| `Q` | **Ultimate** when the on-field Agent's Decibels are at MAXIMUM (Yixuan: or 120 Technique Points). |
+| `←` `↑` `↓` `→` | **Move** the Agent on the field (AUTO off). She still fights on her own: the moment you let go she attacks whatever is in range. |
+| `W` / `Q` / `1` `2` `3` | Swap to the next / previous Agent / that slot. On an enemy's **gold flash** this is a **Defensive Assist** (parry, costs Assist Points); on a **red flash** (or with no Assist Points) the incoming Agent **Perfect Dodges**. While your Agent is **launched**, it's a **Quick Assist**. |
 | `E` | Call an **EX Special Attack**. |
-| `1` / `2` (or `←` / `→`) | Pick who follows up in a **Chain Attack**. |
+| `R` | **Ultimate** when the on-field Agent's Decibels are at MAXIMUM (Yixuan: or 120 Technique Points). |
+| `Q` / `W` (or `1` / `2`) | During a **Chain Attack**: pick who follows up (left / right). |
 | `Tab` or click | Change the focus target. |
-| `T` | **AUTO** on/off. |
+| `T` | **AUTO** on/off. AUTO moves your Agent and gives your commands; with it off you move her and command, and she fights on her own. |
 | `Esc` | **Tactics** menu (time stands still). |
 
-Everything also has an on-screen button for phones.
+**On a phone** (portrait or landscape): drag anywhere on the battlefield to move (a thumb stick appears under your
+thumb), tap the buttons for every command, tap an enemy to focus it, tap a squad card to swap to her. Phones start on a
+lighter graphics budget (fewer pixels, softer shadows, fewer particles), and if the frames still run slow the game
+steps it down on its own.
 
 ## The rules (from the official game)
 

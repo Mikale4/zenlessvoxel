@@ -2,11 +2,13 @@
    battle.js -- the battle: a squad of three Agents (one on the field at a
    time) against waves of enemies, in real time. The Agents fight on their
    own (ai.js); you command them, the way Pallet to Pewter's trainer does:
-     Swap (Space / C / 1-3) - on an enemy's flash it becomes an Assist, while
+     Swap (W / Q / 1-3) - on an enemy's flash it becomes an Assist, while
        your Agent is launched it becomes a Quick Assist
      Chain Attacks - pick who follows up when a Stunned enemy takes a heavy hit
-     Ultimate (Q) when an Agent's Decibels hit MAXIMUM, EX call (E)
+     Ultimate (R) when an Agent's Decibels hit MAXIMUM, EX call (E)
      Focus target (Tab / click), Tactics menu (Esc) that stops time, AUTO (T)
+   With AUTO off you also move the Agent on the field (arrow keys / touch
+   stick); she still picks and throws her attacks herself.
    Rules follow the official game (data.js RULES); numbers are tunable.
    ========================================================================== */
 (function () {
@@ -862,7 +864,7 @@
     if (BT.T.calmCam) { zoom = Math.max(zoom, 1.15); rate = 2; }
     const k = 1 - Math.exp(-rate * dt);
     C.x += (tx - C.x) * k; C.z += (tz - C.z) * k; C.zoom += (zoom - C.zoom) * k; C.yaw += (yaw - C.yaw) * (1 - Math.exp(-2 * dt)); C.roll = (C.roll || 0) + (roll - (C.roll || 0)) * k;
-    const d = 12.2 * C.zoom, hgt = 8.2 * C.zoom;
+    const d = 12.2 * C.zoom * (BT.camK || 1), hgt = 8.2 * C.zoom * (BT.camK || 1);   // camK: further back on a portrait screen
     let px = C.x + Math.sin(C.yaw) * d, pz = C.z + Math.cos(C.yaw) * d, py = hgt;
     if (C.shake > 0) { C.shake = Math.max(0, C.shake - dt * 1.6); const s = C.shake * 0.35; px += rnd(-s, s); py += rnd(-s, s); pz += rnd(-s, s); }
     cam.position.set(px, py, pz); cam.lookAt(C.x, 0.9, C.z - 0.4); cam.rotation.z += C.roll;

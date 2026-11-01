@@ -389,8 +389,8 @@
      Every knob the Battle Lab panel exposes. Saved per browser. */
   const TUNING_DEFS = [
     { group: 'Commands' },
-    { key: 'auto', label: 'AUTO: the game gives your commands', type: 'bool', def: false, help: 'Swaps, Assists, Chain picks, EX calls and Ultimates are made for you. Also on the battle screen (the AUTO button, or T).' },
-    { key: 'autoUlt', label: 'Agents fire Ultimates on their own', type: 'bool', def: false, help: 'Off: you call Ultimates (Q) when an Agent\'s Decibels hit MAXIMUM.' },
+    { key: 'auto', label: 'AUTO: the game moves your Agent and gives your commands', type: 'bool', def: false, help: 'On: she moves on her own, and Swaps, Assists, Chain picks, EX calls and Ultimates are made for you. Off: you move her (arrow keys, or drag on a phone) and give the commands; she still fights on her own. Also on the battle screen (the AUTO button, or T).' },
+    { key: 'autoUlt', label: 'Agents fire Ultimates on their own', type: 'bool', def: false, help: 'Off: you call Ultimates (R) when an Agent\'s Decibels hit MAXIMUM.' },
     { key: 'autoChain', label: 'Auto-pick a Chain Attack when the timer runs out', type: 'bool', def: true },
     { key: 'chainWindow', label: 'Chain Attack choice window (s)', type: 'range', min: 1, max: 6, step: 0.5, def: 3 },
     { key: 'chainSlow', label: 'Time speed during the Chain choice', type: 'range', min: 0, max: 0.5, step: 0.05, def: 0.08, help: '0 freezes the battle while you choose.' },

@@ -77,7 +77,7 @@
       if (A && A.kind === 'basic' && A.t >= (A.def.cancel || A.dur)) decide(a, dt, true);
       return;
     }
-    if (a.guardUntil > B.t) { a.anim.state = 'guard'; a.state = 'guard'; physics(a, dt, true); if (a.queue.length) { a.guardUntil = 0; a.state = 'idle'; } else return; }
+    if (a.guardUntil > B.t) { a.anim.state = 'guard'; a.state = 'guard'; physics(a, dt, true); if (a.queue.length || (!B.auto && moveInput())) { a.guardUntil = 0; a.state = 'idle'; } else return; }
     else if (a.state === 'guard') { a.state = 'idle'; a.anim.state = 'idle'; }
     if (a.gap > 0) { a.gap -= dt; physics(a, dt, true); return; }
     decide(a, dt, false);
@@ -94,6 +94,12 @@
       startSkill(a, q.def, q.kind, q.tgt || BT.pickTarget(a), q); return;
     }
     if (a.counterUntil > B.t) { a.counterUntil = 0; startSkill(a, K.counter, 'counter', a.counterTgt && a.counterTgt.alive ? a.counterTgt : BT.pickTarget(a)); return; }
+    // AUTO off: you move her (arrow keys or a drag); she still fights on her own
+    if (!B.auto) {
+      const mv = moveInput();
+      if (mv) { if (fromCombo && a.act) BT.endAct(a); steerManual(a, mv, dt); return; }
+      return decideManual(a, dt, fromCombo);
+    }
     const tgt = BT.pickTarget(a);
     if (!tgt) { if (fromCombo) return; a.moving = true; steer(a, 0, 3, a.st.speed * 0.5, dt); return; }
     // keep out of miasma pools
@@ -115,6 +121,54 @@
       return;
     }
     if (fromCombo && c.kind !== 'basic') return;  // combos only cancel into the next basic
+    startSkill(a, c.def, c.kind, tgt, c);
+  }
+
+  /* ---------------------------------------------------- manual movement --
+     With AUTO off the player steers the on-field Agent: BT.input is a
+     screen-space direction (x right, y up) with a strength k (0..1), filled
+     each frame from the arrow keys or the touch stick (main.js). She turns
+     to run that way; the moment the input lets go she fights whatever is in
+     range, exactly as she would on AUTO, but she does not chase. A basic
+     combo gives way to movement once its hit has landed; skills play out. */
+  BT.input = { x: 0, y: 0, k: 0 };
+  function moveInput() { const I = BT.input; return I && I.k > 0.15 ? I : null; }
+  BT.moveInput = moveInput;
+  function steerManual(a, I, dt) {
+    const B = B_(), y = B.cam.yaw || 0;
+    // the screen's up and right, on the floor: the camera looks along (-sin yaw, -cos yaw)
+    const wx = Math.cos(y) * I.x - Math.sin(y) * I.y, wz = -Math.sin(y) * I.x - Math.cos(y) * I.y, L = Math.hypot(wx, wz) || 1;
+    a.moving = true;
+    steer(a, a.x + wx / L * 3, a.z + wz / L * 3, a.st.speed * clamp(0.3 + I.k, 0.5, 1), dt);
+    a.face = turn(a.face, Math.atan2(wx, wz), 1 - Math.exp(-14 * dt));
+  }
+  function decideManual(a, dt, fromCombo) {
+    const B = B_(), K = a.def.kit;
+    const engage = Math.max(a.def.ai.range || 1.6, ...K.basic.map(b => b.reach || 1.6)) + 1.2;
+    let tgt = null, bv = -1e9, nearest = null, nd = 1e9;
+    for (const v of B.enemies) {
+      if (!v.alive || v.spawnT > 0) continue;
+      const d = dist(a, v) - v.rad;
+      if (d < nd) { nd = d; nearest = v; }
+      if (d > engage) continue;
+      const val = (v === B.focus ? 50 : 0) - d + (v.stun > 0 ? 4 : 0) + (v.rank === 'boss' ? 2 : v.rank === 'elite' ? 1 : 0) + (v === a.lastTgt ? 1.5 : 0);
+      if (val > bv) { bv = val; tgt = v; }
+    }
+    if (!tgt) { if (nearest && !fromCombo) a.face = turn(a.face, ang(a, nearest), 1 - Math.exp(-4 * dt)); return; }
+    a.lastTgt = tgt;
+    const called = a.exCall, c = choose(a, tgt, fromCombo); if (!c) return;
+    const reach = c.def.reach || 1.6, d = dist(a, tgt) - tgt.rad;
+    if (d > reach) {
+      if (called && !a.exCall) a.exCall = true;       // the EX call waits until she is in range
+      if (fromCombo) return;
+      a.face = turn(a.face, ang(a, tgt), 1 - Math.exp(-10 * dt));
+      if (d - reach < 1.2) {                           // only a half-step in: no chasing
+        a.moving = true; const ax = ang(tgt, a), want = Math.max(0.6, reach - 0.3) + tgt.rad;
+        steer(a, tgt.x + Math.sin(ax) * want, tgt.z + Math.cos(ax) * want, a.st.speed * 0.6, dt);
+      }
+      return;
+    }
+    if (fromCombo && c.kind !== 'basic') return;
     startSkill(a, c.def, c.kind, tgt, c);
   }
 

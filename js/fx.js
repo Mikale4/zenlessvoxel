@@ -24,9 +24,11 @@
   }
   let GLOW, SOLID;
   /* p({x,y,z, vx,vy,vz, g (gravity), drag, life, size, size1, col, glow (default true), spin}) */
+  FX.budget = 1;   // share of particles actually spawned (main.js lowers it on phones and slow frames)
   FX.p = o => {
     const P = o.glow === false ? SOLID : GLOW;
     if (!P || P.list.length >= P.max) return;
+    if (FX.budget < 1 && Math.random() > FX.budget) return;
     P.list.push({ x: o.x, y: o.y, z: o.z, vx: o.vx || 0, vy: o.vy || 0, vz: o.vz || 0, g: o.g || 0, drag: o.drag || 0, t: 0, life: o.life || 0.5, s0: o.size || 0.12, s1: o.size1 != null ? o.size1 : 0, col: o.col != null ? o.col : 0xffffff, spin: o.spin != null ? o.spin : rnd(-8, 8), r: Math.random() * 6 });
   };
   /* a burst of particles from a point */
