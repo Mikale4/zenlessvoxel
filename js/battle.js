@@ -407,7 +407,7 @@
     const winding = v.act && v.act.t < (v.act.def.hits && v.act.def.hits.length ? v.act.def.hits[0].t * 0.35 : 0.2);
     if (v.poise === 0 && (h.heavy || winding)) interrupt(v, h.heavy ? 0.45 : 0.25);
     else if (v.poise === 1 && h.heavy && winding) interrupt(v, 0.4);
-    else if (!v.act) { v.state = 'hit'; v.anim.state = 'hit'; v.anim.t = 0; v.stT = 0; v.hitT = 0.18; }
+    // otherwise a light hit is just a flinch you can see (the white flash); it does not stop the enemy
   }
   function interrupt(v, t, force) {
     const B = BT.B;

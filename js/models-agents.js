@@ -326,6 +326,39 @@
     });
   }
 
+  /* --------------------------------------------- Aria: construct form --
+     Aria's true form, the A-H0L0 Type Intelligent Tactical Construct: a pink
+     and white combat robot with a dark visor helmet and big pink ear-pieces,
+     a white armoured body with a dark core, pink limbs, white armoured shins,
+     big round white mechanical hands with pink rings, teal bows. */
+  {
+    const PINK = 0xf27a9a, PINK2 = 0xd85a7c, WHITE = 0xf2f2f6, WHITE2 = 0xcfd0d8, DARK = 0x22232b, VISOR = 0x2a2e3a, TEAL = 0x2fbfa8, GREEN = 0x7affb0;
+    const hand = g => { g.ell(0, -8, 0, 2.2, 2.2, 2.2, WHITE); g.cyl('y', 0, 0, 2.3, -7, -7, (x, y, z) => Math.hypot(x, z) > 1.5 ? PINK : -1); g.set(0, -8, 3, G(0xff9ad0)); };
+    MODELS.ariaRobot = H.humanoid({
+      scale: 0.07, height: 30, width: 22,
+      sockets: { weapon: ['armR', [0, -9, 2]], off: ['armL', [0, -9, 2]], head: ['head', [0, 4, 0]], chest: ['torso', [0, 4, 2]] },
+      hips(g) { g.box(-3, -2, -2, 3, 0, 1, DARK); g.box(-3, 0, -2, 3, 0, 1, WHITE2); for (const s of [-1, 1]) { g.box(s * 4, -2, -1, s * 5, 0, 1, TEAL); g.set(s * 5, -3, 0, TEAL); } },
+      torso(g) {
+        g.box(-3, 0, -2, 3, 6, 1, WHITE); g.box(-2, 1, 2, 2, 4, 2, DARK); g.box(-1, 2, 3, 1, 3, 3, G(GREEN));
+        g.box(-3, 5, -3, 3, 6, 2, WHITE2); g.box(-1, 0, -3, 1, 4, -3, PINK);
+      },
+      head(g) {
+        g.box(-3, 0, -3, 3, 6, 3, WHITE); g.box(-3, 1, 4, 3, 4, 4, VISOR);           // helmet + dark visor
+        g.box(-2, 2, 5, -1, 3, 5, G(GREEN)); g.box(1, 2, 5, 2, 3, 5, G(GREEN));      // eyes glowing through the visor
+        g.box(-4, 0, -3, -4, 5, 2, PINK); g.box(4, 0, -3, 4, 5, 2, PINK);
+        for (const s of [-1, 1]) {                                                    // the big pink ear-pieces
+          for (let i = 0; i < 7; i++) g.box(s * (3 + Math.floor(i / 2)), 6 + i, -1, s * (5 + Math.floor(i / 2)), 6 + i, 1, i > 4 ? PINK2 : PINK);
+          g.box(s * 4, 6, 0, s * 4, 9, 0, DARK);
+        }
+      },
+      armL(g) { H.arm(g, { sleeve: PINK, sleeveTo: 3, skin: WHITE2, len: 6 }); hand(g); },
+      armR(g) { H.arm(g, { sleeve: PINK, sleeveTo: 3, skin: WHITE2, len: 6 }); hand(g); },
+      legL(g) { H.leg(g, { pant: PINK, boot: WHITE, bootH: 5, sole: WHITE2 }); g.box(-1, -5, 2, 1, -2, 2, WHITE2); },
+      legR(g) { H.leg(g, { pant: WHITE, boot: WHITE, bootH: 5, sole: WHITE2 }); g.box(-1, -6, -1, 1, -6, 1, PINK); g.box(-1, -3, 2, 1, -2, 2, PINK); },
+      extra: { cable: { parent: 'hips', at: [0, -1, -3], draw(g) { for (let i = 0; i < 9; i++) g.set(Math.round(Math.sin(i * 0.7) * 1.5), -i, -Math.floor(i / 2), i === 8 ? G(0xff9ad0) : DARK); } } },
+    });
+  }
+
   /* ======================= COMPANIONS =======================
      Separate models that fly with their Agent around the field (they come and
      go with her). Float rig: body (root) -> head, armL / armR (wings), tail. */
