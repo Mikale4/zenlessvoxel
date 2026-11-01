@@ -272,7 +272,7 @@
     MODELS.specter = H.humanoid({
       scale: 0.07, height: 30, width: 20,
       std: { shoulderX: 6 },
-      sockets: { weapon: ['armR', [0, -14, 0]], head: ['head', [0, 4, 0]], chest: ['torso', [0, 4, 2]] },
+      sockets: { weapon: ['armR', [0, -14, 0]], muzzle: ['head', [0, 9, 0]], head: ['head', [0, 4, 0]], chest: ['torso', [0, 4, 2]] },
       hips(g) { g.box(-2, -2, -2, 2, 0, 1, BODY); g.set(0, -1, 2, G(LIME)); },
       torso(g) { g.box(-2, 0, -2, 2, 6, 1, BODY); g.box(0, 0, 2, 0, 5, 2, G(LIME)); g.box(-3, 5, -2, 3, 7, 2, GOLD); g.box(-3, 5, 2, 3, 5, 2, GOLD2); },
       head(g) {

@@ -220,87 +220,149 @@
   /* ------------------------------------------------------------ ENEMIES --
      Real Zenless Zone Zero enemies (names, tiers, weaknesses and resistances
      from the official game). rank: minion | elite | boss.
-     poise: 0 = any hit staggers, 1 = only heavy hits, 2 = only anomalies,
-     parries and Stun interrupt. */
-  const E = (o) => Object.assign({ rank: 'minion', poise: 0, weak: [], resist: [], speed: 2.4, range: 1.5, daze: 1000, stunDur: 3, buMax: 900, atkGap: [1.2, 2.6] }, o);
+     poise: 0 = any heavy hit staggers, 1 = only heavy hits while winding up,
+     2 = only anomalies, parries and Stun interrupt.
+     ai.style: how it moves between attacks (melee, ranged, boxer, stalker,
+     float); keep: the distance it likes; flee: how close before a ranged
+     enemy backs off; hover: floats this high; retreat [min,max]: every so
+     many seconds it backs off (to charge or leap in from range).
+     Each attack's pose, footwork and effects live in enemy-moves.js. Attack
+     fields used by the battle: reach / minReach (it only starts the move in
+     this distance band), ph (only in that boss phase), track (aims until this
+     moment; 0 = locks on at the start), retrack (re-aims between combo hits),
+     armor [t0,t1] (cannot be staggered then), breakable [t0,t1] (a high-level
+     skill then interrupts it), stance [t0,t1] + counter (hitting it then
+     triggers the counter), opening [t0,t1] (a high-level skill then deals
+     bonus Daze), crash (a charge that can hit a wall).
+     Hit fields: shape arc | circle (at self, front, or ahead by d) | line (a
+     charge, checked along its path) | beam (from the enemy along its aim, yaw
+     offset, len) | proj | rain (n points: the first on the Agent, the rest
+     within spread; lob = seconds the bottle flies). flash gold = Defensive
+     Assist / parry; red = dodge only. chainParry: one of several gold flashes
+     in a row (parry two or more for a special stagger), freeAssist: the
+     Defensive Assist costs no Assist Points, parryDaze: a parry adds this
+     share of the Daze bar, expose: a parry exposes a weakness. */
+  const E = (o) => Object.assign({ rank: 'minion', poise: 0, weak: [], resist: [], speed: 2.4, range: 1.5, daze: 1000, stunDur: 3, buMax: 900, atkGap: [1.2, 2.6], ai: { style: 'melee' }, stance: 'brute' }, o);
   const ENEMIES = {
     // Outer Ring: Hollow Thugs, and the Corrupted Overlord the Sons of Calydon fought
     raider: E({ name: 'Hollow Thug - Raider', faction: 'Thugs', model: 'raider', hp: 185000, atk: 1140, def: 620, speed: 2.7, weak: ['ice', 'physical'],
+      ai: { style: 'melee', retreat: [6, 10] },
+      info: 'Charges in from a long way off with an electro-shock baton. A charge can end against a wall or a barrel: a free opening.',
       attacks: [
-        { name: 'Bat Swing', anim: 'slash', reach: 1.7, cd: 2.2, w: 3, move: [0.3, 0.5, 0.6], hits: [{ t: 0.55, mult: 95, shape: 'arc', r: 1.9, arc: 120 }] },
-        { name: 'Overhead Smash', anim: 'slam', reach: 1.8, cd: 6, w: 1.5, move: [0.5, 0.8, 0.8], hits: [{ t: 0.85, mult: 170, heavy: true, flash: 'gold', shape: 'arc', r: 2.0, arc: 90 }] },
+        { name: 'Shock Baton Combo', reach: 1.8, cd: 2.4, w: 3, retrack: true, hits: [{ t: 0.42, mult: 65, shape: 'arc', r: 1.9, arc: 120 }, { t: 0.82, mult: 85, shape: 'arc', r: 2.0, arc: 130, fx: 'shock' }] },
+        { name: 'Running Charge', reach: 11, minReach: 4.2, cd: 7, w: 3, track: 0.62, rec: 0.6, crash: true, hits: [{ t: 1.05, mult: 150, heavy: true, flash: 'gold', shape: 'line', r: 1.2, len: 8 }] },
+        { name: 'Overhead Shock', reach: 1.9, cd: 6, w: 1.2, hits: [{ t: 0.8, mult: 150, heavy: true, shape: 'arc', r: 2.0, arc: 80, fx: 'shock' }] },
       ] }),
-    pyromaniac: E({ name: 'Hollow Thug - Pyromaniac', faction: 'Thugs', model: 'pyromaniac', hp: 150000, atk: 1080, def: 560, speed: 2.4, range: 5.5, weak: ['ice', 'physical'],
+    pyromaniac: E({ name: 'Hollow Thug - Pyromaniac', faction: 'Thugs', model: 'pyromaniac', hp: 150000, atk: 1080, def: 560, speed: 2.4, range: 6, weak: ['ice', 'physical'],
+      ai: { style: 'ranged', keep: 6, flee: 3 },
+      info: 'Hangs back and bombards you with a hail of molotov cocktails. Get in close.',
       attacks: [
-        { name: 'Firebomb Toss', anim: 'throw', reach: 8, cd: 2.6, w: 3, hits: [{ t: 0.65, mult: 85, shape: 'proj', speed: 10, arc: 1, fx: 'fireball' }] },
-        { name: 'Torch Sweep', anim: 'slash', reach: 1.9, cd: 5, w: 1.2, hits: [{ t: 0.85, mult: 140, heavy: true, flash: 'gold', shape: 'arc', r: 2.2, arc: 140 }] },
+        { name: 'Molotov Toss', reach: 9, cd: 2.6, w: 3, rec: 0.5, hits: [{ t: 1.0, mult: 80, shape: 'rain', n: 1, r: 1.4, lob: 0.6, fx: 'molotov' }] },
+        { name: 'Molotov Hail', reach: 10, minReach: 2.5, cd: 8, w: 2, rec: 0.4, hits: [0, 1, 2, 3].map(i => ({ t: 1.0 + i * 0.2, mult: 60, shape: 'rain', n: 1, r: 1.4, spread: i ? 2.6 : 0, lob: 0.6, fx: 'molotov' })) },
+        { name: 'Torch Swipe', reach: 1.9, cd: 5, w: 1.5, hits: [{ t: 0.7, mult: 130, heavy: true, flash: 'gold', shape: 'arc', r: 2.1, arc: 140, fx: 'fireArc' }] },
       ] }),
-    enforcer: E({ name: 'Hollow Thug - Bulky Enforcer', faction: 'Thugs', model: 'enforcer', rank: 'elite', poise: 1, hp: 1010000, atk: 2070, def: 860, speed: 2.5, range: 2.0, daze: 2550, stunDur: 8, buMax: 1500, weak: ['ice', 'physical'], atkGap: [0.5, 1.2],
+    enforcer: E({ name: 'Hollow Thug - Bulky Enforcer', faction: 'Thugs', model: 'enforcer', rank: 'elite', poise: 1, hp: 1010000, atk: 2070, def: 860, speed: 2.6, range: 2.0, daze: 2550, stunDur: 8, buMax: 1500, weak: ['ice', 'physical'], atkGap: [0.5, 1.2],
+      ai: { style: 'boxer', keep: 2.2, retreat: [9, 13] }, stance: 'boxer',
+      info: 'A boxer in stun-gun gauntlets: two-fist punches and nimble sidesteps.',
       attacks: [
-        { name: 'Gauntlet Jab', anim: 'punch', reach: 2.0, cd: 2.0, w: 3, move: [0.25, 0.45, 0.6], hits: [{ t: 0.45, mult: 110, shape: 'arc', r: 2.2, arc: 90 }] },
-        { name: 'Haymaker', anim: 'slash', reach: 2.2, cd: 4.5, w: 2, move: [0.4, 0.8, 1.0], hits: [{ t: 0.85, mult: 190, heavy: true, flash: 'gold', shape: 'arc', r: 2.4, arc: 120 }] },
-        { name: 'Ground Breaker', anim: 'slam', reach: 2.6, cd: 8, w: 1.4, hits: [{ t: 1.05, mult: 240, heavy: true, launch: true, flash: 'red', shape: 'circle', at: 'self', r: 3.2 }] },
-        { name: 'Shoulder Charge', anim: 'charge', reach: 9, cd: 9, w: 1, move: [0.7, 1.15, 7.5], hits: [{ t: 1.0, mult: 220, heavy: true, launch: true, flash: 'red', shape: 'line', r: 1.3 }] },
+        { name: 'One-Two', reach: 2.1, cd: 2.0, w: 3, retrack: true, hits: [{ t: 0.32, mult: 95, shape: 'arc', r: 2.2, arc: 80 }, { t: 0.62, mult: 125, shape: 'arc', r: 2.4, arc: 80, fx: 'shock' }] },
+        { name: 'Weaving Hook', reach: 2.6, cd: 4.5, w: 2.5, track: 0.5, hits: [{ t: 0.72, mult: 185, heavy: true, flash: 'gold', shape: 'arc', r: 2.5, arc: 130, fx: 'shock' }] },
+        { name: 'Rising Uppercut', reach: 2.2, cd: 6.5, w: 1.6, retrack: true, hits: [{ t: 0.3, mult: 80, shape: 'arc', r: 2.2, arc: 80 }, { t: 0.55, mult: 80, shape: 'arc', r: 2.2, arc: 80 }, { t: 1.05, mult: 210, heavy: true, launch: true, flash: 'red', shape: 'arc', r: 2.3, arc: 90, fx: 'shock' }] },
+        { name: 'Ground Breaker', reach: 2.8, cd: 8, w: 1.4, hits: [{ t: 1.05, mult: 240, heavy: true, launch: true, flash: 'red', shape: 'circle', at: 'self', r: 3.2, fx: 'shockQuake' }] },
+        { name: 'Shoulder Charge', reach: 10, minReach: 4, cd: 9, w: 1.2, track: 0.6, hits: [{ t: 1.0, mult: 220, heavy: true, launch: true, flash: 'gold', shape: 'line', r: 1.3, len: 8 }] },
       ] }),
     pompey: E({ name: 'Corrupted Overlord - Pompey', faction: 'Corrupted', model: 'pompey', rank: 'boss', poise: 2, hp: 2900000, atk: 1890, def: 950, speed: 2.6, range: 2.6, daze: 4600, stunDur: 6, buMax: 2200, weak: ['fire'], resist: ['electric'], atkGap: [0.6, 1.3],
+      ai: { style: 'melee', retreat: [6, 9] }, stance: 'blade',
       phase2: { at: 0.5, name: 'Rear wheel and longsword' },
+      info: 'Phase 1: rides his motorcycle and fires hover guns. Phase 2: alternates his bike\'s rear wheel and his longsword; the wheel stores Ether until it explodes. A Defensive Assist on his marked moves exposes a weakness.',
       attacks: [
-        { name: 'Hover Gun Volley', anim: 'shootL', reach: 12, cd: 5, w: 2, rec: 0.5, hits: [0.7, 0.85, 1.0, 1.15].map(t => ({ t, mult: 70, shape: 'proj', speed: 15 })) },
-        { name: 'Throttle Ram', anim: 'charge', reach: 10, cd: 6, w: 2, move: [0.7, 1.2, 8], hits: [{ t: 1.0, mult: 230, heavy: true, launch: true, flash: 'gold', shape: 'line', r: 1.4 }] },
-        { name: 'Longsword Cleave', anim: 'slam', reach: 3.0, cd: 3, w: 3, phase: 2, hits: [{ t: 0.9, mult: 210, heavy: true, flash: 'gold', shape: 'arc', r: 3.4, arc: 100 }] },
-        { name: 'Wheel Grind', anim: 'sweep', reach: 3.2, cd: 5, w: 2, phase: 2, hits: [{ t: 0.8, mult: 120, shape: 'arc', r: 3.6, arc: 200 }, { t: 1.1, mult: 150, flash: 'gold', shape: 'arc', r: 3.6, arc: 200 }] },
-        { name: 'Ether Wheel Burst', anim: 'stomp', reach: 5, cd: 12, w: 1.3, phase: 2, hits: [{ t: 1.4, mult: 330, heavy: true, launch: true, flash: 'red', shape: 'circle', at: 'self', r: 5.0 }] },
+        { name: 'Hover Gun Volley', ph: 1, reach: 12, cd: 5, w: 2.5, rec: 0.5, hits: [0.75, 0.87, 0.99, 1.11, 1.23, 1.35].map((t, i) => ({ t, mult: 50, shape: 'proj', speed: 16, from: i % 2 ? 'gunR' : 'gunL', fx: 'etherBolt' })) },
+        { name: 'Throttle Ram', ph: 1, reach: 12, minReach: 3.5, cd: 6, w: 2.5, track: 0.68, rec: 0.6, hits: [{ t: 1.1, mult: 230, heavy: true, launch: true, flash: 'gold', expose: true, shape: 'line', r: 1.4, len: 9 }] },
+        { name: 'Wheelie Slam', ph: 1, reach: 6, cd: 7, w: 1.6, hits: [{ t: 1.0, mult: 260, heavy: true, launch: true, flash: 'red', shape: 'circle', at: 'front', r: 2.6 }] },
+        { name: 'Burnout Drift', ph: 1, reach: 3.6, cd: 8, w: 1.5, hits: [{ t: 0.75, mult: 110, shape: 'circle', at: 'self', r: 2.8 }, { t: 1.25, mult: 140, flash: 'gold', shape: 'circle', at: 'self', r: 2.8 }] },
+        { name: 'Longsword Combo', ph: 2, reach: 3.0, cd: 3, w: 3, retrack: true, hits: [{ t: 0.45, mult: 120, shape: 'arc', r: 3.2, arc: 140 }, { t: 0.85, mult: 120, shape: 'arc', r: 3.2, arc: 140 }, { t: 1.35, mult: 210, heavy: true, flash: 'gold', expose: true, shape: 'arc', r: 3.4, arc: 100 }] },
+        { name: 'Wheel Grind', ph: 2, reach: 3.4, cd: 5, w: 2, ether: 1, hits: [{ t: 0.7, mult: 110, shape: 'arc', r: 3.6, arc: 220 }, { t: 1.05, mult: 150, flash: 'gold', shape: 'arc', r: 3.6, arc: 220 }] },
+        { name: 'Wheel Throw', ph: 2, reach: 9, cd: 6, w: 2, ether: 1, track: 0.45, hits: [{ t: 0.8, mult: 120, shape: 'beam', len: 8, r: 1.0 }, { t: 1.5, mult: 140, heavy: true, flash: 'gold', shape: 'beam', len: 8, r: 1.0 }] },
+        { name: 'Ether Wheel Burst', ph: 2, reach: 6, cd: 12, w: 0.5, hits: [{ t: 1.8, mult: 340, heavy: true, launch: true, flash: 'red', shape: 'circle', at: 'self', r: 5.2, fx: 'etherBlast' }] },
       ] }),
     // Yunkui Summit: the Miasma
     spawn: E({ name: 'Miasma Spawn', faction: 'Special', model: 'spawn', hp: 145000, atk: 1080, def: 520, speed: 2.8, weak: ['physical', 'ether'],
+      info: 'Summons Miasma dust around you that bursts after a delay: move out of it.',
       attacks: [
-        { name: 'Axe Chop', anim: 'slash', reach: 1.7, cd: 2.2, w: 3, move: [0.3, 0.5, 0.6], hits: [{ t: 0.55, mult: 90, shape: 'arc', r: 1.9, arc: 120 }] },
-        { name: 'Lantern Lunge', anim: 'slam', reach: 2.4, cd: 5, w: 1.4, move: [0.45, 0.8, 1.8], hits: [{ t: 0.85, mult: 150, heavy: true, flash: 'gold', shape: 'circle', at: 'front', r: 1.6 }] },
+        { name: 'Axe Chop', reach: 1.7, cd: 2.2, w: 3, hits: [{ t: 0.55, mult: 90, shape: 'arc', r: 1.9, arc: 110 }] },
+        { name: 'Miasma Dust', reach: 9, cd: 8, w: 2, rec: 0.3, hits: [{ t: 2.0, mult: 110, heavy: true, shape: 'rain', n: 3, r: 1.5, spread: 2.4, fx: 'miasmaBurst', zone: true }] },
+        { name: 'Lantern Lunge', reach: 2.6, cd: 5, w: 1.4, hits: [{ t: 0.85, mult: 150, heavy: true, flash: 'gold', shape: 'circle', at: 'front', r: 1.6 }] },
       ] }),
-    arcavor: E({ name: 'Miasma Walker - Arcavor', faction: 'Ether Mutants', model: 'arcavor', hp: 175000, atk: 1140, def: 600, speed: 3.2, range: 1.7, weak: ['physical', 'ether'],
+    arcavor: E({ name: 'Miasma Walker - Arcavor', faction: 'Ether Mutants', model: 'arcavor', hp: 175000, atk: 1140, def: 600, speed: 3.2, range: 5, weak: ['physical', 'ether'],
+      ai: { style: 'ranged', keep: 5, flee: 2.2 },
+      info: 'Keeps up a stream of long-range fire, and twirls in on ballet-like legs.',
       attacks: [
-        { name: 'Shard Rake', anim: 'slash2', reach: 1.9, cd: 3.5, w: 3, move: [0.3, 0.9, 1.0], hits: [{ t: 0.45, mult: 70, shape: 'arc', r: 2.0, arc: 120 }, { t: 0.85, mult: 120, flash: 'gold', shape: 'arc', r: 2.1, arc: 120 }] },
-        { name: 'Core Beam', anim: 'cast', reach: 7, cd: 6, w: 1.2, hits: [{ t: 0.9, mult: 120, shape: 'line', r: 0.9, len: 8 }] },
+        { name: 'Miasma Barrage', reach: 10, cd: 4, w: 3, rec: 0.4, hits: [0.55, 0.7, 0.85, 1.0, 1.15, 1.3].map(t => ({ t, mult: 32, shape: 'proj', speed: 15, fx: 'miasmaBolt' })) },
+        { name: 'Pirouette', reach: 5, cd: 5.5, w: 2, hits: [{ t: 0.6, mult: 55, shape: 'circle', at: 'self', r: 2.0 }, { t: 0.85, mult: 55, shape: 'circle', at: 'self', r: 2.0 }, { t: 1.15, mult: 100, heavy: true, flash: 'gold', shape: 'circle', at: 'self', r: 2.2 }] },
+        { name: 'Shard Rake', reach: 1.9, cd: 3.5, w: 1.5, retrack: true, hits: [{ t: 0.45, mult: 70, shape: 'arc', r: 2.0, arc: 120 }, { t: 0.85, mult: 110, shape: 'arc', r: 2.1, arc: 120 }] },
       ] }),
     huskron: E({ name: 'Miasma Ravager - Huskron', faction: 'Corrupted', model: 'huskron', rank: 'elite', poise: 1, hp: 1060000, atk: 2110, def: 900, speed: 3.6, range: 2.2, daze: 2700, stunDur: 8, buMax: 1500, weak: ['ice', 'fire'], atkGap: [0.5, 1.2],
+      ai: { style: 'stalker', keep: 3.6 },
+      info: 'Circles warily, then a vicious assault. Strike it in its bristling guard and it counters: a Defensive Assist on that counter leaves it reeling.',
       attacks: [
-        { name: 'Spine Bite', anim: 'bite', reach: 2.2, cd: 2.2, w: 3, move: [0.3, 0.5, 0.8], hits: [{ t: 0.5, mult: 120, shape: 'arc', r: 2.4, arc: 100 }] },
-        { name: 'Claw Pin', anim: 'slam', reach: 2.4, cd: 4.5, w: 2, hits: [{ t: 0.85, mult: 190, heavy: true, flash: 'gold', shape: 'circle', at: 'front', r: 2.0 }] },
-        { name: 'Miasma Howl', anim: 'roar', reach: 3.6, cd: 9, w: 1.3, hits: [{ t: 1.1, mult: 200, heavy: true, launch: true, flash: 'red', shape: 'circle', at: 'self', r: 3.8 }] },
-        { name: 'Ravaging Leap', anim: 'pounce', reach: 8, cd: 8, w: 1.2, move: [0.6, 1.1, 6], hits: [{ t: 1.1, mult: 240, heavy: true, launch: true, flash: 'red', shape: 'circle', at: 'front', r: 2.2 }] },
+        { name: 'Ravaging Assault', reach: 2.4, cd: 4, w: 3, retrack: true, hits: [{ t: 0.35, mult: 80, shape: 'arc', r: 2.3, arc: 100 }, { t: 0.6, mult: 80, shape: 'arc', r: 2.3, arc: 100 }, { t: 0.85, mult: 90, shape: 'arc', r: 2.3, arc: 110 }, { t: 1.3, mult: 180, heavy: true, flash: 'gold', shape: 'arc', r: 2.5, arc: 100 }] },
+        { name: 'Bristle Guard', reach: 4.5, cd: 8, w: 2, rec: 0.3, stance: [0.15, 2.0], counter: 'Spine Counter', hits: [{ t: 2.1, mult: 120, shape: 'circle', at: 'self', r: 2.4 }] },
+        { name: 'Spine Counter', counterOnly: true, reach: 6, cd: 0, w: 0, hits: [{ t: 0.5, mult: 220, heavy: true, flash: 'gold', parryDaze: 0.35, shape: 'arc', r: 2.6, arc: 120 }] },
+        { name: 'Ravaging Leap', reach: 8, minReach: 3, cd: 8, w: 1.5, hits: [{ t: 1.05, mult: 240, heavy: true, launch: true, flash: 'red', shape: 'circle', at: 'front', r: 2.2 }] },
+        { name: 'Tail Sweep', reach: 2.6, cd: 5, w: 1.5, hits: [{ t: 0.6, mult: 150, shape: 'circle', at: 'self', r: 2.8 }] },
+        { name: 'Miasma Howl', reach: 3.6, cd: 10, w: 1, hits: [{ t: 1.1, mult: 200, heavy: true, launch: true, flash: 'red', shape: 'circle', at: 'self', r: 3.8 }] },
       ] }),
     priest: E({ name: 'Miasma Priest', faction: 'Ether Mutants', model: 'priest', rank: 'boss', poise: 2, hp: 3000000, atk: 1830, def: 920, speed: 2.0, range: 3, daze: 4750, stunDur: 6, buMax: 2300, weak: ['ether'], resist: ['ice'], atkGap: [0.6, 1.4],
+      ai: { style: 'float', keep: 3.4, hover: 0.45 }, stance: 'priest',
+      phase2: { at: 0.5, name: 'Coral Bloom', haste: 1.15 },
+      info: 'Glides on Miasma and changes phase with special skills. Her Ribbon Flurry flashes gold three times: Defensive Assists on it cost no Assist Points, and parrying two or more staggers her.',
       attacks: [
-        { name: 'Coral Palm', anim: 'slam', reach: 3.2, cd: 3, w: 3, hits: [{ t: 0.95, mult: 210, heavy: true, flash: 'gold', shape: 'circle', at: 'front', r: 2.4 }] },
-        { name: 'Ribbon Sweep', anim: 'sweep', reach: 3.4, cd: 5, w: 2, hits: [{ t: 0.8, mult: 165, flash: 'gold', shape: 'arc', r: 3.8, arc: 200 }] },
-        { name: 'Miasma Talismans', anim: 'cast', reach: 12, cd: 6, w: 2, rec: 0.5, hits: [0.8, 0.95, 1.1, 1.25, 1.4].map(t => ({ t, mult: 70, shape: 'proj', speed: 11 })) },
-        { name: 'Bloom of Rot', anim: 'roar', reach: 5, cd: 10, w: 1.4, hits: [{ t: 1.2, mult: 310, heavy: true, launch: true, flash: 'red', shape: 'circle', at: 'self', r: 5 }] },
-        { name: 'Miasma Rain', anim: 'cast', reach: 14, cd: 13, w: 1.2, rec: 0.5, hits: [{ t: 1.6, mult: 190, heavy: true, flash: 'red', shape: 'rain', n: 5, r: 1.6 }] },
+        { name: 'Coral Palm', reach: 3.2, cd: 3, w: 3, hits: [{ t: 0.95, mult: 210, heavy: true, flash: 'gold', shape: 'circle', at: 'front', r: 2.4 }] },
+        { name: 'Ribbon Sweep', reach: 3.4, cd: 5, w: 2, hits: [{ t: 0.8, mult: 165, flash: 'gold', shape: 'arc', r: 3.8, arc: 200, fx: 'ribbon' }] },
+        { name: 'Ribbon Flurry', reach: 3.6, cd: 9, w: 2, retrack: true, hits: [0.7, 1.15, 1.6].map((t, i) => ({ t, mult: 120 + i * 30, heavy: i === 2, flash: 'gold', chainParry: true, freeAssist: true, shape: 'arc', r: 3.6, arc: 160, fx: 'ribbon' })) },
+        { name: 'Miasma Talismans', reach: 12, cd: 6, w: 2, rec: 0.5, hits: [0.8, 0.95, 1.1, 1.25, 1.4].map(t => ({ t, mult: 70, shape: 'proj', speed: 11, fx: 'talisman' })) },
+        { name: 'Bloom of Rot', reach: 5, cd: 10, w: 1.4, hits: [{ t: 1.2, mult: 310, heavy: true, launch: true, flash: 'red', shape: 'circle', at: 'self', r: 5, fx: 'miasmaBurst' }] },
+        { name: 'Miasma Rain', reach: 14, cd: 13, w: 1.2, rec: 0.5, hits: [{ t: 1.6, mult: 190, heavy: true, flash: 'red', shape: 'rain', n: 5, r: 1.6, spread: 3.5, fx: 'miasmaBurst' }] },
+        { name: 'Coral Spires', ph: 2, reach: 9, cd: 6, w: 2.5, track: 0, hits: [2, 3.4, 4.8, 6.2, 7.6].map((d, i) => ({ t: 0.9 + i * 0.14, mult: 90, heavy: i === 4, flash: i === 0 ? 'red' : null, shape: 'circle', at: 'ahead', d, r: 1.3, fx: 'coralSpike' })) },
       ] }),
     // The Hollow: Ethereals
-    faun: E({ name: 'Faun', faction: 'Ether Mutants', model: 'faun', hp: 190000, atk: 1170, def: 620, speed: 2.6, range: 1.8, weak: ['ice', 'ether'],
+    faun: E({ name: 'Faun', faction: 'Ether Mutants', model: 'faun', hp: 190000, atk: 1170, def: 620, speed: 2.6, range: 1.8, weak: ['ice', 'ether'], stance: 'hulk',
+      info: 'Comes in groups. Its charged signpost slam is hard to interrupt: get out of the way.',
       attacks: [
-        { name: 'Signpost Swing', anim: 'slash', reach: 2.0, cd: 2.4, w: 3, move: [0.3, 0.5, 0.6], hits: [{ t: 0.6, mult: 100, shape: 'arc', r: 2.3, arc: 130 }] },
-        { name: 'Signpost Slam', anim: 'slam', reach: 2.2, cd: 5.5, w: 1.5, hits: [{ t: 0.95, mult: 170, heavy: true, flash: 'gold', shape: 'arc', r: 2.6, arc: 70 }] },
+        { name: 'Signpost Swing', reach: 2.0, cd: 2.6, w: 3, retrack: true, hits: [{ t: 0.55, mult: 85, shape: 'arc', r: 2.3, arc: 130 }, { t: 0.95, mult: 95, shape: 'arc', r: 2.3, arc: 130 }] },
+        { name: 'Charged Slam', reach: 2.6, cd: 6, w: 2, armor: [0, 1.55], hits: [{ t: 1.5, mult: 200, heavy: true, flash: 'gold', shape: 'arc', r: 2.8, arc: 70, fx: 'quakeLine' }] },
+        { name: 'Leaping Smash', reach: 6, minReach: 2.5, cd: 6, w: 1.5, hits: [{ t: 0.85, mult: 160, heavy: true, shape: 'circle', at: 'front', r: 1.9 }] },
       ] }),
-    specter: E({ name: 'Specter', faction: 'Ether Mutants', model: 'specter', hp: 160000, atk: 1140, def: 560, speed: 3.4, range: 1.7, weak: ['ice', 'ether'],
+    specter: E({ name: 'Specter', faction: 'Ether Mutants', model: 'specter', hp: 160000, atk: 1140, def: 560, speed: 3.4, range: 4.5, weak: ['ice', 'ether'],
+      ai: { style: 'ranged', keep: 4.5, flee: 2, hover: 0.25 }, stance: 'blade',
+      info: 'Fires rapid bursts of concentrated Ether from range, and blinks in to cut.',
       attacks: [
-        { name: 'Blade Arm', anim: 'slash', reach: 1.9, cd: 2.0, w: 3, move: [0.25, 0.45, 0.8], hits: [{ t: 0.45, mult: 90, shape: 'arc', r: 2.1, arc: 110 }] },
-        { name: 'Phantom Lunge', anim: 'thrust', reach: 5, cd: 5.5, w: 1.5, move: [0.5, 0.85, 4], hits: [{ t: 0.85, mult: 160, heavy: true, flash: 'gold', shape: 'circle', at: 'front', r: 1.5 }] },
+        { name: 'Ether Burst', reach: 10, cd: 3.5, w: 3, rec: 0.4, hits: [0.5, 0.6, 0.7, 1.05, 1.15, 1.25].map(t => ({ t, mult: 30, shape: 'proj', speed: 19, fx: 'etherBolt' })) },
+        { name: 'Blade Arm', reach: 1.9, cd: 2.0, w: 2, hits: [{ t: 0.4, mult: 90, shape: 'arc', r: 2.1, arc: 110 }] },
+        { name: 'Phantom Lunge', reach: 7, cd: 6, w: 1.5, hits: [{ t: 0.75, mult: 160, heavy: true, flash: 'gold', shape: 'arc', r: 2.0, arc: 110 }] },
       ] }),
     dullahan: E({ name: 'Dullahan', faction: 'Ether Mutants', model: 'dullahan', rank: 'elite', poise: 1, hp: 1040000, atk: 2140, def: 900, speed: 2.8, range: 2.2, daze: 2650, stunDur: 8, buMax: 1500, weak: ['ice', 'ether'], atkGap: [0.5, 1.2],
+      ai: { style: 'melee' }, stance: 'blade',
+      info: 'Charges up its longsword for a high-level stab. Hit it with a high-level skill (EX Special, Chain, Ultimate) while it charges to break it.',
       attacks: [
-        { name: 'Shard Sword Combo', anim: 'slash2', reach: 2.3, cd: 3.5, w: 3, move: [0.3, 1.1, 1.4], hits: [{ t: 0.5, mult: 100, shape: 'arc', r: 2.6, arc: 140 }, { t: 0.85, mult: 100, shape: 'arc', r: 2.6, arc: 140 }, { t: 1.3, mult: 180, heavy: true, flash: 'gold', shape: 'arc', r: 2.8, arc: 120 }] },
-        { name: 'Impaling Charge', anim: 'charge', reach: 9, cd: 8, w: 1.4, move: [0.75, 1.2, 7.5], hits: [{ t: 1.05, mult: 230, heavy: true, launch: true, flash: 'red', shape: 'line', r: 1.3 }] },
-        { name: 'Whirlwind', anim: 'spin', reach: 2.6, cd: 7, w: 1.6, hits: [{ t: 0.9, mult: 200, heavy: true, flash: 'gold', shape: 'circle', at: 'self', r: 3.0 }] },
+        { name: 'Shard Sword Combo', reach: 2.4, cd: 3.5, w: 3, retrack: true, hits: [{ t: 0.45, mult: 100, shape: 'arc', r: 2.6, arc: 140 }, { t: 0.85, mult: 100, shape: 'arc', r: 2.6, arc: 140 }, { t: 1.35, mult: 180, heavy: true, flash: 'gold', shape: 'arc', r: 2.8, arc: 120 }] },
+        { name: 'Charged Thrust', reach: 8, cd: 8, w: 2.2, track: 1.35, breakable: [0.2, 1.4], rec: 0.7, hits: [{ t: 1.65, mult: 240, heavy: true, launch: true, flash: 'red', shape: 'line', r: 1.2, len: 6 }] },
+        { name: 'Whirlwind', reach: 2.6, cd: 7, w: 1.6, hits: [{ t: 0.6, mult: 90, shape: 'circle', at: 'self', r: 3.0 }, { t: 0.95, mult: 160, heavy: true, flash: 'gold', shape: 'circle', at: 'self', r: 3.0 }] },
+        { name: 'Rising Cleave', reach: 2.4, cd: 6, w: 1.5, hits: [{ t: 0.7, mult: 170, heavy: true, launch: true, shape: 'arc', r: 2.5, arc: 90 }] },
       ] }),
     butcher: E({ name: 'Notorious - Dead End Butcher', faction: 'Ether Mutants', model: 'butcher', rank: 'boss', poise: 2, hp: 3100000, atk: 1950, def: 950, speed: 2.3, range: 2.8, daze: 4950, stunDur: 6, buMax: 2300, weak: ['ice', 'ether'], atkGap: [0.5, 1.2], cancelsFollowUp: true,
+      ai: { style: 'melee', retreat: [10, 14] }, stance: 'hulk',
+      phase2: { at: 0.5, name: 'Flurries and Ether lasers' },
+      info: 'Varied combos; a high-level skill right after one staggers it hard. Phase 2 adds punch flurries and a sweeping Ether laser. It can turn Ether Enhanced (more ATK) until you Daze it enough.',
       attacks: [
-        { name: 'Pummel', anim: 'slash2', reach: 3, cd: 3.2, w: 3, move: [0.3, 1.2, 1.6], hits: [{ t: 0.45, mult: 90, shape: 'arc', r: 3.0, arc: 140 }, { t: 0.75, mult: 90, shape: 'arc', r: 3.0, arc: 140 }, { t: 1.25, mult: 190, heavy: true, flash: 'gold', shape: 'arc', r: 3.2, arc: 140 }] },
-        { name: 'Dead End Hammer', anim: 'slam', reach: 3.4, cd: 6, w: 2, hits: [{ t: 1.0, mult: 280, heavy: true, launch: true, flash: 'red', shape: 'arc', r: 4.0, arc: 80 }] },
-        { name: 'Crushing Leap', anim: 'pounce', reach: 10, cd: 9, w: 1.4, move: [0.7, 1.25, 7], hits: [{ t: 1.25, mult: 300, heavy: true, launch: true, flash: 'red', shape: 'circle', at: 'front', r: 3.0 }] },
-        { name: 'Backhand Sweep', anim: 'sweep', reach: 3.4, cd: 5, w: 2, hits: [{ t: 0.8, mult: 180, flash: 'gold', shape: 'arc', r: 4.0, arc: 220 }] },
-        { name: 'Ether Rupture', anim: 'cast', reach: 14, cd: 13, w: 1.1, rec: 0.5, hits: [{ t: 1.6, mult: 200, heavy: true, flash: 'red', shape: 'rain', n: 5, r: 1.6 }] },
+        { name: 'Pummel', reach: 3, cd: 3.2, w: 3, retrack: true, opening: [1.4, 2.15], rec: 0.9, hits: [{ t: 0.45, mult: 90, shape: 'arc', r: 3.0, arc: 140 }, { t: 0.75, mult: 90, shape: 'arc', r: 3.0, arc: 140 }, { t: 1.25, mult: 190, heavy: true, flash: 'gold', shape: 'arc', r: 3.2, arc: 140 }] },
+        { name: 'Dead End Hammer', reach: 3.4, cd: 6, w: 2, hits: [{ t: 1.0, mult: 280, heavy: true, launch: true, flash: 'red', shape: 'arc', r: 4.0, arc: 80, fx: 'quakeLine' }] },
+        { name: 'Crushing Leap', reach: 10, minReach: 3.5, cd: 9, w: 1.4, hits: [{ t: 1.25, mult: 300, heavy: true, launch: true, flash: 'red', shape: 'circle', at: 'front', r: 3.0 }] },
+        { name: 'Backhand Sweep', reach: 3.4, cd: 5, w: 2, hits: [{ t: 0.8, mult: 180, flash: 'gold', shape: 'arc', r: 4.0, arc: 220 }] },
+        { name: 'Ether Rupture', reach: 14, cd: 13, w: 1.1, rec: 0.5, hits: [{ t: 1.6, mult: 200, heavy: true, flash: 'red', shape: 'rain', n: 5, r: 1.6, spread: 3.5, fx: 'etherBurst' }] },
+        { name: 'Flurry', ph: 2, reach: 3, cd: 4.5, w: 3, retrack: true, opening: [1.8, 2.5], rec: 0.9, hits: [0.4, 0.55, 0.7, 0.85, 1.0, 1.15].map(t => ({ t, mult: 55, shape: 'arc', r: 3.0, arc: 120 })).concat([{ t: 1.6, mult: 200, heavy: true, flash: 'gold', shape: 'arc', r: 3.2, arc: 140 }]) },
+        { name: 'Ether Laser', ph: 2, reach: 12, cd: 9, w: 2, track: 0.9, rec: 0.6, sweep: [-0.6, 0.6], hits: [-0.6, -0.3, 0, 0.3, 0.6].map((yaw, i) => ({ t: 1.1 + i * 0.18, mult: 70, heavy: i === 2, flash: i === 0 ? 'red' : null, shape: 'beam', yaw, len: 12, r: 0.8 })) },
+        { name: 'Ether Enhance', reach: 30, cd: 6, w: 4, enhance: true, hits: [{ t: 1.0, mult: 120, heavy: true, shape: 'circle', at: 'self', r: 3.4, fx: 'etherBlast' }] },
       ] }),
   };
 

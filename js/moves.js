@@ -195,14 +195,19 @@
   const _v = new THREE.Vector3(), _d = new THREE.Vector3(), _q = new THREE.Quaternion();
   const ease = { lin: k => k, out: U.easeOut, inOut: U.ease, in: U.easeIn };
   const CHOREO = {};
+  CHOREO.streams = {};   // more stream kinds (enemy-moves.js adds its own)
+  CHOREO.events = {};    // more event kinds
+  CHOREO.ext = null;     // enemy runtime (enemy-moves.js)
   CHOREO.start = (a, A) => {
     const d = A.def;
     A.side = Math.random() < 0.5 ? 1 : -1;
     A.ev = 0; A.ms = (d.motion || []).map(() => ({}));
     A.seqI = 0; a.anim.seqName = null;
+    if (a.type === 'enemy' && CHOREO.ext) CHOREO.ext.start(a, A);
   };
   CHOREO.end = (a, A) => {
     const d = A.def;
+    if (a.type === 'enemy' && CHOREO.ext) CHOREO.ext.end(a, A);
     if (d.events) for (const e of d.events) if (e.fx === 'transform' && e.to && a.rigAlt) swapRig(a, null);
     if (a.rig.parts.shield && !a.rig.parts.shield.visible) a.rig.parts.shield.visible = true;
   };
@@ -236,8 +241,26 @@
         }
         case 'rise': a.airY = S.y + ((m.h || 1.5) - S.y) * e(k1); break;
         case 'fall': a.airY = S.y * (1 - U.easeIn(k1)); if (k1 >= 1) a.airY = 0; break;
+        // a straight run along the aim: it reaches the target's spot at m.hit and keeps going until t1
+        case 'charge': {
+          if (!S.v) { const D = tgt ? clamp(dist(a, tgt) - tgt.rad * 0.3, 1, m.d || 9) : (m.d || 6); S.v = D / Math.max(0.05, (m.hit || m.t1) - m.t0); A.chargeFrom = { x: a.x, z: a.z }; }
+          const step = S.v * (Math.min(t, m.t1) - Math.max(t0, m.t0));
+          a.x += fx * step; a.z += fz * step;
+          if (m.crash && a.type === 'enemy' && CHOREO.ext && CHOREO.ext.crashCheck(a, A)) return;
+          break;
+        }
+        // a circle around the target (a drift, a stalk) through m.ang radians, easing to radius m.r
+        case 'orbit': {
+          if (!tgt) break;
+          if (S.r == null) { S.r = Math.max(1.2, dist(a, tgt)); S.a = ang(tgt, a); }
+          const an = S.a + (m.ang || PI) * side * e(k1), r = m.r != null ? lerp(S.r, m.r, e(k1)) : S.r;
+          a.x = tgt.x + Math.sin(an) * r; a.z = tgt.z + Math.cos(an) * r;
+          break;
+        }
       }
     });
+    if (a.type === 'enemy' && CHOREO.ext && a.act === A) CHOREO.ext.step(a, A, dt);
+    if (a.act !== A) return;
     // streams
     for (const s of d.stream || []) if (t >= s.t0 && t <= s.t1) stream(a, A, s, dt, tgt);
     // one-shot events
@@ -289,6 +312,7 @@
       case 'inkStreak': for (let i = 0; i < n; i++) { BT.sock(a, i % 2 ? 'weapon' : 'off', _v); FX.p({ x: _v.x, y: _v.y, z: _v.z, vx: Math.sin(A.dir) * rnd(3, 6), vy: rnd(-0.5, 0.5), vz: Math.cos(A.dir) * rnd(3, 6), drag: 3, life: 0.3, size: 0.14, size1: 0.02, col: U.pick([0x141418, 0xffcf4a, 0xfff0a0]) }); } break;
       case 'inkTrail': for (let i = 0; i < n; i++) FX.p({ x: a.x + rnd(-0.25, 0.25), y: rnd(0.3, 1.6) + a.airY, z: a.z + rnd(-0.25, 0.25), life: 0.45, size: 0.16, size1: 0.02, col: U.pick([0x141418, 0x2a2a33, 0xffcf4a]), g: 0.5 }); break;
       case 'inkSwirl': { const an = BT.B.real * 6; for (let i = 0; i < 2; i++) { const a2 = an + i * PI, r = 2.4; FX.p({ x: a.x + Math.cos(a2) * r, y: 0.15, z: a.z + Math.sin(a2) * r, vx: -Math.sin(a2) * 3, vz: Math.cos(a2) * 3, life: 0.5, size: 0.2, size1: 0.05, col: U.pick([0x141418, 0xffcf4a]) }); } break; }
+      default: if (CHOREO.streams[s.kind]) CHOREO.streams[s.kind](a, A, s, dt, tgt); break;
     }
   }
 
@@ -368,6 +392,7 @@
         break;
       }
       case 'talismanRain': FX.named('talisman', { x: tx, z: tz, r: e.r || 4 }); for (let i = 0; i < 12; i++) FX.beam(new THREE.Vector3(tx + rnd(-3, 3), 7, tz + rnd(-3, 3)), new THREE.Vector3(tx + rnd(-1, 1), 0.3, tz + rnd(-1, 1)), 0xffcf4a, 0.08, 0.3); break;
+      default: if (CHOREO.events[e.fx]) CHOREO.events[e.fx](a, A, e, tgt); break;
     }
   }
   const scene = () => BT.world.scene;

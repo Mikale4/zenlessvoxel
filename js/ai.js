@@ -34,7 +34,11 @@
     for (const ob of B.obstacles) { const dx = e.x - ob.x, dz = e.z - ob.z, d = Math.hypot(dx, dz), min = ob.r + e.rad; if (d < min && d > 1e-4) { e.x += dx / d * (min - d); e.z += dz / d * (min - d); } }
     e.x = clamp(e.x, I[0] + e.rad * 0.5, I[2] - e.rad * 0.5); e.z = clamp(e.z, I[1] + e.rad * 0.5, I[3] - e.rad * 0.5);
     const sp = Math.hypot(e.vx, e.vz); e.anim.speed = sp; e.anim.phase += sp * dt * 2.3;
-    if (e.state === 'idle' || e.state === 'move') e.anim.state = sp > 0.45 ? 'run' : 'idle';
+    if (e.state === 'idle' || e.state === 'move') {
+      if (sp <= 0.45) e.anim.state = 'idle';
+      else if (e.type === 'enemy') e.anim.state = (Math.sin(e.face) * e.vx + Math.cos(e.face) * e.vz) / sp > 0.55 ? 'run' : 'strafe';   // side-steps and backing off
+      else e.anim.state = 'run';
+    }
   }
   BT.physics = physics;
 
@@ -249,23 +253,38 @@
 
   /* ------------------------------------------------------------ Enemies -- */
   function attackDur(def) { if (def.dur) return def.dur; const last = Math.max(...def.hits.map(h => h.t)); def.dur = last + (def.rec != null ? def.rec : 0.55); return def.dur; }
+  const TELE_COL = { molotov: 0xff7a2a, miasmaBurst: 0xd040ff, etherBurst: 0xc8ff3a, coralSpike: 0xff4a4a };
   function startEnemyAttack(e, def, ag) {
-    const B = B_(), T = T_();
+    const B = B_(), T = T_(), ex = window.CHOREO && CHOREO.ext;
     attackDur(def);
     const A = BT.startAct(e, def, { tgt: ag, kind: 'enemy' });
-    A.threats = []; A.flashes = []; A.tele = []; A.rain = {};
-    e.cds[def.name] = B.t + def.cd / T.aggro; e.atkCd = (def.dur + rnd(e.def.atkGap[0], e.def.atkGap[1])) / T.aggro;
+    A.threats = []; A.flashes = []; A.tele = []; A.rain = {}; A.teleFollow = [];
+    A.dir = ang(e, ag); A.ox = e.x; A.oz = e.z;
+    const haste = e.phase === 2 && e.def.phase2 && e.def.phase2.haste; if (haste) A.speed = haste;
+    const sp = A.speed || 1;
+    e.cds[def.name] = B.t + def.cd / T.aggro; e.atkCd = (def.dur / sp + rnd(e.def.atkGap[0], e.def.atkGap[1])) / T.aggro;
+    if (e.mv) e.mv.dart = 0;
+    const I = B.bounds, inX = x => clamp(x, I[0] + 1, I[2] - 1), inZ = z => clamp(z, I[1] + 1, I[3] - 1);
     def.hits.forEach((h, i) => {
-      let impact = B.t + h.t;
+      let impact = B.t + h.t / sp;
       if (h.shape === 'proj') impact += dist(e, ag) / (h.speed || 12);
+      const col = h.flash === 'gold' ? 0xffd04a : TELE_COL[h.fx] || 0xff3a4a, dur = h.t / sp;
       if (h.shape === 'rain') {
-        const pts = [[ag.x, ag.z]]; for (let k = 1; k < (h.n || 4); k++) pts.push([clamp(ag.x + rnd(-3.5, 3.5), B.bounds[0] + 1, B.bounds[2] - 1), clamp(ag.z + rnd(-3, 3), B.bounds[1] + 1, B.bounds[3] - 1)]);
-        A.rain[i] = pts; for (const [x, z] of pts) A.tele.push(FX.telegraph(x, z, h.r || 1.5, h.flash === 'gold' ? 0xffd04a : 0xff3a4a, h.t));
-      } else if ((h.shape === 'circle' && h.at === 'self' && (h.r || 0) >= 2.4) || h.shape === 'line') {
-        const col = h.flash === 'gold' ? 0xffd04a : 0xff3a4a;
-        if (h.shape === 'line') { const len = 8, mx = e.x + Math.sin(ang(e, ag)) * len / 2, mz = e.z + Math.cos(ang(e, ag)) * len / 2; A.tele.push(FX.telegraph(mx, mz, len / 2, col, h.t, { arc: 0.32, a0: -0.16 - Math.PI / 2, yaw: ang(e, ag) })); }
-        else A.tele.push(FX.telegraph(e.x, e.z, h.r, col, h.t));
-      }
+        // the first point lands on the Agent, the rest within `spread` of her (a single point with a spread lands anywhere in it)
+        const n = h.n || 4, spread = h.spread != null ? h.spread : 3.5, pts = [];
+        for (let k = 0; k < n; k++) pts.push(k === 0 && !(n === 1 && h.spread) ? [ag.x, ag.z] : [inX(ag.x + rnd(-spread, spread)), inZ(ag.z + rnd(-spread, spread) * 0.85)]);
+        A.rain[i] = pts; for (const [x, z] of pts) A.tele.push(FX.telegraph(x, z, h.r || 1.5, col, dur));
+      } else if (h.shape === 'circle' && h.at === 'ahead') {
+        A.tele.push(FX.telegraph(A.ox + Math.sin(A.dir) * h.d, A.oz + Math.cos(A.dir) * h.d, h.r || 1.3, col, dur));
+      } else if (h.shape === 'line' || (h.shape === 'beam' && !def.sweep && !A.teleFollow.length)) {
+        const len = h.len || 8, yaw = h.yaw || 0;
+        const obj = ex ? ex.teleRect(e.x, e.z, A.dir + yaw, len, (h.r || 1.2) * 2, col, dur) : FX.telegraph(e.x + Math.sin(A.dir) * len / 2, e.z + Math.cos(A.dir) * len / 2, len / 2, col, dur, { arc: 0.32, a0: -0.16 - Math.PI / 2, yaw: A.dir });
+        A.tele.push(obj); if (ex) A.teleFollow.push({ obj, yaw });
+      } else if (h.shape === 'beam' && def.sweep && i === 0) {
+        const len = h.len || 10, span = def.sweep[1] - def.sweep[0], mid = (def.sweep[0] + def.sweep[1]) / 2;
+        const obj = FX.telegraph(e.x, e.z, len, col, dur, { arc: span + 0.2, a0: -(span + 0.2) / 2 - Math.PI / 2, yaw: A.dir + mid });
+        A.tele.push(obj); A.teleFollow.push({ obj, yaw: mid });
+      } else if (h.shape === 'circle' && h.at === 'self' && (h.r || 0) >= 2.4) A.tele.push(FX.telegraph(e.x, e.z, h.r, col, dur));
       const th = { e, hit: h, target: ag, impactAt: impact, flashAt: h.flash ? Math.max(B.t, impact - T.flashLead) : null, flash: h.flash || null, heavy: !!h.heavy, launch: !!h.launch, A, done: false };
       B.threats.push(th); A.threats.push(th);
       if (h.flash) A.flashes.push({ at: th.flashAt, color: h.flash, th });
@@ -273,40 +292,84 @@
     });
     if (e.rank !== 'minion') BT.log(`${e.def.name}: ${def.name}${def.hits.some(h => h.flash === 'red') ? ' (red flash)' : def.hits.some(h => h.flash) ? ' (gold flash)' : ''}`, 'enemy');
   }
+  BT.startEnemyAttack = startEnemyAttack;
+  /* would hit h reach the Agent (with `pad` extra metres of slack)? */
+  function reaches(e, h, A, ag, pad) {
+    const dir = h.shape === 'beam' ? A.dir + (h.yaw || 0) : e.face, r = (h.r || 1.8) + pad, d = dist(e, ag);
+    switch (h.shape) {
+      case 'circle': { const c = circleAt(e, h, A); return Math.hypot(ag.x - c[0], ag.z - c[1]) <= r + ag.rad; }
+      case 'rain': return (A.rain[A.def.hits.indexOf(h)] || []).some(([x, z]) => Math.hypot(ag.x - x, ag.z - z) <= r + ag.rad * 0.5);
+      case 'beam': { const dx = ag.x - e.x, dz = ag.z - e.z, along = dx * Math.sin(dir) + dz * Math.cos(dir), side = Math.abs(dx * Math.cos(dir) - dz * Math.sin(dir)); return along > -0.6 - pad && along < (h.len || 8) + ag.rad + pad && side <= r + ag.rad; }
+      case 'line': {                                   // a charge: anywhere along the path it has run so far
+        const S = A.chargeFrom; if (!S) return d <= r + ag.rad + e.rad + 0.6;
+        const ex = e.x + Math.sin(A.dir) * e.rad, ez = e.z + Math.cos(A.dir) * e.rad, vx = ex - S.x, vz = ez - S.z, L2 = vx * vx + vz * vz;
+        const k = L2 > 1e-6 ? clamp(((ag.x - S.x) * vx + (ag.z - S.z) * vz) / L2, 0, 1) : 0;
+        return Math.hypot(ag.x - (S.x + vx * k), ag.z - (S.z + vz * k)) <= r + ag.rad + 0.3;
+      }
+      default: { const da = Math.abs(wrap(ang(e, ag) - dir)); return d <= r + ag.rad + e.rad * 0.5 && (da <= (h.arc || 120) * Math.PI / 360 + 0.35 + (pad ? 0.6 : 0) || d < e.rad + ag.rad + 0.3); }
+    }
+  }
+  function circleAt(e, h, A) {
+    if (h.at === 'front') return [e.x + Math.sin(e.face) * (e.rad + 0.8), e.z + Math.cos(e.face) * (e.rad + 0.8)];
+    if (h.at === 'ahead') return [A.ox + Math.sin(A.dir) * h.d, A.oz + Math.cos(A.dir) * h.d];
+    return [e.x, e.z];
+  }
   BT.enemyHit = (e, h, A) => {
     const B = B_(), ag = BT.active();
     const th = A.threats && A.threats.find(t => t.hit === h && !t.done);
     if (!ag || !ag.alive || !ag.obj.visible) { if (th) th.done = true; return; }
     if (h.shape === 'proj') { BT.spawnEnemyProj(e, h, th); return; }
     const dir = e.face, r = h.r || 1.8;
-    // effects
-    if (h.shape === 'arc') FX.slash(e.x, 1.1 * (e.height / 1.9), e.z, Math.min(3.6, r), dir, h.flash === 'red' ? 0xff4a5a : 0xffffff, { arc: (h.arc || 120) * Math.PI / 180, width: 0.4 });
-    if (h.shape === 'circle') { const cx = h.at === 'front' ? e.x + Math.sin(dir) * (e.rad + 0.8) : e.x, cz = h.at === 'front' ? e.z + Math.cos(dir) * (e.rad + 0.8) : e.z; FX.named('quake', { x: cx, z: cz, r }); }
-    if (h.shape === 'rain') for (const [x, z] of (A.rain[A.def.hits.indexOf(h)] || [])) FX.named('explode', { x, z, r: h.r || 1.5, attr: 'ether' });
-    SFX.play(h.heavy ? 'heavy' : 'swing');
+    // effects (a move's own crescents and props are drawn by its choreography)
+    if (h.shape === 'arc' && !h.noSlash) FX.slash(e.x, 1.1 * (e.height / 1.9), e.z, Math.min(3.6, r), dir, h.flash === 'red' ? 0xff4a5a : 0xffffff, { arc: (h.arc || 120) * Math.PI / 180, width: 0.4 });
+    if (h.shape === 'arc' && h.fx) FX.named(h.fx, { x: e.x, z: e.z, yaw: dir, r, fromX: e.x, fromZ: e.z, y: e.height * 0.5 });
+    if (h.shape === 'circle') { const [cx, cz] = circleAt(e, h, A); FX.named(h.fx || 'quake', { x: cx, z: cz, r, yaw: dir }); }
+    if (h.shape === 'rain') for (const [x, z] of (A.rain[A.def.hits.indexOf(h)] || [])) FX.named(h.fx || 'explode', { x, z, r: h.r || 1.5, attr: 'ether' });
+    SFX.play(h.heavy ? 'heavy' : h.fx === 'molotov' ? 'fire' : 'swing');
     if (h.heavy) B.cam.shake = Math.max(B.cam.shake, e.rank === 'boss' ? 0.3 : 0.15);
     // does it reach the Agent?
-    const d = dist(e, ag);
-    let inRange = false;
-    if (h.shape === 'circle') { const cx = h.at === 'front' ? e.x + Math.sin(dir) * (e.rad + 0.8) : e.x, cz = h.at === 'front' ? e.z + Math.cos(dir) * (e.rad + 0.8) : e.z; inRange = Math.hypot(ag.x - cx, ag.z - cz) <= r + ag.rad; }
-    else if (h.shape === 'rain') inRange = (A.rain[A.def.hits.indexOf(h)] || []).some(([x, z]) => Math.hypot(ag.x - x, ag.z - z) <= (h.r || 1.5) + ag.rad * 0.5);
-    else if (h.shape === 'line') inRange = d <= r + ag.rad + e.rad + 0.6;
-    else { const da = Math.abs(wrap(ang(e, ag) - dir)); inRange = d <= r + ag.rad + e.rad * 0.5 && (da <= (h.arc || 120) * Math.PI / 360 + 0.35 || d < e.rad + ag.rad + 0.3); }
+    const inRange = reaches(e, h, A, ag, 0);
     // a Perfect Dodge counts if the dodge started on time, even if it carried her clear
-    const perfectish = ag.dodge && B.t <= ag.dodge.until && !ag.dodge.perfectDone && B.t - ag.dodge.t0 <= T_().perfectWin + 0.02 && d <= r + ag.rad + e.rad + 3;
+    const perfectish = ag.dodge && B.t <= ag.dodge.until && !ag.dodge.perfectDone && B.t - ag.dodge.t0 <= T_().perfectWin + 0.02 && reaches(e, h, A, ag, 3);
     B.eh.swing++;
     if (inRange || perfectish || (th && th.assist)) BT.incoming(e, h, th, ag);
     else { B.eh.out++; if (th) th.done = true; }
   };
+  /* how an enemy moves between attacks (data.js ai.style):
+       melee    closes in and edges round you; Raiders back off now and then to charge
+       ranged   holds its distance, backs away when you close in, drifts sideways
+       float    the same, gliding
+       boxer    bobs in and out at punching range with quick sidesteps
+       stalker  circles warily at a distance, then darts in to strike */
   function enemyMove(e, ag, dt, idx) {
-    const B = B_(), d = dist(e, ag);
-    const ranged = (e.def.range || 1.5) > 3;
-    const want = ranged ? e.def.range : e.def.range + ag.rad + e.rad * 0.6;
+    const B = B_(), d = dist(e, ag), AI = e.def.ai || {}, style = AI.style || 'melee';
+    const M = e.mv || (e.mv = { dir: idx % 2 ? 1 : -1, t: rnd(1, 2.5), hop: rnd(0.4, 1), back: B.t + rnd(AI.retreat ? AI.retreat[0] : 99, AI.retreat ? AI.retreat[1] : 99), dart: 0 });
+    M.t -= dt; if (M.t <= 0) { M.t = rnd(1.4, 3); if (Math.random() < 0.35) M.dir = -M.dir; }
+    const near = e.def.range + ag.rad + e.rad * 0.6;
+    let want = near, orbit = 0, sp = e.def.speed;
+    switch (style) {
+      case 'ranged': case 'float':
+        want = (AI.keep || e.def.range) + ag.rad; orbit = 0.45 * M.dir;
+        if (d < (AI.flee || want * 0.5) + ag.rad) sp *= 1.15;
+        break;
+      case 'boxer':
+        want = (AI.keep || 2.2) + ag.rad; orbit = 0.6 * M.dir; M.hop -= dt;
+        if (M.hop <= 0 && Math.abs(d - want) < 1.2) { M.hop = rnd(0.45, 0.9); const s = Math.random() < 0.5 ? 1 : -1, a = ang(e, ag) + s * Math.PI / 2; e.vx += Math.sin(a) * 4.5; e.vz += Math.cos(a) * 4.5; }
+        break;
+      case 'stalker':
+        want = (AI.keep || 3.6) + ag.rad; orbit = 0.8 * M.dir; sp *= 0.55;
+        break;
+      default:
+        orbit = Math.abs(d - want) < 0.7 ? 0.25 * M.dir : 0;
+    }
+    if (M.dart > B.t) { want = near; orbit = 0; sp = e.def.speed * 1.35; }                // darting in for a close-range move
+    if (AI.retreat && B.t >= M.back) { M.back = B.t + rnd(AI.retreat[0], AI.retreat[1]); M.away = B.t + 1.4; }
+    if (M.away > B.t) { want = 6.5; orbit = 0.2 * M.dir; sp *= 1.2; }                     // backing off for a long-range charge
     // spread the pack around the Agent so they do not all queue on one side
-    const a0 = ang(ag, e) + (idx % 2 ? 0.5 : -0.5) * (idx ? 1 : 0) * 0.6;
-    let tx = ag.x + Math.sin(a0) * want, tz = ag.z + Math.cos(a0) * want;
-    const sp = e.def.speed * (d > want + 2 ? 1 : 0.6);
-    if (Math.abs(d - want) > 0.35) steer(e, tx, tz, sp, dt); else steer(e, e.x, e.z, 0, dt);
+    const a0 = ang(ag, e) + (idx % 2 ? 0.3 : -0.3) * (idx ? 1 : 0) + orbit;
+    const tx = ag.x + Math.sin(a0) * want, tz = ag.z + Math.cos(a0) * want;
+    const spd = sp * (d > want + 2 ? 1 : style === 'melee' ? 0.6 : 0.5);
+    if (Math.hypot(tx - e.x, tz - e.z) > 0.3) steer(e, tx, tz, spd, dt); else steer(e, e.x, e.z, 0, dt);
     e.face = turn(e.face, ang(e, ag), 1 - Math.exp(-6 * dt));
   }
   BT.thinkEnemies = dt => {
@@ -314,8 +377,10 @@
     // how many enemies may be swinging at once
     const minionLimit = Math.max(1, Math.round(2 * T.aggro));
     let minionsActing = B.enemies.filter(v => v.alive && v.act && v.rank === 'minion').length;
+    const ex = window.CHOREO && CHOREO.ext;
     B.enemies.forEach((e, idx) => {
       if (!e.alive || e.spawnT > 0) return;
+      if (ex) ex.think(e, dt);
       if (e.stun > 0) { physics(e, dt, true); return; }
       if (e.state === 'hit') { e.hitT -= dt; e.anim.t += dt; physics(e, dt, true); if (e.hitT <= 0) { e.state = 'idle'; e.anim.state = 'idle'; } return; }
       if (e.act) {
@@ -336,8 +401,13 @@
       if (e.atkCd <= 0 && B.phase === 'fight' && !B.cutin) {
         if (e.rank === 'minion' && minionsActing >= minionLimit) { e.atkCd = rnd(0.3, 0.8); }
         else {
-          const d = dist(e, ag) - ag.rad - e.rad * 0.5;
-          const opts = e.def.attacks.filter(k => (!k.phase || k.phase <= e.phase) && (e.cds[k.name] || 0) <= B.t && k.reach >= d);
+          const d = dist(e, ag) - ag.rad - e.rad * 0.5, M = e.mv || {};
+          const forced = ex && ex.forced ? ex.forced(e) : null;
+          // a stalker sometimes darts in for its close-range moves instead of striking from where it is
+          if (!forced && (e.def.ai || {}).style === 'stalker' && !(M.dart > B.t) && d > 2.8 && Math.random() < 0.5) { M.dart = B.t + 1.6; e.atkCd = 0.05; }
+          const darting = M.dart > B.t;
+          const opts = (forced ? [forced] : e.def.attacks).filter(k => (forced || (e.cds[k.name] || 0) <= B.t) && (!k.ph || k.ph === e.phase) && (!k.phase || k.phase <= e.phase)
+            && k.reach >= d && (!k.minReach || d >= k.minReach) && (!darting || k.reach <= 3) && (!ex || forced || ex.allowed(e, k)));
           if (opts.length) {
             let tot = opts.reduce((s, k) => s + k.w, 0), r = Math.random() * tot, pick = opts[0];
             for (const k of opts) { r -= k.w; if (r <= 0) { pick = k; break; } }

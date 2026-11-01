@@ -19,6 +19,26 @@ Or locally: open `index.html` in a browser (no server or install needed).
   Miasma Ravager - Huskron and the **Miasma Priest**; Faun, Specter, Dullahan and **Notorious - Dead End Butcher**.
 - **The Battle Lab**: every rule and number as a toggle or slider, saved in your browser.
 
+## How the enemies fight
+
+Each enemy's moves follow its official combat notes (Zenless Zone Zero Wiki) and the enemy attacks in the official skill
+previews. Ground markings fill up until an area attack lands; *How to Play* lists every enemy's tricks.
+
+| Enemy | How it fights |
+|---|---|
+| **Raider** | Shock-baton combos; backs off and **charges from far away**. A charge that ends in a wall or a barrel leaves it dazed. |
+| **Pyromaniac** | Keeps its distance and **lobs molotovs**, up to a four-bottle hail; a flaming torch swipe if you get close. |
+| **Bulky Enforcer** | A boxer: jab-cross, a **weaving hook** after a sidestep, uppercut (launches), a ground pound, a shoulder charge. |
+| **Pompey** | Phase 1 on his **motorcycle** (rams, a wheelie slam, a burnout drift) with **hover guns**. Phase 2: longsword combos and his **rear wheel**, swung and thrown like a saw. Every wheel attack stores Ether; at three it explodes. A Defensive Assist on his marked moves **exposes a weakness**. |
+| **Miasma Spawn** | Axe chops; summons **Miasma dust** around you that bursts after a delay (your Agents step out of it). |
+| **Arcavor** | A steady stream of Miasma bolts from range while strafing; a **ballet pirouette** that spins in. |
+| **Huskron** | Circles warily, darts in with a four-hit assault. Hit it in its **bristling guard** and it counters: parry the counter and it reels. |
+| **Miasma Priest** | Glides; ribbon lashes, coral palms, talismans, Miasma rain. **Ribbon Flurry** flashes gold three times: those assists are free, and two or more in a row stagger her. Phase 2 (*Coral Bloom*) is faster and adds **coral spires** that erupt toward you. |
+| **Faun** | Comes in groups; a long **charged slam** it will not be staggered out of. |
+| **Specter** | **Rapid bursts of Ether bolts** from range; blinks in to cut. |
+| **Dullahan** | Sword combos, a whirlwind; a **charged thrust** that a high-level skill (EX, Chain, Ultimate...) breaks. |
+| **Dead End Butcher** | Pummels, hammer fists, a crushing leap. A high-level skill right after its combos deals **bonus Daze**. Phase 2 adds punch flurries and a **sweeping Ether laser**. It can turn **Ether Enhanced** (more ATK) until you Daze it enough. |
+
 ## Commands
 
 | Key | Command |
@@ -58,9 +78,11 @@ Plain JavaScript and three.js (r128, vendored in `lib/`), no build step. Every m
 | `js/data.js` | **All the numbers**: rules, kits, enemies, encounters, Battle Lab defaults |
 | `js/battle.js` | The battle: damage, Daze/Stun/Chains, anomalies, assists, ultimates, hazards, camera |
 | `js/ai.js` | Agent AI, enemy AI, the AUTO commander |
+| `js/moves.js` | How the Agents move: poses, footwork and effects per skill, matched to the official skill previews |
+| `js/enemy-moves.js` | How the enemies move and attack: poses, footwork, props (Pompey's bike and hover guns), effects |
 | `js/anim.js` · `js/fx.js` · `js/audio.js` | Procedural animation, effects, synthesized sound |
 | `js/hud.js` · `js/menu.js` · `js/main.js` | HUD, menus, boot and input |
-| `tools/` | Dev only: a model/arena viewer and headless test scripts (`node tools/play.js`) |
+| `tools/` | Dev only: a model/arena viewer and headless test scripts (`node tools/play.js`, `tools/moves-test.js`, `tools/enemy-test.js`) |
 
 Zenless Zone Zero, its characters and enemies belong to HoYoverse / miHoYo. This is a non-commercial fan project, not
 affiliated with or endorsed by them, and will come down on request.

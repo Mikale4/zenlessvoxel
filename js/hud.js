@@ -174,7 +174,11 @@
       if (tgt.anom) { const A = D.ANOMALY[tgt.anom.type]; chip(`${A.name.toUpperCase()} ${Math.ceil(tgt.anom.t)}s`, A.color); }
       if (tgt.scorched) chip('SCORCHED', '#ff8a3a');
       if (tgt.flinch > 0) chip('FLINCH', '#f4d35e');
-      if (tgt.vuln > B.t) chip('BATTLE SPIRIT +25%', '#ff5a5a');
+      if (tgt.vuln > B.t) chip('VULNERABLE +25% DMG', '#ff5a5a');
+      if (tgt.enhanced) chip('ETHER ENHANCED', '#c8ff3a');
+      if (tgt.ether > 0) chip(`WHEEL ETHER ${tgt.ether}/3`, tgt.ether >= 3 ? '#ffffff' : '#c8ff3a');
+      { const A = tgt.act, st = A && A.def.stance; if (st && A.t >= st[0] && A.t <= st[1]) chip('GUARD: COUNTERS HITS', '#ff7a3a'); }
+      if (tgt.crashedUntil > B.t) chip('CRASHED', '#ffe060');
       if (tgt.def.weak.length) chip('WEAK: ' + tgt.def.weak.map(w => D.ATTR[w].name).join(', '), '#9ad8ff');
       if (tgt.def.resist.length) chip('RES: ' + tgt.def.resist.map(w => D.ATTR[w].name).join(', '), '#888');
     }

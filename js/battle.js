@@ -126,12 +126,12 @@
     e.act = { def, t: 0, hi: 0, tgt: opts.tgt || null, dir: e.face, kind: opts.kind || 'basic', fired: {}, data: opts, dur: opts.dur || def.dur };
     e.state = 'act'; e.stT = 0;
     Object.assign(e.anim, { state: 'act', t: 0, act: def, th: def.hits && def.hits.length ? def.hits[0].t : Math.min(0.3, def.dur * 0.5), dur: e.act.dur });
-    if (e.type === 'agent' && window.CHOREO) CHOREO.start(e, e.act);
+    if (window.CHOREO) CHOREO.start(e, e.act);
     return e.act;
   }
   BT.startAct = startAct;
   function endAct(e) {
-    if (e.type === 'agent' && e.act && window.CHOREO) CHOREO.end(e, e.act);
+    if (e.act && window.CHOREO) CHOREO.end(e, e.act);
     e.act = null; e.state = 'idle'; e.stT = 0; e.anim.state = 'idle'; e.anim.act = null;
   }
   BT.endAct = endAct;
@@ -141,7 +141,9 @@
     A.t += dt * (A.speed || 1); e.anim.t = A.t;
     const tgt = A.tgt && A.tgt.alive ? A.tgt : null;
     const firstHit = d.hits && d.hits.length ? d.hits[0].t : 0.2;
-    if (tgt && A.t < firstHit - (e.type === 'enemy' ? 0.22 : 0)) { A.dir = ang(e, tgt); }
+    // aim at the target until just before the first hit (an enemy move can lock on earlier: track)
+    const trackUntil = d.track != null ? d.track : firstHit - (e.type === 'enemy' ? 0.22 : 0);
+    if (tgt && A.t < trackUntil) { A.dir = ang(e, tgt); }
     e.face = turn(e.face, A.dir, 1 - Math.exp(-18 * dt));
     for (const mv of [d.move, d.move2]) {
       if (!mv || A.t < mv[0] || A.t - dt > mv[1]) continue;
@@ -151,7 +153,8 @@
       if (tgt && distance > 0 && e.type === 'enemy' && !(d.hits && d.hits.some(h => h.shape === 'line'))) distance = Math.min(distance, Math.max(0, dist(e, tgt) - 0.9));
       e.x += Math.sin(A.dir) * distance * k; e.z += Math.cos(A.dir) * distance * k;
     }
-    if (e.type === 'agent' && window.CHOREO) CHOREO.step(e, A, dt * (A.speed || 1));
+    if (window.CHOREO) CHOREO.step(e, A, dt * (A.speed || 1));
+    if (e.act !== A) return;          // the move was cut short (a crash, a counter)
     if (d.adrenalinePerSec && e.type === 'agent') gainEnergy(e, d.adrenalinePerSec * dt, true);
     while (d.hits && A.hi < d.hits.length && A.t >= d.hits[A.hi].t) {
       const h = d.hits[A.hi++];
@@ -234,11 +237,18 @@
     if (v.stun > 0 || !v.alive) return;
     let k = T.dazeRate * (a.impactUp > B.t ? 1.2 : 1) * (v.flinch > 0 ? 1 + D.ANOMALY.assault.flinchDaze : 1);
     v.daze += amount * k;
+    if (v.enhanced) { v.enhDaze = (v.enhDaze || 0) + amount * k; if (v.enhDaze >= v.dazeMax * 0.3) breakEnhance(v); }
     if (v.daze >= v.dazeMax) stunEnemy(v, a);
   }
   BT.addDaze = addDaze;
+  function breakEnhance(v) {
+    const B = BT.B; v.enhanced = false; v.enhNext = B.t + 25;
+    callout('ENHANCEMENT BROKEN', 'perfect', v.def.name); log(`${v.def.name}'s Ether Enhanced state is broken.`, 'perfect');
+    FX.burst(v.x, 1.6, v.z, 40, { col: [0xc8ff3a, 0xffffff], speed: 7, size: 0.12, life: 0.5 });
+  }
   function stunEnemy(v, a) {
     const B = BT.B;
+    if (v.enhanced) breakEnhance(v);
     v.daze = v.dazeMax; v.stun = v.stunMax; v.act = null; v.state = 'stun'; v.anim.state = 'stun'; v.stT = 0;
     v.chainsLeft = Math.min(R.chains[v.rank] || 1, alive(B.squad).length); v.chainsUsed = 0;
     B.threats = B.threats.filter(t => t.e !== v);
@@ -369,12 +379,14 @@
   function applyHit(a, v, h, A, attr) {
     const B = BT.B, T = BT.T, kit = a.def.kit;
     if (!v.alive) return;
-    const res = agentDamage(a, v, h, attr, A);
+    const ex = window.CHOREO && CHOREO.ext;
+    const res = agentDamage(a, v, h, attr, A), guard = ex ? ex.guardMult(v) : 1;
+    if (guard < 1) { res.dmg = Math.max(1, Math.round(res.dmg * guard)); if (T.dmgNumbers && Math.random() < 0.5) FX.number(v.x, v.height + 0.3, v.z, 'GUARD', 'miss'); }
     hurtEnemy(v, res.dmg, { attr, crit: res.crit, src: a, big: A.kind === 'ult' || A.kind === 'chain' });
     const p = new THREE.Vector3(); sockWorld(v, 'chest', p);
     FX.hitSpark(p.x, p.y, p.z, attr, h.heavy, res.crit);
     if (!v.alive) { gainDecibels(a, 40); return; }
-    addDaze(a, v, a.st.impact * (h.daze || 0) / 100);
+    addDaze(a, v, a.st.impact * (h.daze || 0) / 100 * guard);
     let buMul = 1;
     if (a.id === 'burnice' && ['hold', 'ex', 'ex2'].includes(A.kind) && squadHas(s => s.id !== 'burnice' && (s.def.spec === 'Anomaly' || s.def.faction === 'Sons of Calydon'))) buMul *= 1.65; // Fire Kindling
     if (a.id === 'aria' && A.kind === 'charged') buMul *= 1 + 0.1 * (A.data.ppBuff || 0);
@@ -401,8 +413,8 @@
       if (A.def.fandom && !A.fandomDone) { A.fandomDone = true; addFandom(v.x, v.z, A.def.fandom); }
       if (A.kind === 'charged' && h.heavy && v.anom) abloom(a, v);
     }
-    // reactions
-    if (v.stun <= 0) react(v, h, a);
+    // reactions: guards counter, charges break, openings pay off; otherwise a stagger
+    if (v.stun <= 0 && v.alive && !(ex && ex.onHit(a, v, h, A))) react(v, h, a);
     if (h.heavy) maybeChain(a, v, A);
   }
   BT.applyHit = applyHit;
@@ -411,6 +423,8 @@
     const kb = (h.kb || 0.15) * (v.rank === 'minion' ? 1 : v.rank === 'elite' ? 0.35 : 0);
     if (kb > 0) { const d = ang(a, v); v.vx += Math.sin(d) * kb * 5; v.vz += Math.cos(d) * kb * 5; }
     const winding = v.act && v.act.t < (v.act.def.hits && v.act.def.hits.length ? v.act.def.hits[0].t * 0.35 : 0.2);
+    const ar = v.act && v.act.def.armor;
+    if (ar && v.act.t >= ar[0] && v.act.t <= ar[1]) return;   // a charged move that will not be stopped
     if (v.poise === 0 && h.heavy) interrupt(v, 0.45);
     else if (v.poise === 1 && h.heavy && winding) interrupt(v, 0.4);
     // otherwise a light hit is just a flinch you can see (the white flash); it does not stop the enemy
@@ -481,18 +495,23 @@
       } else {
         // enemy shots fly straight at where the Agent was when they were fired
         const ag = active();
-        p.x += p.dx * step; p.z += p.dz * step; p.fx.position.set(p.x, p.y, p.z);
-        if (Math.random() < 0.5) FX.p({ x: p.x, y: p.y, z: p.z, life: 0.2, size: 0.12, col: 0xff6a4a });
+        p.x += p.dx * step; p.z += p.dz * step; p.y += (p.y1 - p.y) * Math.min(1, dt * 3); p.fx.position.set(p.x, p.y, p.z);
+        if (Math.random() < 0.5) FX.p({ x: p.x, y: p.y, z: p.z, life: 0.2, size: 0.12, col: p.col || 0xff6a4a });
         if (ag && ag.alive && Math.hypot(ag.x - p.x, ag.z - p.z) < ag.rad + 0.25) { FX.kill(p.fx); B.projs.splice(i, 1); BT.incoming(p.e, p.h, p.threat, ag); continue; }
         if (p.t > p.life) { FX.kill(p.fx); B.projs.splice(i, 1); if (p.threat) p.threat.done = true; }
       }
     }
   }
+  const PROJ_COL = { fireball: 0xff8a2a, miasmaBolt: 0xff3a8a, etherBolt: 0xc8ff3a, talisman: 0xffcf4a };
   BT.spawnEnemyProj = (e, h, threat) => {
-    const B = BT.B, ag = active(), from = new THREE.Vector3(); sockWorld(e, e.model.sockets.muzzle ? 'muzzle' : 'weapon', from); if (from.y < 0.6) from.y = 1.1;
+    const B = BT.B, ag = active(), from = new THREE.Vector3();
+    const ex = window.CHOREO && CHOREO.ext;
+    if (!(ex && ex.origin(e, h, from))) sockWorld(e, e.model.sockets.muzzle ? 'muzzle' : 'weapon', from);
+    if (from.y < 0.6) from.y = 1.1;
     const d = Math.max(0.1, Math.hypot(ag.x - from.x, ag.z - from.z));
-    const fx = FX.glow(from.x, from.y, from.z, 0.6, h.fx === 'fireball' ? 0xff8a2a : 0xff4a6a, 9999, { size1: 0.6 });
-    B.projs.push({ side: 'enemy', e, h, threat, x: from.x, y: 1.1, z: from.z, dx: (ag.x - from.x) / d, dz: (ag.z - from.z) / d, speed: h.speed || 12, fx, t: 0, life: 2.2 });
+    const col = PROJ_COL[h.fx] || 0xff4a6a;
+    const fx = FX.glow(from.x, from.y, from.z, h.fx === 'talisman' ? 0.8 : 0.6, col, 9999, { size1: 0.6 });
+    B.projs.push({ side: 'enemy', e, h, threat, x: from.x, y: Math.max(1.0, from.y), y1: 1.0, z: from.z, dx: (ag.x - from.x) / d, dz: (ag.z - from.z) / d, speed: h.speed || 12, fx, col, t: 0, life: 2.2 });
     SFX.play('shot');
   };
 
@@ -563,7 +582,7 @@
     if (tgt) ag.face = ang(ag, tgt);
     for (const c of B.companions) if (c.owner === ag) showCompanion(c, true);
     FX.glow(ag.x, 1.1, ag.z, 2.4, D.ATTR[ag.def.attr].hex, 0.3, { size1: 3 }); SFX.play('swap');
-    for (const th of B.threats) th.plan = null; // the new Agent makes her own defensive plans
+    for (const th of B.threats) { th.plan = null; if (th.target === out && !th.hazard) th.target = ag; } // the new Agent faces what was coming, with her own plans
     if (BT.hooks.swap) BT.hooks.swap(out, ag, why);
     BT.planDefense && BT.B.threats.forEach(th => BT.planDefense(ag, th));
   }
@@ -602,7 +621,7 @@
   };
   function doAssist(ag, th) {
     const B = BT.B, out = active();
-    const cost = (th.heavy || th.launch) ? (ag.id === 'caesar' ? 1 : R.assistCostHeavy) : R.assistCostLight;
+    const cost = th.hit && th.hit.freeAssist ? 0 : (th.heavy || th.launch) ? (ag.id === 'caesar' ? 1 : R.assistCostHeavy) : R.assistCostLight;
     const e = th.e, defensive = th.flash === 'gold' && B.assist >= cost;
     swapIn(ag, 'assist', e);
     const toward = ang(e, ag), dd = e.rad + 1.1;
@@ -612,7 +631,7 @@
       B.assist -= cost; th.assist = { agent: ag, type: 'defensive' };
       startAct(ag, def, { tgt: e, kind: 'assist', dur: Math.max(def.dur, th.impactAt - B.t + 0.12) });
       callout('DEFENSIVE ASSIST', 'assist', def.name.replace('Defensive Assist: ', ''));
-      log(`${ag.def.short}: ${def.name} (${cost} Assist Point${cost > 1 ? 's' : ''})`, 'assist');
+      log(`${ag.def.short}: ${def.name} (${cost ? `${cost} Assist Point${cost > 1 ? 's' : ''}` : 'free'})`, 'assist');
     } else {
       th.assist = { agent: ag, type: 'evade' };
       ag.dodge = { t0: th.impactAt - 0.05, until: th.impactAt + 0.3, assist: true };
@@ -698,7 +717,19 @@
     const p = new THREE.Vector3(); sockWorld(ag, 'weapon', p);
     FX.glow(p.x, p.y, p.z, 2.6, 0xfff0a0, 0.3, { size1: 4.5 }); FX.burst(p.x, p.y, p.z, 30, { col: [0xffffff, 0xfff0a0, 0xf4d35e], speed: 8, size: 0.1, life: 0.4 });
     addDaze(ag, e, ag.st.impact * (def.daze || 400) / 100 * (h.heavy ? 1.2 : 1));
-    if (e.alive && e.stun <= 0) interrupt(e, e.rank === 'boss' ? 0.6 : 0.9, true);
+    const EA = e.act, more = h.chainParry && EA && EA.def.hits.some(x => x.t > h.t + 1e-3 && x.flash === 'gold');
+    if (h.chainParry && EA) EA.parries = (EA.parries || 0) + 1;
+    if (h.parryDaze && e.alive && e.stun <= 0) { addDaze(ag, e, e.dazeMax * h.parryDaze); callout('COUNTERED', 'perfect', `${e.def.name} reels`); }
+    if (h.expose && e.alive) { e.vuln = B.t + 6; callout('WEAKNESS EXPOSED', 'perfect', e.def.name); log(`${e.def.name}'s weakness is exposed (+25% DMG taken).`, 'perfect'); }
+    if (more) {                                     // the next lash is already on its way: no stagger yet
+      gainDecibels(ag, 150); gainEnergy(ag, 5);
+      shot({ x: (ag.x + e.x) / 2, z: (ag.z + e.z) / 2, zoom: 0.8, dur: 0.4, pri: 2 });
+      return;
+    }
+    if (h.chainParry && EA && EA.parries >= 2 && e.alive && e.stun <= 0) {
+      addDaze(ag, e, e.dazeMax * 0.3); if (e.stun <= 0) interrupt(e, 1.6, true);
+      callout('SPECIAL STAGGER', 'stun', `${EA.parries} Defensive Assists in a row`); log(`${e.def.name} is staggered by ${EA.parries} Defensive Assists in a row!`, 'perfect');
+    } else if (e.alive && e.stun <= 0) interrupt(e, e.rank === 'boss' ? 0.6 : 0.9, true);
     gainDecibels(ag, 250); gainEnergy(ag, 8);
     if (ag.id === 'caesar') { ag.impactUp = B.t + 3; battleSpirit(ag); }
     shot({ x: (ag.x + e.x) / 2, z: (ag.z + e.z) / 2, zoom: 0.75, dur: 0.6, pri: 2, roll: rnd(-0.06, 0.06) });
@@ -718,7 +749,7 @@
   BT.perfectDodge = perfectDodge;
   function hurtAgent(ag, e, h) {
     const B = BT.B, T = BT.T;
-    let dmg = e.atk * h.mult / 100 * defMult(ag.st.def) * T.enemyDmg;
+    let dmg = e.atk * (e.enhanced ? 1.3 : 1) * h.mult / 100 * defMult(ag.st.def) * T.enemyDmg;
     if (ag.act && ag.act.def.dr) dmg *= 1 - ag.act.def.dr;
     dmg = Math.round(dmg * rnd(0.95, 1.05));
     if (B.aegis && B.aegis.hp > 0 && B.aegis.until > B.t) { const ab = Math.min(B.aegis.hp, dmg); B.aegis.hp -= ab; dmg -= ab; if (B.aegis.hp <= 0) { log('Radiant Aegis breaks.', 'warn'); B.aegis.atkUntil = B.t + 5; } }
@@ -915,7 +946,7 @@
     stepProjs(dt);
     // enemy timers, anomalies
     for (const v of B.enemies) {
-      if (!v.alive) { v.stT += dt; if (v.stT > 1.4 && v.obj.visible) { v.obj.visible = false; FX.burst(v.x, 0.8, v.z, 20, { col: [0x9a9aa8, 0xffffff, 0x5a5a66], speed: 3, size: 0.12, life: 0.5, g: -1 }); } continue; }
+      if (!v.alive) { v.stT += dt; v.airY = Math.max(0, v.airY - dt * 4); if (v.stT > 1.4 && v.obj.visible) { v.obj.visible = false; FX.burst(v.x, 0.8, v.z, 20, { col: [0x9a9aa8, 0xffffff, 0x5a5a66], speed: 3, size: 0.12, life: 0.5, g: -1 }); } continue; }
       tickAnomaly(v, dt);
       if (v.flinch > 0) v.flinch -= dt;
       if (v.stun > 0) {

@@ -139,6 +139,9 @@
         el('li', null, 'Each Agent fills her own Decibels (some spills to the squad). At 3,000 (MAXIMUM) you can call her Ultimate.'),
         el('li', null, 'Attribute damage builds Anomalies: Physical → Assault (heavy blow, Flinch), Fire → Burn (damage over time), Ether → Corruption (extra damage on every hit), Auric Ink → its own Corruption. A second, different Anomaly on the same enemy triggers Disorder, cashing in the first one\'s remaining time.'),
         el('li', null, 'Caesar: Perfect Block / guard stance and Retaliation; Radiant Aegis shields the squad. Burnice: Heat and Nitro-Fuel; Scorched enemies take Afterburn whenever a teammate hits them. Aria: Fandom Power on the stage, charged Perfect Pitch, Abloom on enemies already suffering an Anomaly. Yixuan: Sheer DMG, Adrenaline, Technique Points, Auric Array; her ink bird flies with her.')),
+      el('h4', null, 'Know your enemies'),
+      el('p', null, 'Ground markings warn of area attacks: they fill up until the hit lands. A high-level skill means an EX Special, Chain Attack, Ultimate, Assist Follow-Up, Quick Assist or Dodge Counter.'),
+      el('ul', null, ...Object.values(DATA.ENEMIES).map(d => el('li', null, el('b', null, d.name + ': '), d.info || ''))),
       el('div', { class: 'row' }, el('button', { class: 'btn small', onclick: () => p.remove() }, 'GOT IT')));
     const p = el('div', { class: 'panel' }, box); scr().append(p);
   };

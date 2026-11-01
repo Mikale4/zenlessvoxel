@@ -19,6 +19,11 @@
     martial: { armL: [-1.1, -0.3, 0.35], armR: [-0.55, 0.2, -0.2], torso: [0.1, 0.35, 0], head: [0, -0.3, 0], legL: [-0.4, 0, 0.12], legR: [0.35, 0, -0.12], hipsY: -0.08 },
     brute: { armL: [-0.35, 0, 0.2], armR: [-0.5, 0, -0.2], torso: [0.12, 0, 0], head: [-0.05, 0, 0], legL: [-0.1, 0, 0.08], legR: [0.1, 0, -0.08], hipsY: -0.03 },
     gun: { armL: [-1.2, 0.3, 0.3], armR: [-1.35, 0, -0.05], torso: [0.05, -0.2, 0], head: [0, 0.2, 0], legL: [-0.15, 0, 0.05], legR: [0.2, 0, -0.05], hipsY: -0.02 },
+    // enemies
+    boxer: { armL: [-1.85, -0.35, 0.25], armR: [-1.6, 0.35, -0.25], torso: [0.18, 0.25, 0], head: [0.12, -0.2, 0], legL: [-0.35, 0, 0.1], legR: [0.35, 0, -0.1], hipsY: -0.07 },
+    blade: { armL: [-0.3, 0, 0.3], armR: [-0.85, 0.1, -0.25], torso: [0.1, 0.2, 0], head: [0, -0.15, 0], legL: [-0.3, 0, 0.08], legR: [0.25, 0, -0.08], hipsY: -0.05 },
+    priest: { armL: [-0.45, 0, 0.55], armR: [-0.45, 0, -0.55], torso: [-0.05, 0, 0], head: [-0.05, 0, 0], legL: [0, 0, 0], legR: [0, 0, 0], hipsY: 0 },
+    hulk: { armL: [-0.2, 0, 0.3], armR: [-0.3, 0, -0.3], torso: [0.3, 0, 0], head: [-0.25, 0, 0], legL: [-0.2, 0, 0.12], legR: [0.2, 0, -0.12], hipsY: -0.08 },
   };
   const PARTS = ['armL', 'armR', 'torso', 'head', 'legL', 'legR'];
   function P(o) { // fill a pose from a partial one
@@ -140,14 +145,17 @@
     return base;
   }
 
-  /* quadrupeds: body (root) -> head, legFL..legBR, tail, jaw */
+  /* quadrupeds: body (root) -> head, legFL..legBR, tail, jaw.
+     Q_ACT[name](pose, t, th, dur, clock) can fill a quadruped's action pose. */
+  const Q_ACT = {};
   function quadPose(ent, t) {
     const A = ent.anim, r = { body: [0, 0, 0], head: [0, 0, 0], legFL: [0, 0, 0], legFR: [0, 0, 0], legBL: [0, 0, 0], legBR: [0, 0, 0], tail: [0.3 + Math.sin(t * 3 + ent.seed) * 0.15, Math.sin(t * 2.2) * 0.3, 0], jaw: [0, 0, 0], lift: 0, tilt: 0, spin: 0, hipsY: Math.sin(t * 2.4 + ent.seed) * 0.01 };
     if (A.state === 'run' || A.state === 'strafe') {
       const ph = A.phase * 1.15, s = clamp(A.speed / 4, 0.3, 1.2), sw = Math.sin(ph) * 0.75 * s;
       r.legFL[0] = sw; r.legBR[0] = sw; r.legFR[0] = -sw; r.legBL[0] = -sw; r.hipsY += Math.abs(Math.cos(ph)) * 0.05 * s; r.body[0] = Math.sin(ph * 2) * 0.04;
     }
-    if (A.state === 'act' && A.act) {
+    if (A.state === 'act' && A.act && Q_ACT[A.act.anim]) Q_ACT[A.act.anim](r, A.t, A.th, A.dur, t);
+    else if (A.state === 'act' && A.act) {
       const an = A.act.anim, k = A.t, th = A.th;
       const w = k < th - 0.05 ? U.easeOut(k / Math.max(0.05, th - 0.05)) : 0, s = k >= th - 0.05 && k < th + 0.25 ? 1 : 0, rec = k >= th + 0.25 ? clamp(1 - (k - th - 0.25) / 0.3, 0, 1) : 0;
       if (an === 'bite' || an === 'slash' || an === 'slash2') { r.head[0] = -0.5 * w + 0.5 * s + 0.2 * rec; r.jaw[0] = 0.7 * w + 0.1 * s; r.body[0] = -0.12 * w + 0.12 * s; r.legFL[0] = -0.4 * s; r.legFR[0] = -0.4 * s; }
@@ -217,5 +225,5 @@
     B.rotation.y = pose.spin || 0;
   }
 
-  window.ANIM = { apply, READY, ACT: H_ACT, stage, add, mix, P };
+  window.ANIM = { apply, READY, ACT: H_ACT, QUAD: Q_ACT, stage, add, mix, P };
 })();
