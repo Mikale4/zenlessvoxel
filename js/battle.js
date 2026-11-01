@@ -9,6 +9,9 @@
      Focus target (Tab / click), Tactics menu (Esc) that stops time, AUTO (T)
    With AUTO off you also move the Agent on the field (arrow keys / touch
    stick); she still picks and throws her attacks herself.
+   PROXY CLASH (opts.clash): the "enemies" are a rival Proxy's Agents, fought
+   with their own kits; clash.js drives them and the hooks below hand it the
+   rival's hits, the hits on a rival, and its swaps, downs and win.
    Rules follow the official game (data.js RULES); numbers are tunable.
    ========================================================================== */
 (function () {
@@ -54,7 +57,7 @@
     const def = D.AGENTS[id], modelId = BT.modelFor(id, look), a = makeEnt('agent', id, def, modelId);
     a.modelId = modelId;
     Object.assign(a, {
-      slot, st: Object.assign({}, def.stats), hpMax: def.stats.hp, hp: def.stats.hp, energy: def.resource === 'adrenaline' ? def.energyMax : 45, decibels: 600,
+      slot, st: Object.assign({}, def.stats), hpMax: def.stats.hp, hp: def.stats.hp, baseHp: def.stats.hp, energy: def.resource === 'adrenaline' ? def.energyMax : 45, decibels: 600,
       dodgeCharges: R.dodgeCharges, dodgeCd: 0, combo: 0, lastBasic: -9, queue: [], gap: 0, counterUntil: 0, launchedUntil: 0,
       heat: 100, nitro: true, tp: 0, auric: 0, meditation: 0, delusion: 0, cheer: 0, noIce: false, ppBuff: 0, impactUp: 0, adrBoost: 0, auricAnomCd: 0, exCall: false,
     });
@@ -79,13 +82,19 @@
     Object.assign(c, { owner, y: 2.2, flap: 0, dive: 0, diveX: 0, diveZ: 0 });
     c.obj.visible = false; return c;
   }
-  function disposeEnt(e) { if (!e) return; BT.world.scene.remove(e.obj); e.rig.dispose(); }
+  function disposeEnt(e) {
+    if (!e) return; BT.world.scene.remove(e.obj); e.rig.dispose();
+    for (const r of [e.rigHome, e.rigAlt]) if (r && r !== e.rig) r.dispose();   // Aria's other form
+  }
+  // for clash.js: the rival Proxy's Agents are built from the same parts
+  BT.makeEnt = makeEnt; BT.makeCompanion = makeCompanion; BT.disposeEnt = disposeEnt;
 
   /* ------------------------------------------------------------- start -- */
   BT.init = (world, tuning) => { BT.world = world; BT.T = tuning; };
   BT.start = opts => {
     BT.end();
-    const T = BT.T, enc = D.ENCOUNTERS[opts.arena][opts.encounter];
+    const T = BT.T, clash = !!(opts.clash && window.CLASH);
+    const enc = clash ? { name: 'Proxy Clash', waves: [[]] } : D.ENCOUNTERS[opts.arena][opts.encounter];
     const built = BT.world.loadArena(opts.arena);
     const B = BT.B = {
       opts, arena: built.A, built, bounds: built.bounds, obstacles: built.obstacles || [], barrels: (built.barrels || []).map(b => Object.assign({ alive: true }, b)),
@@ -99,14 +108,19 @@
     B.companions = B.squad.filter(a => a.id === 'yixuan').map(a => makeCompanion(a, 'inkbird'));
     const a = active(); a.obj.visible = true; a.x = 0; a.z = 4.5; a.face = Math.PI;
     for (const c of B.companions) if (c.owner === a) showCompanion(c, true);
-    spawnWave(0);
+    if (clash) {
+      // Agent against Agent: both squads get the same deeper HP pool, so a fight lasts
+      for (const s of B.squad) { s.hpMax = Math.round(s.baseHp * (T.clashHp || 1)); s.hp = s.hpMax; }
+      CLASH.start(B);
+    } else spawnWave(0);
     log(`${B.arena.name}: ${enc.name}`, 'sys');
     if (BT.hooks.start) BT.hooks.start(B);
     return B;
   };
   BT.end = () => {
     const B = BT.B; if (!B) return;
-    for (const e of [...B.squad, ...B.enemies, ...B.companions]) disposeEnt(e);
+    if (B.rival && window.CLASH) CLASH.end(B);
+    for (const e of new Set([...B.squad, ...B.enemies, ...B.companions, ...(B.rival ? B.rival.squad : [])])) disposeEnt(e);
     for (const p of B.projs) if (p.fx) FX.kill(p.fx);
     for (const f of B.fandom) FX.kill(f.fx);
     FX.clear(); BT.B = null;
@@ -129,6 +143,7 @@
     e.state = 'act'; e.stT = 0;
     Object.assign(e.anim, { state: 'act', t: 0, act: def, th: def.hits && def.hits.length ? def.hits[0].t : Math.min(0.3, def.dur * 0.5), dur: e.act.dur });
     if (window.CHOREO) CHOREO.start(e, e.act);
+    if (e.type === 'agent' && BT.B && BT.B.rival) CLASH.onAgentAct(e, e.act);   // a rival sees it coming
     return e.act;
   }
   BT.startAct = startAct;
@@ -144,7 +159,7 @@
     const tgt = A.tgt && A.tgt.alive ? A.tgt : null;
     const firstHit = d.hits && d.hits.length ? d.hits[0].t : 0.2;
     // aim at the target until just before the first hit (an enemy move can lock on earlier: track)
-    const trackUntil = d.track != null ? d.track : firstHit - (e.type === 'enemy' ? 0.22 : 0);
+    const trackUntil = d.track != null ? d.track : firstHit - (e.rival ? 0.15 : e.type === 'enemy' ? 0.22 : 0);
     if (tgt && A.t < trackUntil) { A.dir = ang(e, tgt); }
     e.face = turn(e.face, A.dir, 1 - Math.exp(-18 * dt));
     for (const mv of [d.move, d.move2]) {
@@ -160,10 +175,10 @@
     if (d.adrenalinePerSec && e.type === 'agent') gainEnergy(e, d.adrenalinePerSec * dt, true);
     while (d.hits && A.hi < d.hits.length && A.t >= d.hits[A.hi].t) {
       const h = d.hits[A.hi++];
-      if (e.type === 'agent') BT.agentHit(e, h, A); else BT.enemyHit(e, h, A);
-      if (!e.act) return;
+      if (e.type === 'agent') BT.agentHit(e, h, A); else if (e.rival) CLASH.hit(e, h, A); else BT.enemyHit(e, h, A);
+      if (e.act !== A) return;
     }
-    if (A.t >= A.dur) { const then = d.then; endAct(e); if (e.type === 'agent' && then) e.queue.unshift({ def: e.def.kit[then], kind: 'core' }); if (e.type === 'agent' && BT.hooks.actEnd) BT.hooks.actEnd(e, A); }
+    if (A.t >= A.dur) { const then = d.then; endAct(e); if ((e.type === 'agent' || e.rival) && then) e.queue.unshift({ def: e.def.kit[then], kind: 'core' }); if (e.type === 'agent' && BT.hooks.actEnd) BT.hooks.actEnd(e, A); }
   }
   BT.stepAct = stepAct;
 
@@ -192,7 +207,7 @@
   /* a direct hit from an Agent */
   function agentDamage(a, v, h, attr, A) {
     const T = BT.T, B = BT.B;
-    const sheer = !!a.def.sheer, base = sheer ? (0.3 * atkOf(a) + 0.1 * a.hpMax) : atkOf(a);
+    const sheer = !!a.def.sheer, base = sheer ? (0.3 * atkOf(a) + 0.1 * (a.baseHp || a.hpMax)) : atkOf(a);
     let dmg = base * h.mult / 100;
     let cr = a.st.cr, cd = a.st.cd + (a.meditation > B.t ? 0.4 : 0);
     const crit = Math.random() < cr; if (crit) dmg *= 1 + cd;
@@ -216,6 +231,7 @@
   function hurtEnemy(v, dmg, o) {
     const B = BT.B, T = BT.T;
     if (!v.alive) return;
+    if (v.rival) { dmg = CLASH.hurt(v, dmg, o); if (dmg <= 0) return; }   // a rival's Radiant Aegis soaks it up
     v.hp -= dmg; v.flash = 1; B.stats.dmg += dmg; B.stats.maxHit = Math.max(B.stats.maxHit, dmg);
     if (T.dmgNumbers) {
       const col = o.color || (D.ATTR[o.attr] ? D.ATTR[o.attr].color : '#fff');
@@ -226,9 +242,11 @@
   BT.hurtEnemy = hurtEnemy;
   function killEnemy(v, src) {
     const B = BT.B;
-    v.hp = 0; v.alive = false; v.act = null; v.state = 'dead'; v.anim.state = 'dead'; v.stT = 0; v.stun = 0;
+    if (v.act && window.CHOREO) CHOREO.end(v, v.act);
+    v.hp = 0; v.alive = false; v.act = null; v.state = 'dead'; v.anim.state = 'dead'; v.stT = 0; v.stun = 0; v.dodge = null;
     B.threats = B.threats.filter(t => t.e !== v);
-    log(`${v.def.name} is defeated.`, 'kill'); SFX.play('down');
+    if (v.rival) CLASH.down(v); else log(`${v.def.name} is defeated.`, 'kill');
+    SFX.play('down');
     if (B.chain && B.chain.tgt === v) closeChain();
     if (B.focus === v) B.focus = null;
   }
@@ -251,6 +269,9 @@
   function stunEnemy(v, a) {
     const B = BT.B;
     if (v.enhanced) breakEnhance(v);
+    if (v.act && window.CHOREO) CHOREO.end(v, v.act);
+    if (v.act && v.act.tele) for (const f of v.act.tele) FX.kill(f);
+    if (v.rival) CLASH.stunned(v);
     v.daze = v.dazeMax; v.stun = v.stunMax; v.act = null; v.state = 'stun'; v.anim.state = 'stun'; v.stT = 0;
     v.chainsLeft = Math.min(R.chains[v.rank] || 1, alive(B.squad).length); v.chainsUsed = 0;
     B.threats = B.threats.filter(t => t.e !== v);
@@ -381,6 +402,7 @@
   function applyHit(a, v, h, A, attr) {
     const B = BT.B, T = BT.T, kit = a.def.kit;
     if (!v.alive) return;
+    if (v.rival && CLASH.intercept(a, v, h, A)) return;      // a rival dodges, blocks, or a teammate parries for her
     const ex = window.CHOREO && CHOREO.ext;
     const res = agentDamage(a, v, h, attr, A), guard = ex ? ex.guardMult(v) : 1;
     if (guard < 1) { res.dmg = Math.max(1, Math.round(res.dmg * guard)); if (T.dmgNumbers && Math.random() < 0.5) FX.number(v.x, v.height + 0.3, v.z, 'GUARD', 'miss'); }
@@ -416,7 +438,8 @@
       if (A.kind === 'charged' && h.heavy && v.anom) abloom(a, v);
     }
     // reactions: guards counter, charges break, openings pay off; otherwise a stagger
-    if (v.stun <= 0 && v.alive && !(ex && ex.onHit(a, v, h, A))) react(v, h, a);
+    if (v.rival) { if (v.stun <= 0 && v.alive) CLASH.react(v, h, a, A); }
+    else if (v.stun <= 0 && v.alive && !(ex && ex.onHit(a, v, h, A))) react(v, h, a);
     if (h.heavy) maybeChain(a, v, A);
   }
   BT.applyHit = applyHit;
@@ -434,7 +457,9 @@
   function interrupt(v, t, force) {
     const B = BT.B;
     if (!v.alive || v.stun > 0) return;
-    if (v.act) { B.threats = B.threats.filter(th => th.e !== v); if (v.act.tele) for (const f of v.act.tele) FX.kill(f); }
+    if (v.rival && CLASH.unstoppable(v, force)) return;       // an Ultimate, an assist: Agents don't flinch out of those
+    if (v.act) { B.threats = B.threats.filter(th => th.e !== v); if (v.act.tele) for (const f of v.act.tele) FX.kill(f); if (window.CHOREO) CHOREO.end(v, v.act); }
+    if (v.rival) CLASH.staggered(v);
     v.act = null; v.state = 'hit'; v.anim.state = 'hit'; v.anim.t = 0; v.stT = 0; v.hitT = t;
     v.atkCd = Math.max(v.atkCd, t + 0.4);
   }
@@ -499,20 +524,20 @@
         const ag = active();
         p.x += p.dx * step; p.z += p.dz * step; p.y += (p.y1 - p.y) * Math.min(1, dt * 3); p.fx.position.set(p.x, p.y, p.z);
         if (Math.random() < 0.5) FX.p({ x: p.x, y: p.y, z: p.z, life: 0.2, size: 0.12, col: p.col || 0xff6a4a });
-        if (ag && ag.alive && Math.hypot(ag.x - p.x, ag.z - p.z) < ag.rad + 0.25) { FX.kill(p.fx); B.projs.splice(i, 1); BT.incoming(p.e, p.h, p.threat, ag); continue; }
+        if (ag && ag.alive && Math.hypot(ag.x - p.x, ag.z - p.z) < ag.rad + 0.25) { FX.kill(p.fx); B.projs.splice(i, 1); if (p.e && p.e.rival) CLASH.projHit(p, ag); else BT.incoming(p.e, p.h, p.threat, ag); continue; }
         if (p.t > p.life) { FX.kill(p.fx); B.projs.splice(i, 1); if (p.threat) p.threat.done = true; }
       }
     }
   }
-  const PROJ_COL = { fireball: 0xff8a2a, miasmaBolt: 0xff3a8a, etherBolt: 0xc8ff3a, talisman: 0xffcf4a };
+  const PROJ_COL = { fireball: 0xff8a2a, miasmaBolt: 0xff3a8a, etherBolt: 0xc8ff3a, talisman: 0xffcf4a, bignote: 0xff7ab8 };
   BT.spawnEnemyProj = (e, h, threat) => {
     const B = BT.B, ag = active(), from = new THREE.Vector3();
     const ex = window.CHOREO && CHOREO.ext;
-    if (!(ex && ex.origin(e, h, from))) sockWorld(e, e.model.sockets.muzzle ? 'muzzle' : 'weapon', from);
+    if (!(ex && ex.origin(e, h, from))) sockWorld(e, e.model.sockets && e.model.sockets.muzzle ? 'muzzle' : 'weapon', from);
     if (from.y < 0.6) from.y = 1.1;
     const d = Math.max(0.1, Math.hypot(ag.x - from.x, ag.z - from.z));
-    const col = PROJ_COL[h.fx] || 0xff4a6a;
-    const fx = FX.glow(from.x, from.y, from.z, h.fx === 'talisman' ? 0.8 : 0.6, col, 9999, { size1: 0.6 });
+    const col = PROJ_COL[h.fx] || 0xff4a6a, big = h.fx === 'talisman' || h.fx === 'fireball' || h.fx === 'bignote';
+    const fx = FX.glow(from.x, from.y, from.z, big ? 0.8 : 0.6, col, 9999, { size1: big ? 0.8 : 0.6 });
     B.projs.push({ side: 'enemy', e, h, threat, x: from.x, y: Math.max(1.0, from.y), y1: 1.0, z: from.z, dx: (ag.x - from.x) / d, dz: (ag.z - from.z) / d, speed: h.speed || 12, fx, col, t: 0, life: 2.2 });
     SFX.play('shot');
   };
@@ -764,11 +789,13 @@
     if (ag.hp <= 0) return agentDown(ag);
     const anti = (ag.act && ag.act.def.dr) || shielded;
     if (h.launch) {
+      if (ag.act && window.CHOREO) CHOREO.end(ag, ag.act);
       ag.act = null; ag.queue.length = 0; ag.state = 'down'; ag.anim.state = 'down'; ag.anim.t = 0; ag.stT = 0; ag.downT = 1.25; ag.launchedUntil = B.t + 1.25;
       const d = ang(e, ag); ag.vx = Math.sin(d) * 7; ag.vz = Math.cos(d) * 7;
       callout('LAUNCHED', 'warn', 'Swap now for a Quick Assist'); B.cam.shake = Math.max(B.cam.shake, 0.35);
       log(`${ag.def.short} is launched! (Quick Assist ready)`, 'warn');
-    } else if (!anti || h.heavy) {
+    } else if ((!anti || h.heavy) && !h.flinchOnly) {   // flinchOnly: a rival Agent's hit that only makes her flinch (clash.js)
+      if (ag.act && window.CHOREO) CHOREO.end(ag, ag.act);
       ag.act = null; ag.queue.length = 0; ag.state = 'hit'; ag.anim.state = 'hit'; ag.anim.t = 0; ag.stT = 0; ag.hitT = h.heavy ? 0.5 : 0.25;
       const d = ang(e, ag); ag.vx = Math.sin(d) * (h.heavy ? 4 : 1.5); ag.vz = Math.cos(d) * (h.heavy ? 4 : 1.5);
       if (h.heavy) B.cam.shake = Math.max(B.cam.shake, 0.22);
@@ -777,6 +804,7 @@
   BT.hurtAgent = hurtAgent;
   function agentDown(ag) {
     const B = BT.B;
+    if (ag.act && window.CHOREO) CHOREO.end(ag, ag.act);
     ag.hp = 0; ag.alive = false; ag.act = null; ag.state = 'dead'; ag.anim.state = 'dead'; ag.stT = 0; ag.queue.length = 0;
     log(`${ag.def.name} is down!`, 'warn'); callout(`${ag.def.short.toUpperCase()} DOWN`, 'warn');
     B.downSwap = 1.0;
@@ -811,7 +839,7 @@
         zn.tick = 0.5; const dmg = Math.round(ag.hpMax * 0.012 * T.enemyDmg); ag.hp -= dmg; if (T.dmgNumbers) FX.number(ag.x, ag.height, ag.z, U.fmt(dmg), 'hurt', '#b88aff'); if (ag.hp <= 0) agentDown(ag);
       }
     }
-    if (!T.hazards || !ag || !ag.alive) return;
+    if (!T.hazards || !ag || !ag.alive || B.rival) return;     // a Proxy Clash is a straight fight
     B.hazardT -= dt; if (B.hazardT > 0) return;
     const id = B.arena.id;
     if (id === 'summit') {                                         // miasma pools well up under the Agent
@@ -963,13 +991,15 @@
       if (v.def.phase2 && v.phase === 1 && v.hp / v.hpMax <= v.def.phase2.at) { v.phase = 2; callout('PHASE 2', 'wave', v.def.phase2.name); log(`${v.def.name} enters phase 2: ${v.def.phase2.name}.`, 'warn'); }
     }
     hazards(dt);
+    if (B.rival) CLASH.step(dt);                                // the rival Proxy: resources, swaps, the next Agent in
+    if (B.result) return;
     // the on-field Agent went down: bring in the next one
     if (B.downSwap > 0) {
       B.downSwap -= dt;
       if (B.downSwap <= 0) { const nx = nextAlive(1); if (nx) { swapIn(nx, 'forced'); log(`${nx.def.short} steps in.`, 'cmd'); } else return finish('lose'); }
     }
     // the wave is cleared
-    if (B.phase === 'fight' && B.enemies.length && B.enemies.every(e => !e.alive) && !B.waveDelay) B.waveDelay = 1.6;
+    if (B.phase === 'fight' && !B.rival && B.enemies.length && B.enemies.every(e => !e.alive) && !B.waveDelay) B.waveDelay = 1.6;
     if (B.waveDelay > 0) {
       B.waveDelay -= dt;
       if (B.waveDelay <= 0) {
@@ -984,8 +1014,10 @@
     B.result = result; B.phase = 'end'; closeChain();
     const ag = active(); if (result === 'win' && ag && ag.alive) { ag.state = 'win'; ag.anim.state = 'win'; ag.act = null; }
     SFX.play(result === 'win' ? 'win' : 'lose');
-    callout(result === 'win' ? 'MISSION CLEAR' : 'MISSION FAILED', result === 'win' ? 'clear' : 'fail');
-    log(result === 'win' ? 'All enemies defeated.' : 'The whole squad is down.', 'sys');
+    const clash = !!B.rival;
+    callout(result === 'win' ? (clash ? 'VICTORY' : 'MISSION CLEAR') : (clash ? 'DEFEAT' : 'MISSION FAILED'), result === 'win' ? 'clear' : 'fail');
+    log(result === 'win' ? (clash ? `${B.rival.diff.name}'s whole squad is down.` : 'All enemies defeated.') : 'The whole squad is down.', 'sys');
+    if (clash) CLASH.finish(B, result);
     setTimeout(() => { if (BT.B === B && BT.hooks.finish) BT.hooks.finish(B); }, 2200);
   }
   BT.finish = finish;

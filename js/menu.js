@@ -18,11 +18,23 @@
     kitFocus = sel.squad[0];
   }
   const save = () => U.store.set('setup', sel);
+  /* Proxy Clash: your squad (1 to 3), the rival Proxy, their squad (null: they pick), the battleground */
+  const DEF_CLASH = () => ({ squad: ['caesar', 'burnice', 'aria'], rival: 'vesper', rsquad: null, arena: 'stage' });
+  let csel = DEF_CLASH(), rolled = null, rlook = {};
+  function normClash() {
+    if (!csel || !Array.isArray(csel.squad)) csel = DEF_CLASH();
+    csel.squad = csel.squad.filter(id => D.AGENTS[id]).slice(0, 3); if (!csel.squad.length) csel.squad = ['caesar'];
+    if (!D.RIVALS[csel.rival]) csel.rival = 'vesper';
+    if (!D.ENCOUNTERS[csel.arena]) csel.arena = 'stage';
+    if (Array.isArray(csel.rsquad)) { csel.rsquad = [...new Set(csel.rsquad.filter(id => D.AGENTS[id]))].slice(0, 3); if (!csel.rsquad.length) csel.rsquad = null; } else csel.rsquad = null;
+  }
+  const saveClash = () => U.store.set('clash', csel);
   MENU.saveTuning = () => U.store.set('tuning', BT.T);
   /* signed in: this account's own squad and Battle Lab */
   MENU.loadAccount = () => {
     const a = Auth.current(); U.store.ns = a ? a.id : null;
     sel = U.store.get('setup', DEF_SETUP()); normSel();
+    csel = U.store.get('clash', DEF_CLASH()); normClash(); rolled = null;
     const t = U.store.get('tuning', {}); for (const k in D.TUNING_DEFAULTS) BT.T[k] = k in t ? t[k] : D.TUNING_DEFAULTS[k];
     SFX.setVolume(BT.T.volume);
     return a;
@@ -52,7 +64,11 @@
       el('div', { class: 'note' }, 'An unofficial, non-commercial Zenless Zone Zero fan game. Zenless Zone Zero, its characters and enemies belong to HoYoverse / miHoYo; this project is not affiliated with or endorsed by them.'));
     scr().append(s);
   };
-  function liveText() { const B = BT.B; return 'LIVE FROM THE HOLLOW' + (B ? ` · ${B.arena.name} · ${B.squad.map(a => a.def.short).join(' / ')}` : ''); }
+  function liveText() {
+    const B = BT.B; if (!B) return 'LIVE FROM THE HOLLOW';
+    const mine = B.squad.map(a => a.def.short).join(' / ');
+    return B.rival ? `LIVE · PROXY CLASH · ${B.arena.name} · ${mine} VS ${B.rival.squad.map(a => a.def.short).join(' / ')} (${B.rival.diff.name})` : `LIVE FROM THE HOLLOW · ${B.arena.name} · ${mine}`;
+  }
   MENU.liveText = () => { const t = document.querySelector('.t-live span'); if (t) t.textContent = liveText(); };
   /* signed in: a new account chooses its Proxy first */
   function enter(acc) {
@@ -131,12 +147,13 @@
     const ui = el('div', { class: 'scr lobby-ui' }, tags,
       el('div', { class: 'lb-top' },
         el('div', { class: 'lb-me' }, el('img', { src: portrait(acc.proxy), alt: '' }), el('div', null, el('b', null, acc.user), el('small', null, `${NAME[acc.proxy]} · Proxy of Random Play`))),
-        chip('HOLLOW DIVES', acc.battles), chip('CLEARED', acc.clears),
+        chip('HOLLOW DIVES', acc.battles), chip('CLEARED', acc.clears), chip('CLASH WINS', `${acc.duelWins}/${acc.duels}`),
         el('span', { style: { flex: 1 } }),
         el('button', { class: 'lb-out', onclick: () => { Auth.logout(); U.store.ns = null; MENU.loadAccount(); MENU.title(); } }, 'SIGN OUT')),
       el('div', { class: 'lb-help' }, GAME.touch ? 'Tap where to go, or drag to steer · tap a sign to use it' : 'WASD / arrows to walk · Shift to run · E to use · or click where to go'),
       el('nav', { class: 'lb-dock' },
         dock('HOLLOW DEEP DIVE', 'Into the Hollow', () => MENU.setup(), 'hdd'),
+        dock('PROXY CLASH', 'Agent vs Agent', () => MENU.clash(), 'clash'),
         dock('AGENTS', 'Who is in town', () => MENU.agents()),
         dock('BATTLE LAB', 'Rules & numbers', () => MENU.lab('lobby')),
         dock('HOW TO PLAY', 'Tutorial tapes', () => MENU.howto()),
@@ -148,6 +165,7 @@
   function lobbyUse(id) {
     const acc = Auth.current() || {};
     if (id === 'hdd') return MENU.setup();
+    if (id === 'clash') return MENU.clash();
     if (id === 'lab') return MENU.lab('lobby');
     if (id === 'howto') return MENU.howto();
     if (id === 'records') return MENU.records();
@@ -162,6 +180,7 @@
       { who: 'eous', name: 'Eous', text: 'Ehn-ne! Ehn-nu-nu!' },
       { who: s, name: sn, text: 'Four Agents are out on Sixth Street tonight, and every one of them wants a Proxy: Caesar, Burnice, Aria and Yixuan. Go and say hello.' },
       { who: s, name: sn, text: 'When you\'re ready, sit down at the HDD. You guide them through the Hollow; they do the fighting.' },
+      { who: s, name: sn, text: 'Oh, and the arcade cabinets out front? Proxy Clash. Other Proxies dial in with their own Agents and fight yours. Somebody called Mirage keeps topping the board...' },
       { who: s, name: sn, text: `The shop computer has the Battle Lab, the tutorial tapes are on the shelf, and the notice board by the door keeps your records. ${GAME.touch ? 'Tap where you want to go, or drag to steer,' : 'Walk with WASD or the arrow keys,'} and use anything with a sign over it.` },
     ], () => Auth.update({ seenIntro: true }));
   }
@@ -213,9 +232,12 @@
       const b = acc.best[ar + '.' + k];
       rows.push(el('tr', null, el('td', null, ARENAS[ar].name), el('td', null, D.ENCOUNTERS[ar][k].name), el('td', { class: 'rk ' + (b ? b.rank : '') }, b ? b.rank : '—'), el('td', null, b ? fmtT(b.time) : '')));
     }
+    const crow = Object.values(D.RIVALS).map(R0 => { const c = (acc.clash || {})[R0.id]; return el('tr', null, el('td', null, R0.name), el('td', null, R0.tier), el('td', null, c ? `${c.w} – ${c.l}` : '—'), el('td', { class: 'rk ' + (c && c.best ? c.best : '') }, c && c.best ? c.best : '—'), el('td', null, c && c.time ? fmtT(c.time) : '')); });
     const box = el('div', { class: 'box records' }, el('h2', null, 'PROXY RECORDS'),
-      el('p', null, `${acc.user || 'Proxy'}: ${acc.battles} Hollow dive${acc.battles === 1 ? '' : 's'}, ${acc.clears} cleared.`),
+      el('p', null, `${acc.user || 'Proxy'}: ${acc.battles} Hollow dive${acc.battles === 1 ? '' : 's'}, ${acc.clears} cleared · ${acc.duels || 0} Proxy Clash${acc.duels === 1 ? '' : 'es'}, ${acc.duelWins || 0} won.`),
       el('table', null, el('tr', null, el('th', null, 'BATTLEGROUND'), el('th', null, 'ENCOUNTER'), el('th', null, 'BEST'), el('th', null, 'TIME')), ...rows),
+      el('h4', null, 'PROXY CLASH'),
+      el('table', null, el('tr', null, el('th', null, 'RIVAL'), el('th', null, 'TIER'), el('th', null, 'WON – LOST'), el('th', null, 'BEST'), el('th', null, 'FASTEST WIN')), ...crow),
       el('div', { class: 'row' }, el('button', { class: 'btn small', onclick: () => p.remove() }, 'CLOSE')));
     const p = el('div', { class: 'panel' }, box); scr().append(p);
   };
@@ -263,11 +285,11 @@
     scr().append(el('div', { class: 'scr setup' }, left, mid, right));
   };
   /* Agents with more than one look (Aria: idol / construct) get a switch */
-  function formPicker(id) {
+  function formPicker(id, redraw) {
     const A = D.AGENTS[id]; if (!A || !A.forms) return null;
     const cur = sel.look[id] || Object.keys(A.forms)[0];
     const row = el('div', { class: 'forms' }, el('span', null, `${A.short.toUpperCase()}'S FORM`));
-    for (const k in A.forms) row.append(el('button', { class: 'opt form' + (k === cur ? ' sel' : ''), title: A.forms[k].note, onclick: () => { SFX.play('ui'); sel.look[id] = k; save(); MENU.setup(); } }, el('b', null, A.forms[k].name), el('small', null, A.forms[k].note)));
+    for (const k in A.forms) row.append(el('button', { class: 'opt form' + (k === cur ? ' sel' : ''), title: A.forms[k].note, onclick: () => { SFX.play('ui'); sel.look[id] = k; save(); (redraw || MENU.setup)(); } }, el('b', null, A.forms[k].name), el('small', null, A.forms[k].note)));
     return row;
   }
   function kitPanel(id) {
@@ -286,6 +308,83 @@
   MENU.deploy = () => {
     scr().innerHTML = '';
     GAME.startBattle({ squad: sel.squad.slice(), arena: sel.arena, encounter: sel.encounter, look: Object.assign({}, sel.look) });
+  };
+
+  /* ---------------------------------------------------------- Proxy Clash --
+     The arcade cabinets on Sixth Street: your squad against a rival Proxy's,
+     Agent against Agent. Pick yours (1 to 3: the size of the fight), the
+     rival, their squad (or let them pick), and where. */
+  function rivalSquad() {
+    const n = csel.squad.length;
+    if (csel.rsquad) { const s = csel.rsquad.slice(0, n); for (const id of CLASH.randomSquad(4)) if (s.length < n && !s.includes(id)) s.push(id); return s; }
+    if (!rolled || rolled.length !== n) { rolled = CLASH.randomSquad(n); rlook = { aria: Math.random() < 0.5 ? 'idol' : 'construct' }; }
+    return rolled;
+  }
+  MENU.clash = () => {
+    scr().innerHTML = '';
+    const old = document.querySelector('.dlg'); if (old) old.remove();
+    if (GAME.mode !== 'menu') GAME.toMenu();
+    const theirs = rivalSquad(), RV = D.RIVALS[csel.rival], acc = Auth.current() || {};
+    GAME.preview(csel.arena, csel.squad, sel.look, theirs, rlook);
+    const left = el('div', { class: 'col' }), mid = el('div', { class: 'col' }), right = el('div', { class: 'col' });
+    // your squad: one to three Agents; the first is on the field
+    left.append(el('h2', null, 'PROXY CLASH', el('small', null, 'your Agents against a rival Proxy\'s')));
+    left.append(el('h2', null, 'YOUR SQUAD', el('small', null, `pick 1-3 · a ${csel.squad.length}-on-${csel.squad.length}`)));
+    const cards = el('div', { class: 'cards' });
+    for (const id in D.AGENTS) {
+      const A = D.AGENTS[id], i = csel.squad.indexOf(id);
+      cards.append(el('button', { class: 'card' + (i >= 0 ? ' sel' : ''), onclick: () => {
+        SFX.unlock(); SFX.play('ui'); kitFocus = id;
+        const k = csel.squad.indexOf(id);
+        if (k >= 0) { if (csel.squad.length > 1) csel.squad.splice(k, 1); } else { if (csel.squad.length >= 3) csel.squad.pop(); csel.squad.push(id); }
+        saveClash(); MENU.clash();
+      } }, i >= 0 ? el('span', { class: 'ord' }, String(i + 1)) : null, el('img', { src: portrait(BT.modelFor(id, sel.look)), alt: A.name }), el('b', null, A.name), el('small', null, `${A.spec} · ${D.ATTR[A.attr].name}`)));
+    }
+    left.append(cards, ...Object.keys(D.AGENTS).filter(id => D.AGENTS[id].forms && csel.squad.includes(id)).map(id => formPicker(id, MENU.clash)));
+    left.append(el('div', { class: 'kit' }, el('h3', null, 'HOW A CLASH WORKS'),
+      el('p', null, 'Their Agents fight with the same kits as yours: combos, EX Specials, dodges, Perfect Dodges and Dodge Counters, Ultimates. You command yours as in the Hollow; the rival Proxy commands theirs.'),
+      el('ul', null,
+        el('li', null, 'Their heavy hits flash gold: swap for a Defensive Assist. An Ultimate\'s finisher flashes red: dodge it.'),
+        el('li', null, 'Daze them to a Stun for Chain Attacks. Only a high-level skill\'s heavy hit (EX, counter, Chain, Ultimate, Follow-Up) staggers an Agent.'),
+        el('li', null, 'Watch their Assist Points: a rival teammate can swap in and parry one of your heavy hits, then hit back.'))));
+    mid.append(el('div', { style: { flex: 1 } }));
+    // the rival
+    right.append(el('h2', null, 'RIVAL PROXY'));
+    const ro = el('div', { class: 'opts' });
+    for (const id in D.RIVALS) {
+      const R0 = D.RIVALS[id], c = (acc.clash || {})[id];
+      ro.append(el('button', { class: 'opt rival-opt' + (csel.rival === id ? ' sel' : ''), style: { borderLeftColor: R0.color }, onclick: () => { SFX.play('ui'); csel.rival = id; saveClash(); MENU.clash(); } },
+        el('b', null, `${R0.name.toUpperCase()} · ${R0.tier.toUpperCase()}`), el('small', null, (csel.rival === id ? R0.blurb : R0.line) + (c ? ` · you ${c.w} won, ${c.l} lost` : ''))));
+    }
+    right.append(ro, el('h2', null, 'THEIR SQUAD', el('small', null, csel.rsquad ? 'your pick' : `${RV.name} picks`)));
+    const rc = el('div', { class: 'cards mini' });
+    for (const id in D.AGENTS) {
+      const k = theirs.indexOf(id);
+      rc.append(el('button', { class: 'card' + (k >= 0 ? ' sel rv' : ''), title: D.AGENTS[id].name, onclick: () => {
+        SFX.play('ui');
+        const s = (csel.rsquad || theirs).slice(), j = s.indexOf(id);
+        if (j >= 0) { if (s.length > 1) s.splice(j, 1); } else { if (s.length >= csel.squad.length) s.pop(); s.push(id); }
+        csel.rsquad = s; saveClash(); MENU.clash();
+      } }, k >= 0 ? el('span', { class: 'ord' }, String(k + 1)) : null, el('img', { src: portrait(BT.modelFor(id, rlook)), alt: '' }), el('b', null, D.AGENTS[id].short)));
+    }
+    right.append(rc, el('div', { class: 'row tight' },
+      el('button', { class: 'btn dark small', onclick: () => { SFX.play('ui'); csel.rsquad = null; rolled = null; saveClash(); MENU.clash(); } }, csel.rsquad ? 'LET THEM PICK' : 'REROLL THEIR SQUAD')));
+    right.append(el('h2', null, 'BATTLEGROUND'));
+    const ar = el('div', { class: 'opts across' });
+    for (const id in ARENAS) ar.append(el('button', { class: 'opt' + (csel.arena === id ? ' sel' : ''), title: ARENAS[id].sub, onclick: () => { SFX.play('ui'); csel.arena = id; saveClash(); MENU.clash(); } }, el('b', null, ARENAS[id].name)));
+    right.append(ar);
+    right.append(el('div', { class: 'deploy' },
+      el('button', { class: 'btn', onclick: () => { SFX.unlock(); MENU.clashGo(); } }, 'FIGHT'),
+      Auth.current() ? el('button', { class: 'btn dark small', onclick: () => { SFX.play('ui'); MENU.lobby({ spawn: [-3.9, -1.6] }); } }, '◀ SIXTH STREET') : null,
+      el('button', { class: 'btn dark small', onclick: () => MENU.lab() }, 'BATTLE LAB'),
+      el('button', { class: 'btn dark small', onclick: () => MENU.howto() }, 'HOW TO PLAY'),
+      el('div', { class: 'hint' }, `${csel.squad.map(id => D.AGENTS[id].short).join(' / ')}  vs  ${theirs.map(id => D.AGENTS[id].short).join(' / ')} · ${BT.T.auto ? 'AUTO is ON (T toggles it in battle)' : 'AUTO is OFF: you move and command'}`)));
+    scr().append(el('div', { class: 'scr setup clash' }, left, mid, right));
+  };
+  MENU.clashGo = () => {
+    const theirs = rivalSquad().slice();
+    scr().innerHTML = '';
+    GAME.startBattle({ squad: csel.squad.slice(), arena: csel.arena, look: Object.assign({}, sel.look), clash: { rival: csel.rival, squad: theirs, look: Object.assign({}, rlook) } });
   };
 
   /* --------------------------------------------------------- Battle Lab */
@@ -334,6 +433,14 @@
         el('li', null, 'Each Agent fills her own Decibels (some spills to the squad). At 3,000 (MAXIMUM) you can call her Ultimate.'),
         el('li', null, 'Attribute damage builds Anomalies: Physical → Assault (heavy blow, Flinch), Fire → Burn (damage over time), Ether → Corruption (extra damage on every hit), Auric Ink → its own Corruption. A second, different Anomaly on the same enemy triggers Disorder, cashing in the first one\'s remaining time.'),
         el('li', null, 'Caesar: Perfect Block / guard stance and Retaliation; Radiant Aegis shields the squad. Burnice: Heat and Nitro-Fuel; Scorched enemies take Afterburn whenever a teammate hits them. Aria: Fandom Power on the stage, charged Perfect Pitch, Abloom on enemies already suffering an Anomaly. Yixuan: Sheer DMG, Adrenaline, Technique Points, Auric Array; her ink bird flies with her.')),
+      el('h4', null, 'Proxy Clash: Agent against Agent'),
+      el('p', null, 'At the arcade cabinets on Sixth Street, a rival Proxy dials in with a squad of their own. 1-on-1 up to 3-on-3: the size of your squad sets it. Their Agents use the same kits as yours, and their Proxy swaps, assists and fires Ultimates as you do.'),
+      el('ul', null,
+        el('li', null, 'Their heavy hits flash gold: swap for a Defensive Assist and parry. The finisher of their Ultimate flashes red: dodge it, or swap and the incoming Agent Perfect Dodges. The big ones are marked on the ground.'),
+        el('li', null, 'Only a high-level skill\'s heavy hit (an EX Special, Dodge Counter, Chain Attack, Ultimate, Assist Follow-Up or Quick Assist) staggers an Agent, theirs or yours. Anything else is a flinch.'),
+        el('li', null, 'They dodge too: a Perfect Dodge answers with a Dodge Counter. Caesar and Yixuan Perfect Block, and while their Proxy has Assist Points a benched teammate can swap in, parry one of your heavy hits and follow up. The panel under the clock shows their squad and Assist Points; the target bar says when one of them has her Ultimate or an EX ready.'),
+        el('li', null, 'Daze still Stuns, and a Stunned rival is open to your Chain Attacks. Both squads get the same extra HP in a clash (Battle Lab).'),
+        el('li', null, 'The rivals: Patch (Rookie), Vesper (Ace) and Mirage (Legend), who signs as Phaethon. Your record against each is on the notice board.')),
       el('h4', null, 'Know your enemies'),
       el('p', null, 'Ground markings warn of area attacks: they fill up until the hit lands. A high-level skill means an EX Special, Chain Attack, Ultimate, Assist Follow-Up, Quick Assist or Dodge Counter.'),
       el('ul', null, ...Object.values(DATA.ENEMIES).map(d => el('li', null, el('b', null, d.name + ': '), d.info || ''))),
@@ -366,6 +473,7 @@
 
   /* ---------------------------------------------------------- results */
   MENU.results = B => {
+    if (B.rival) return clashResults(B);
     const S = B.stats, t = B.t, win = B.result === 'win', downs = B.squad.filter(a => !a.alive).length;
     const par = { patrol: 70, elite: 95, boss: 150 }[B.opts.encounter];
     let score = 0; if (win) { score = 3; if (t > par) score--; if (t > par * 1.6) score--; score -= downs; if (S.perfect + S.assists >= 4) score++; }
@@ -385,6 +493,34 @@
         Auth.current() ? el('button', { class: 'btn dark', onclick: () => MENU.lobby({ spawn: [1.5, -11.0] }) }, 'SIXTH STREET') : null));
     scr().innerHTML = ''; scr().append(el('div', { class: 'scr results' }, box));
   };
+
+  function clashResults(B) {
+    const S = B.stats, RV = B.rival, RS = RV.stats, t = B.t, win = B.result === 'win', n = RV.squad.length;
+    const downs = B.squad.filter(a => !a.alive).length, theirsDown = RV.squad.filter(r => !r.alive).length;
+    const par = 40 + 35 * n;
+    let score = 0;
+    if (win) { score = 3; if (t > par) score--; if (t > par * 1.6) score--; score -= downs; if (S.perfect + S.assists >= 6) score++; if (RV.id === 'mirage') score++; if (RV.id === 'patch') score--; }
+    const rank = !win ? 'F' : score >= 4 ? 'S' : score >= 3 ? 'A' : score >= 2 ? 'B' : 'C';
+    let acc = Auth.current();
+    if (B.result !== 'retreat' && acc) acc = Auth.record({ clash: true, rival: RV.id, win, rank, time: t }) || acc;
+    const c = acc && acc.clash && acc.clash[RV.id];
+    const fmtT = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+    const row = (k, v) => [el('span', null, k), el('b', null, v)];
+    const box = el('div', { class: 'box' },
+      el('div', { class: 'rank ' + rank }, rank),
+      el('h2', null, win ? 'VICTORY' : B.result === 'retreat' ? 'RETREATED' : 'DEFEAT'),
+      el('div', { class: 'hint' }, `Proxy Clash vs ${RV.diff.name} (${RV.diff.tier}) · ${B.arena.name}`),
+      el('p', { class: 'quote' }, `${RV.diff.name}: "${win ? RV.diff.lose : B.result === 'retreat' ? 'Leaving already?' : RV.diff.win}"`),
+      el('div', { class: 'stats' }, ...row('Time', fmtT(t)), ...row('Rival Agents down', `${theirsDown} / ${n}`), ...row('Your Agents down', `${downs} / ${B.squad.length}`),
+        ...row('Damage dealt / taken', `${U.fmt(S.dmg)} / ${U.fmt(S.taken)}`), ...row('Perfect Dodges (you / them)', `${S.perfect} / ${RS.perfect}`), ...row('Perfect Assists (you / them)', `${S.assists} / ${RS.assists}`),
+        ...row('Stuns / Chain Attacks', `${S.stuns} / ${S.chains}`), ...row('Ultimates (you / them)', `${S.ults} / ${RS.ults}`), ...row('Their Perfect Blocks', RS.blocks),
+        ...(c ? row(`Your record vs ${RV.diff.name}`, `${c.w} won · ${c.l} lost`) : [])));
+    box.append(el('div', { class: 'row', style: { justifyContent: 'center' } },
+      el('button', { class: 'btn', onclick: () => MENU.clashGo() }, 'REMATCH'),
+      el('button', { class: 'btn dark', onclick: () => { GAME.toMenu(); MENU.clash(); } }, 'PROXY CLASH'),
+      Auth.current() ? el('button', { class: 'btn dark', onclick: () => MENU.lobby({ spawn: [-3.9, -1.6] }) }, 'SIXTH STREET') : null));
+    scr().innerHTML = ''; scr().append(el('div', { class: 'scr results' }, box));
+  }
 
   window.MENU = MENU;
 })();

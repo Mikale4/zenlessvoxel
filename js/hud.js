@@ -41,7 +41,20 @@
     E.tm = el('div', { class: 'tm' }); E.wv = el('div', { class: 'wv' });
     E.auto = el('button', { class: 'auto pe', onpointerdown: ev => { ev.preventDefault(); BT.setAuto(!BT.B.auto); HUD.saveAuto(); } }, 'AUTO');
     E.moveHint = el('div', { class: 'movehint' });
-    root.append(el('div', { class: 'topright' }, E.tm, E.wv, E.auto, E.moveHint));
+    // Proxy Clash: the rival Proxy's squad
+    E.rv = null;
+    if (B.rival) {
+      const RV = B.rival;
+      E.rv = { root: el('div', { class: 'rv' }), rows: [], pips: el('div', { class: 'rv-assist' }) };
+      E.rv.root.append(el('div', { class: 'rv-head', style: { borderColor: RV.diff.color } }, el('b', null, RV.diff.name.toUpperCase()), el('small', null, `${RV.diff.tier.toUpperCase()} · RIVAL PROXY`)));
+      for (const r of RV.squad) {
+        const row = { r, hp: el('i'), db: el('i'), root: null };
+        row.root = el('div', { class: 'rv-row' }, el('img', { src: portrait(r.modelId || r.id), alt: '' }), el('div', null, el('span', null, r.def.short), el('div', { class: 'bar hp' }, row.hp), el('div', { class: 'bar db' }, row.db)));
+        E.rv.rows.push(row); E.rv.root.append(row.root);
+      }
+      E.rv.root.append(E.rv.pips);
+    }
+    root.append(el('div', { class: 'topright' }, E.tm, E.wv, E.auto, E.moveHint, E.rv ? E.rv.root : null));
     // log, callouts, floating bars
     E.log = el('div', { class: 'log' }); E.co = el('div', { class: 'callouts' }); E.floats = el('div');
     root.append(E.log, E.co, E.floats);
@@ -160,7 +173,7 @@
     E.enRoot.hidden = !tgt;
     if (tgt) {
       const en = E.en;
-      en.name.textContent = tgt.def.name; en.rank.textContent = tgt.rank === 'boss' ? 'BOSS' : tgt.rank === 'elite' ? 'ELITE' : 'ENEMY'; en.rank.className = tgt.rank;
+      en.name.textContent = tgt.def.name; en.rank.textContent = tgt.rival ? 'RIVAL' : tgt.rank === 'boss' ? 'BOSS' : tgt.rank === 'elite' ? 'ELITE' : 'ENEMY'; en.rank.className = tgt.rival ? 'rival' : tgt.rank;
       tgt.hpLag += (tgt.hp - tgt.hpLag) * 0.12; if (tgt.hpLag < tgt.hp) tgt.hpLag = tgt.hp;
       en.hp.style.width = pct(tgt.hp, tgt.hpMax); en.lag.style.width = pct(tgt.hpLag, tgt.hpMax);
       en.daze.style.width = pct(tgt.daze, tgt.dazeMax); en.dazeBar.className = 'bar daze' + (tgt.stun > 0 ? ' stun' : '');
@@ -181,12 +194,29 @@
       if (tgt.ether > 0) chip(`WHEEL ETHER ${tgt.ether}/3`, tgt.ether >= 3 ? '#ffffff' : '#c8ff3a');
       { const A = tgt.act, st = A && A.def.stance; if (st && A.t >= st[0] && A.t <= st[1]) chip('GUARD: COUNTERS HITS', '#ff7a3a'); }
       if (tgt.crashedUntil > B.t) chip('CRASHED', '#ffe060');
+      if (tgt.rival) {
+        const RV = B.rival;
+        if (tgt.decibels >= R.decibelMax) chip('ULTIMATE READY', '#ff5ab0');
+        if (tgt.energy >= tgt.def.kit.ex.cost) chip('EX READY', '#ffe98a');
+        if (RV.aegis && RV.aegis.hp > 0) chip(`AEGIS ${U.fmt(RV.aegis.hp)}`, '#f4d35e');
+        if (tgt.dodgeCharges <= 0) chip('NO DODGES', '#9ad8ff');
+      }
       if (tgt.def.weak.length) chip('WEAK: ' + tgt.def.weak.map(w => D.ATTR[w].name).join(', '), '#9ad8ff');
       if (tgt.def.resist.length) chip('RES: ' + tgt.def.resist.map(w => D.ATTR[w].name).join(', '), '#888');
     }
     // top right
     const s = Math.floor(B.t); E.tm.textContent = `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
-    E.wv.textContent = `${B.arena.name.toUpperCase()} · WAVE ${B.wave + 1}/${B.waves.length}`;
+    E.wv.textContent = B.rival ? `PROXY CLASH · ${B.arena.name.toUpperCase()}` : `${B.arena.name.toUpperCase()} · WAVE ${B.wave + 1}/${B.waves.length}`;
+    if (E.rv) {
+      const RV = B.rival;
+      for (const row of E.rv.rows) {
+        const r = row.r;
+        row.hp.style.width = pct(r.hp, r.hpMax); row.db.style.width = pct(r.decibels, R.decibelMax);
+        row.root.classList.toggle('on', RV.squad[RV.active] === r && r.alive); row.root.classList.toggle('down', !r.alive); row.root.classList.toggle('dbmax', r.alive && r.decibels >= R.decibelMax);
+      }
+      E.rv.pips.innerHTML = ''; E.rv.pips.append(el('span', null, 'ASSIST '));
+      for (let i = 0; i < R.assistPointsMax; i++) E.rv.pips.append(el('i', { class: i < RV.assist ? 'on' : '' }));
+    }
     E.auto.classList.toggle('on', !!B.auto); E.auto.textContent = B.auto ? 'AUTO: ON' : 'AUTO: OFF';
     E.moveHint.textContent = B.auto ? 'She moves on her own' : (window.GAME && GAME.touch ? 'Drag to move' : '← ↑ ↓ → to move');
     // command buttons
@@ -217,7 +247,7 @@
       _v.set(v.x, v.height + 0.35 + v.airY, v.z).project(cam);
       f.root.style.display = _v.z > 1 ? 'none' : '';
       f.root.style.left = ((_v.x + 1) / 2 * W) + 'px'; f.root.style.top = ((1 - _v.y) / 2 * H) + 'px';
-      f.hp.style.width = pct(v.hp, v.hpMax); f.dz.style.width = pct(v.daze, v.dazeMax); f.root.classList.toggle('focus', v === tgt);
+      f.hp.style.width = pct(v.hp, v.hpMax); f.dz.style.width = pct(v.daze, v.dazeMax); f.root.classList.toggle('focus', v === tgt); f.root.classList.toggle('rival', !!v.rival);
     }
     for (; i < floatPool.length; i++) floatPool[i].root.style.display = 'none';
   }

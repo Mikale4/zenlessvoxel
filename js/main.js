@@ -98,25 +98,33 @@
   /* ----------------------------------------------------------- preview --
      Behind the menus: the chosen battleground with the squad lined up. */
   let preview = null;
-  function clearPreview() { if (!preview) return; for (const e of preview.ents) e.rig.dispose(); preview = null; }
+  function clearPreview() { if (!preview) return; for (const e of preview.ents) e.rig.dispose(); if (preview.ring) { preview.ring.geometry.dispose(); preview.ring.material.dispose(); } preview = null; }
   const GAME = {
     mode: 'menu',
-    preview(arenaId, squad, look) {
+    /* the squad lined up on its battleground (a Proxy Clash: yours on the left, the rival's on the right, facing off) */
+    preview(arenaId, squad, look, rival, rlook) {
       if (GAME.mode !== 'menu') return;
-      const models = squad.map(id => BT.modelFor(id, look));
-      const key = arenaId + '|' + models.join(',');
+      const models = squad.map(id => BT.modelFor(id, look)), rmodels = (rival || []).map(id => BT.modelFor(id, rlook || {}));
+      const key = arenaId + '|' + models.join(',') + '|' + rmodels.join(',');
       if (preview && preview.key === key) return;
       clearPreview();
       const built = world.loadArena(arenaId);
-      const ents = squad.map((id, i) => {
-        const R = VX.rig(models[i], MODELS[models[i]]), obj = new THREE.Group(), body = new THREE.Group(); body.add(R.root); obj.add(body); scene.add(obj);
-        const x = (i - (squad.length - 1) / 2) * 1.8, z = 2 + Math.abs(i - (squad.length - 1) / 2) * -0.6;
-        obj.position.set(x, 0, z); obj.rotation.y = -x * 0.08;
-        return { rig: R, obj, body, kind: 'humanoid', stance: D.AGENTS[id].stance, seed: i * 3.1, anim: { state: 'idle', t: 0, speed: 0, phase: 0 } };
-      });
+      const mk = (id, modelId, x, z, ry) => {
+        const R = VX.rig(modelId, MODELS[modelId]), obj = new THREE.Group(), body = new THREE.Group(); body.add(R.root); obj.add(body); scene.add(obj);
+        obj.position.set(x, 0, z); obj.rotation.y = ry;
+        return { id, rig: R, obj, body, kind: 'humanoid', stance: D.AGENTS[id].stance, seed: x * 3.1 + z, anim: { state: 'idle', t: 0, speed: 0, phase: 0 } };
+      };
+      const ents = rival
+        ? squad.map((id, i) => mk(id, models[i], -1.0 - i * 1.2, 1.7 + i * 0.55, 0.7)).concat(rival.map((id, i) => mk(id, rmodels[i], 1.0 + i * 1.2, 1.7 + i * 0.55, -0.7)))
+        : squad.map((id, i) => { const x = (i - (squad.length - 1) / 2) * 1.8; return mk(id, models[i], x, 2 + Math.abs(i - (squad.length - 1) / 2) * -0.6, -x * 0.08); });
       const comps = [];
-      squad.forEach((id, i) => { if (id === 'yixuan') { const R = VX.rig('inkbird', MODELS.inkbird); scene.add(R.root); comps.push({ R, base: ents[i].obj.position.clone() }); } });
-      preview = { key, built, ents, comps, t: 0 };
+      ents.forEach(e => { if (e.id === 'yixuan') { const R = VX.rig('inkbird', MODELS.inkbird); scene.add(R.root); comps.push({ R, base: e.obj.position.clone() }); } });
+      let ring = null;
+      if (rival) {   // the rival side stands on a red ring
+        ring = new THREE.Mesh(new THREE.RingGeometry(2.2, 2.35, 48, 1, 0, Math.PI * 2), new THREE.MeshBasicMaterial({ color: 0xff3a4a, transparent: true, opacity: 0.7, depthWrite: false, side: THREE.DoubleSide, toneMapped: false }));
+        ring.rotation.x = -Math.PI / 2; ring.position.set(2.2, 0.035, 2.25); ring.scale.set(0.95, 0.5, 1); scene.add(ring);
+      }
+      preview = { key, built, ents, comps, ring, t: 0 };
     },
     startBattle(opts) {
       leaveLobby(); clearPreview(); GAME.mode = 'battle'; U.$('screens').innerHTML = '';
@@ -131,8 +139,10 @@
       leaveLobby(); clearPreview(); HUD.destroy(); endPress();
       const ids = Object.keys(D.AGENTS).sort(() => Math.random() - 0.5).slice(0, 3), arenas = Object.keys(D.ENCOUNTERS);
       const arena = U.pick(arenas), enc = Math.random() < 0.65 ? 'patrol' : 'elite';
+      // now and then the title shows a Proxy Clash instead: two squads of Agents
+      const clash = Math.random() < 0.3 ? { rival: U.pick(Object.keys(D.RIVALS)), squad: CLASH.randomSquad(3), look: { aria: Math.random() < 0.5 ? 'idol' : 'construct' } } : null;
       GAME.mode = 'title'; quiet(true);
-      BT.start({ squad: ids, arena, encounter: enc, attract: true });
+      BT.start({ squad: ids, arena, encounter: enc, attract: true, clash });
       BT.B.auto = true;
       if (window.MENU && MENU.liveText) MENU.liveText();
     },

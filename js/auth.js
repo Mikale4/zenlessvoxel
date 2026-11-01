@@ -54,7 +54,8 @@
     return null;
   }
   const pub = a => a && ({ id: a.id, user: a.user, proxy: a.proxy || null, created: a.created, lastLogin: a.lastLogin,
-    battles: a.battles || 0, clears: a.clears || 0, best: a.best || {}, seenIntro: !!a.seenIntro });
+    battles: a.battles || 0, clears: a.clears || 0, best: a.best || {}, seenIntro: !!a.seenIntro,
+    duels: a.duels || 0, duelWins: a.duelWins || 0, clash: a.clash || {} });
 
   const Auth = {
     checkUser, checkPass,
@@ -81,16 +82,23 @@
       const id = read(SESSION), accounts = store(); if (!id || !accounts[id]) return null;
       Object.assign(accounts[id], patch || {}); persist(accounts); return pub(accounts[id]);
     },
-    /* a finished battle: count it, and keep the best rank per battleground and encounter */
+    /* a finished battle: count it, and keep the best rank per battleground and encounter
+       (a Proxy Clash: won and lost, the best rank and fastest win, per rival Proxy) */
     record(r) {
       const id = read(SESSION), accounts = store(), a = id && accounts[id]; if (!a) return null;
+      if (r.clash) {
+        a.duels = (a.duels || 0) + 1; if (r.win) a.duelWins = (a.duelWins || 0) + 1;
+        a.clash = a.clash || {}; const c = a.clash[r.rival] || (a.clash[r.rival] = { w: 0, l: 0, best: null, time: 0 }), order = 'FCBAS';
+        if (r.win) { c.w++; if (order.indexOf(r.rank) > order.indexOf(c.best || 'F')) c.best = r.rank; if (!c.time || r.time < c.time) c.time = r.time; } else c.l++;
+        persist(accounts); return pub(a);
+      }
       a.battles = (a.battles || 0) + 1; if (r.win) a.clears = (a.clears || 0) + 1;
       a.best = a.best || {}; const k = r.arena + '.' + r.encounter, order = 'FCBAS';
       if (r.win && order.indexOf(r.rank) > order.indexOf((a.best[k] || {}).rank || 'F')) a.best[k] = { rank: r.rank, time: r.time };
       else if (r.win && a.best[k] && a.best[k].rank === r.rank && r.time < a.best[k].time) a.best[k].time = r.time;
       persist(accounts); return pub(a);
     },
-    remove(id) { const a = store(); if (!a[id]) return false; delete a[id]; persist(a); try { for (const k of ['setup', 'tuning']) localStorage.removeItem('zvz.' + id + '.' + k); } catch (e) { /* fine */ } if (read(SESSION) === id) Auth.logout(); return true; },
+    remove(id) { const a = store(); if (!a[id]) return false; delete a[id]; persist(a); try { for (const k of ['setup', 'tuning', 'clash']) localStorage.removeItem('zvz.' + id + '.' + k); } catch (e) { /* fine */ } if (read(SESSION) === id) Auth.logout(); return true; },
     /* where this account's own settings live (U.store namespaces by it) */
     ns() { const id = read(SESSION); return id && store()[id] ? id : null; },
   };

@@ -7,6 +7,7 @@
      Enemies:   circle the Agent, take turns attacking (aggression tokens),
                 telegraph their big hits with gold or red flashes.
      Commander: on AUTO, the game gives your commands for you.
+     (A Proxy Clash rival's Agents have their own brain, in clash.js.)
    ========================================================================== */
 (function () {
   'use strict';
@@ -40,7 +41,7 @@
       else e.anim.state = 'run';
     }
   }
-  BT.physics = physics;
+  BT.physics = physics; BT.steer = steer;
 
   /* --------------------------------------------------------- targeting -- */
   BT.pickTarget = a => {
@@ -434,6 +435,7 @@
     const ex = window.CHOREO && CHOREO.ext;
     B.enemies.forEach((e, idx) => {
       if (!e.alive || e.spawnT > 0) return;
+      if (e.rival) { CLASH.think(e, dt); return; }             // a rival Proxy's Agent fights like an Agent (clash.js)
       if (ex) ex.think(e, dt);
       if (e.stun > 0) { physics(e, dt, true); return; }
       if (e.state === 'hit') { e.hitT -= dt; e.anim.t += dt; physics(e, dt, true); if (e.hitT <= 0) { e.state = 'idle'; e.anim.state = 'idle'; } return; }

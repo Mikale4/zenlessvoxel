@@ -17,6 +17,7 @@ Or locally: open `index.html` in a browser (no server or install needed).
 - **Twelve real enemies**, three encounters per battleground (Patrol, Elite, Notorious boss):
   Hollow Thug Raider / Pyromaniac / Bulky Enforcer and **Corrupted Overlord - Pompey**; Miasma Spawn, Miasma Walker - Arcavor,
   Miasma Ravager - Huskron and the **Miasma Priest**; Faun, Specter, Dullahan and **Notorious - Dead End Butcher**.
+- **Proxy Clash**: Agents against Agents. A rival Proxy's squad against yours, 1-on-1 up to 3-on-3.
 - **The Battle Lab**: every rule and number as a toggle or slider, saved in your browser.
 
 ## Signing in, and Sixth Street
@@ -33,7 +34,39 @@ battleground). Your sibling is behind the counter, **Eous** waddles after you, a
 Caesar by her bike, Burnice at Chop's Noodles, Aria at Bardic Needle, Yixuan meditating on a bench under her bird. Talk
 to one to read her file and take her into the Hollow. Walk with **WASD / arrows** (Shift runs), **E** uses what has a
 sign over it; or click / tap where to go (a sign: go and use it), or drag to steer on a phone. The dock at the bottom
-goes straight to every place.
+goes straight to every place. Out front, two **arcade cabinets** run **Proxy Clash**.
+
+## Proxy Clash: Agent against Agent
+
+At the arcade cabinets in front of Random Play, a **rival Proxy** dials in with a squad of their own. Pick your squad
+(one to three Agents: that sets the size of the fight, 1-on-1 up to 3-on-3), pick the rival, pick their squad or let
+them choose (mirror matches are fine: their Agent stands on a red ring), pick the battleground, and fight.
+
+Their Agents fight with **the same kits as yours**: basic combos and their cancels, Specials, EX Specials and the
+follow-ups the kits chain, each Agent's core move (Burnice's Mixed Flame Blend and her hop back, Aria's Perfect Pitch,
+Caesar's Dead End), dodges, Perfect Dodges and Dodge Counters, Perfect Blocks (Caesar, Yixuan), Ultimates. Their Proxy
+rotates the squad, pulls a hurt Agent out, and spends **Assist Points**: a benched teammate can swap in, **parry one of
+your heavy hits** and follow up. You command yours exactly as in the Hollow.
+
+- Their **heavy hits flash gold**: swap for a Defensive Assist. The finisher of their **Ultimate flashes red**: dodge it
+  (the big area hits are marked on the ground).
+- Only a **high-level skill's heavy hit** (EX Special, Dodge Counter, Chain Attack, Ultimate, Assist Follow-Up, Quick
+  Assist) staggers an Agent, theirs or yours. Anything else is a flinch.
+- Daze still **Stuns**: a Stunned rival is open to your Chain Attacks. Anomalies, Disorder and your Agents' buffs all work.
+- Both squads get the same extra HP (Battle Lab: *Agent HP in Proxy Clash*, ×18 by default).
+- The panel under the clock shows their squad and Assist Points; the target bar says when one has an EX or her
+  Ultimate ready.
+
+| Rival | Tier | How they play |
+|---|---|---|
+| **Patch** | Rookie | Two weeks into the job: slow swaps, few dodges, rarely an Assist. |
+| **Vesper** | Ace | Methodical: rotates on a schedule, saves Assists for your big hits, fires Ultimates when they count. A fair fight. |
+| **Mirage** | Legend | Signs every job "Phaethon". Near-perfect dodges and a parry waiting for every heavy hit. |
+
+The rival Proxies are this game's own characters. The notice board keeps your record against each (won / lost, best
+rank, fastest win). The rivals were calibrated against your squad on AUTO over batches of simulated fights
+(`tools/clash-test.js batch=...`) at every size: AUTO beats Patch nearly every time, Vesper about half the time, and
+Mirage less often than that. A single fight swings a lot with the matchup.
 
 ## How the enemies fight
 
@@ -100,11 +133,12 @@ Plain JavaScript and three.js (r128, vendored in `lib/`), no build step. Every m
 | `js/data.js` | **All the numbers**: rules, kits, enemies, encounters, Battle Lab defaults |
 | `js/battle.js` | The battle: damage, Daze/Stun/Chains, anomalies, assists, ultimates, hazards, camera |
 | `js/ai.js` | Agent AI, enemy AI, the AUTO commander |
+| `js/clash.js` | Proxy Clash: the rival Proxy's Agents (their brain, dodges, blocks, assists, swaps, Ultimates) |
 | `js/moves.js` | How the Agents move: poses, footwork and effects per skill, matched to the official skill previews |
 | `js/enemy-moves.js` | How the enemies move and attack: poses, footwork, props (Pompey's bike and hover guns), effects |
 | `js/anim.js` · `js/fx.js` · `js/audio.js` | Procedural animation, effects, synthesized sound |
 | `js/hud.js` · `js/menu.js` · `js/main.js` | HUD, menus, boot and input |
-| `tools/` | Dev only: a model/arena viewer and headless test scripts (`node tools/play.js`, `tools/moves-test.js`, `tools/enemy-test.js`, `tools/flow-test.js`, `tools/phone-test.js`) |
+| `tools/` | Dev only: a model/arena viewer and headless test scripts (`node tools/play.js`, `tools/moves-test.js`, `tools/enemy-test.js`, `tools/flow-test.js`, `tools/phone-test.js`, `tools/clash-test.js` (Proxy Clash fights and calibration batches), `tools/clash-shots.js`, `tools/zfight-check.js`) |
 
 Zenless Zone Zero, its characters and enemies belong to HoYoverse / miHoYo. This is a non-commercial fan project, not
 affiliated with or endorsed by them, and will come down on request.

@@ -92,6 +92,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .log div.old { opacity: .55; }
 .log .ex, .log .skill { border-color: var(--yel); } .log .chain { border-color: #ff9a2a; } .log .ult { border-color: #ff5ab0; color: #fff; }
 .log .assist, .log .perfect { border-color: var(--cyan); } .log .warn { border-color: var(--red); } .log .anomaly { border-color: #e45cff; }
+.log > div { position: static; transform: none; width: auto; text-align: left; top: auto; left: auto; }   /* (a line with class "enemy" is not the target panel) */
 .log .stun { border-color: var(--yel); } .log .hazard { border-color: #ff9a2a; } .log .enemy { border-color: #a33; color: #ffb0b0; } .log .cmd { border-color: #888; } .log .kill { border-color: #666; }
 
 .cmds { position: absolute; right: max(14px, env(safe-area-inset-right)); bottom: 14px; display: grid; grid-template-columns: repeat(3, 76px); gap: 6px; }
@@ -139,6 +140,24 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .hpfloat i { display: block; height: 100%; background: #ff5a5a; }
 .hpfloat b { display: block; height: 2px; background: var(--daze); margin-top: 1px; }
 .hpfloat.focus { outline: 1px solid var(--yel); }
+.hpfloat.rival { box-shadow: 0 0 0 1px rgba(255, 58, 74, .8); }
+
+/* ---------------------------------------------------- Proxy Clash (battle) */
+.enemy .en-name em.rival { background: #ff3a4a; }
+.co.rival { color: #ff8a9a; font-size: 30px; } .co.rivalult { color: #ff5a6a; font-size: 52px; text-shadow: 0 0 18px #ff3a4a, 0 3px 0 #000; }
+.co.rival small, .co.rivalult small { color: #ffc0c8; }
+.log .rival { border-color: #ff3a4a; }
+.rv { margin-top: 8px; width: 190px; margin-left: auto; text-align: left; background: var(--panel); padding: 6px 8px; pointer-events: none; }
+.rv-head { border-left: 3px solid #ff3a4a; padding-left: 6px; margin-bottom: 4px; }
+.rv-head b { display: block; font: 18px/1 var(--disp); letter-spacing: 1.5px; color: #fff; } .rv-head small { font: 700 9px var(--font); color: var(--dim); letter-spacing: .6px; }
+.rv-row { display: grid; grid-template-columns: 30px 1fr; gap: 6px; align-items: center; margin-top: 4px; opacity: .72; }
+.rv-row img { width: 30px; height: 30px; object-fit: cover; background: #222; }
+.rv-row span { font: 14px/1 var(--disp); letter-spacing: 1px; }
+.rv-row .bar { height: 5px; margin-top: 2px; } .rv-row .bar.hp > i { background: linear-gradient(90deg, #c8243a, #ff5a5a); } .rv-row .bar.db { height: 3px; } .rv-row .bar.db > i { background: linear-gradient(90deg, #6a5acd, #b08cff); }
+.rv-row.on { opacity: 1; } .rv-row.on img { box-shadow: 0 0 0 2px #ff3a4a; }
+.rv-row.down { opacity: .35; filter: grayscale(1); } .rv-row.dbmax .bar.db > i { background: linear-gradient(90deg, #ff5ab0, var(--yel)); }
+.rv-assist { display: flex; align-items: center; gap: 3px; font: 700 9px var(--font); color: var(--dim); margin-top: 5px; }
+.rv-assist i { width: 11px; height: 5px; background: rgba(255,255,255,.12); transform: skewX(-20deg); } .rv-assist i.on { background: #ff8a9a; }
 
 /* -------------------------------------------------------------- screens */
 #screens { position: fixed; inset: 0; z-index: 50; pointer-events: none; }
@@ -367,3 +386,32 @@ table.keys { border-collapse: collapse; font-size: 13px; } table.keys td { paddi
   .dlg { bottom: 64px; grid-template-columns: 48px 1fr auto; padding: 6px 10px 6px 6px; } .dlg img { width: 48px; height: 48px; } .dlg p { font-size: 12px; }
   .ch-head h2 { font-size: 36px; } .ch-head p { font-size: 11px; } .pcard { grid-template-columns: 54px 1fr; } .pcard img { width: 54px; height: 54px; } .pcard b { font-size: 24px; }
 }
+/* Proxy Clash on a phone: the rival's squad as three small portraits under the clock */
+@media (max-width: 820px), (max-height: 520px) {
+  .rv { width: auto; display: inline-grid; grid-template-columns: repeat(3, 36px); gap: 4px; padding: 4px; margin-top: 4px; }
+  .rv-head, .rv-assist, .rv-row span { display: none; }
+  .rv-row { grid-template-columns: 1fr; gap: 0; margin: 0; } .rv-row img { width: 36px; height: 36px; }
+  .rv-row .bar { margin-top: 1px; height: 4px; } .rv-row .bar.db { height: 2px; }
+}
+/* Sixth Street: the Proxy Clash cabinets */
+.lb-tag.clash { border-bottom-color: #ff4a7a; } .lb-tag.clash::after { border-top-color: #ff4a7a; } .lb-tag.clash b { color: #ffc0d0; }
+.lb-btn.clash { background: linear-gradient(180deg, #4a1a2e, #2a1020); border-color: #ff4a7a; } .lb-btn.clash small { color: #ffb0c4; }
+/* Proxy Clash setup */
+.cards.mini { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px; } .cards.mini .card img { width: 100%; height: 64px; aspect-ratio: auto; object-fit: cover; } .cards.mini .card { padding: 4px; } .cards.mini .card b { font-size: 15px; } .cards.mini .card .ord { width: 20px; height: 20px; font-size: 17px; line-height: 20px; }
+.card.sel.rv { border-color: #ff4a5a; } .card.sel.rv .ord { background: #ff4a5a; color: #fff; }
+.opt.rival-opt { border-left: 4px solid; } .opt.rival-opt small { font-size: 10px; line-height: 1.35; }
+.row.tight { margin-top: 2px; }
+.opts.across { flex-direction: row; } .opts.across .opt { flex: 1; min-width: 0; padding: 7px 8px; } .opts.across .opt b { font-size: 16px; }
+.results .quote { font: italic 500 13px var(--font); color: #ffc0c8; margin: 8px auto 0; max-width: 420px; }
+@media (max-width: 820px) { .lb-btn { flex-basis: 22%; } .lb-btn.hdd { flex: 1 1 55%; } .lb-btn.clash { flex: 1 1 40%; } }
+/* the results always fit: they scroll if they must, and on a short screen the stats go two to a row */
+.results .box { max-height: 96vh; overflow: auto; }
+@media (max-height: 520px) {
+  .results .box { width: min(780px, 96vw); padding: 10px 14px; }
+  .results .rank { font-size: 56px; } .results .box h2 { margin: 2px 0 4px; font-size: 24px; }
+  .results .stats { grid-template-columns: 1fr auto 1fr auto; max-width: none; gap: 2px 14px; font-size: 12px; margin: 6px auto; }
+  .results .quote { margin-top: 2px; font-size: 11px; }
+  .results .row { margin-top: 8px; } .results .btn { font-size: 18px; padding: 8px 18px; }
+}
+/* a wide phone on its side: the six dock buttons keep their labels whole */
+@media (max-height: 520px) and (min-width: 821px) { .lb-btn { flex: 0 0 auto; min-width: 0; padding: 6px 10px; } .lb-btn b { font-size: 15px; } }

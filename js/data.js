@@ -385,6 +385,34 @@
     },
   };
 
+  /* --------------------------------------------------------- PROXY CLASH --
+     Rival Proxies (this game's own characters, not from the official game) who
+     command a squad of Agents against yours. reflex and dodge scale how well
+     their Agents dodge (as the Battle Lab's Perfect Dodge skill does yours);
+     react [min,max] is the breather between their moves; assist is the chance a
+     teammate swaps in to parry one of your heavy hits (it costs them an Assist
+     Point; assistStart is how many they begin with); ult how readily they fire
+     an Ultimate; dbRate the Decibels their on-field Agent builds each second on top
+     of what her hits earn; dmg [1-on-1, 2-on-2, 3-on-3] scales their Agents'
+     damage: it is high because yours carry buffs, Anomalies, Assists, Chain
+     Attacks and Follow-Ups that theirs do not (fewer of those, the fewer Agents
+     there are); hp scales their HP; swap [min,max] seconds between
+     their rotations. */
+  const RIVALS = {
+    patch: { id: 'patch', name: 'Patch', tier: 'Rookie', color: '#5ac8ff', line: 'Easy: still learning the ropes',
+      blurb: 'Two weeks into the Proxy business, out of Brant Street. Slow on the swap and easy to read, though the Agents hit just as hard whoever gives the orders.',
+      reflex: 0.4, dodge: 0.5, react: [0.3, 0.6], assist: 0.12, ult: 0.35, dbRate: 15, dmg: [2.3, 3.6, 4.9], hp: 0.9, swap: [16, 24], assistStart: 2,
+      hello: 'U-um, hi! I just got my Proxy license. Go easy on me?', win: 'I... I won? I WON! Wait till I tell the forums!', lose: 'Okay. Okay! Next time I\'m reading the manual first.' },
+    vesper: { id: 'vesper', name: 'Vesper', tier: 'Ace', color: '#b08cff', line: 'A fair fight',
+      blurb: 'A freelancer with a spotless record on the Inter-Knot. Methodical: rotates on a schedule, saves her Assists for your big hits, and fires Ultimates when they count.',
+      reflex: 0.75, dodge: 0.8, react: [0.12, 0.32], assist: 0.3, ult: 0.75, dbRate: 25, dmg: [3.5, 5.2, 7.0], hp: 1.0, swap: [11, 17], assistStart: 3,
+      hello: 'Random Play\'s Proxy. I\'ve seen your work. Let\'s see it up close.', win: 'Clean. Watch the replay: you dropped your guard after every Chain.', lose: 'Well played. My record needed a blemish anyway.' },
+    mirage: { id: 'mirage', name: 'Mirage', tier: 'Legend', color: '#ff4a5a', line: 'Very hard: reads your every move',
+      blurb: 'Signs every job "Phaethon". Nobody has seen their face, and their Agents move like they can read yours: near-perfect dodges, and a parry waiting for every heavy hit.',
+      reflex: 1.0, dodge: 1.0, react: [0.05, 0.18], assist: 0.5, ult: 1.0, dbRate: 35, dmg: [3.5, 6.9, 8.6], hp: 1.1, swap: [9, 14], assistStart: 4,
+      hello: 'They call you Phaethon? Funny. They call me that too.', win: 'There\'s only room for one legend on Sixth Street.', lose: '...Impressive. Maybe the name does suit you.' },
+  };
+
   /* ---------------------------------------------------- BATTLE LAB TUNING --
      Every knob the Battle Lab panel exposes. Saved per browser. */
   const TUNING_DEFS = [
@@ -411,6 +439,9 @@
     { key: 'dazeRate', label: 'Daze build-up', type: 'range', min: 0.25, max: 3, step: 0.05, def: 1 },
     { key: 'anomalyRate', label: 'Anomaly build-up', type: 'range', min: 0.25, max: 3, step: 0.05, def: 1 },
     { key: 'hazards', label: 'Arena hazards', type: 'bool', def: true },
+    { group: 'Proxy Clash' },
+    { key: 'clashHp', label: 'Agent HP in Proxy Clash (× her HP)', type: 'range', min: 3, max: 30, step: 1, def: 18, help: 'Agents hit each other far harder than enemies hit them, so in a Proxy Clash both squads get this much more HP.' },
+    { key: 'rivalDmg', label: 'Rival Agent damage', type: 'range', min: 0.25, max: 3, step: 0.05, def: 1 },
     { group: 'Presentation' },
     { key: 'speed', label: 'Game speed', type: 'range', min: 0.5, max: 1.5, step: 0.05, def: 1 },
     { key: 'calmCam', label: 'Steady camera (no push-ins)', type: 'bool', def: false },
@@ -421,5 +452,5 @@
   ];
   const TUNING_DEFAULTS = {}; for (const d of TUNING_DEFS) if (d.key) TUNING_DEFAULTS[d.key] = d.def;
 
-  window.DATA = { RULES, ATTR, ANOMALY, SPEC, AGENTS, ENEMIES, ENCOUNTERS, TUNING_DEFS, TUNING_DEFAULTS };
+  window.DATA = { RULES, ATTR, ANOMALY, SPEC, AGENTS, ENEMIES, ENCOUNTERS, RIVALS, TUNING_DEFS, TUNING_DEFAULTS };
 })();

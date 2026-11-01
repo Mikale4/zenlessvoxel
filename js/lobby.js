@@ -11,6 +11,7 @@
      the shop computer on the counter              -> Battle Lab
      the tutorial tapes on the shelf               -> How to Play
      the notice board by the door                  -> Proxy Records
+     the arcade cabinets out front                 -> Proxy Clash (Agent vs Agent)
      the Agents out on the street                  -> talk; take one into the Hollow
      your sibling behind the counter               -> talk
    You walk as the sibling you chose (Wise or Belle); Eous waddles after you.
@@ -297,6 +298,31 @@
     Bn.box(-19.5, 0, -3.75, -18.75, 0.5, -3.0, 0x6c665c); Bn.box(-19.25, 0.5, -3.5, -19.0, 1.75, -3.25, 0x5a3a28);
     Bn.box(-20.0, 1.5, -4.0, -18.25, 2.75, -2.75, (x, y, z) => hash(x * 9, y * 7 + z * 3) > 0.25 ? (hash(x, z) > 0.5 ? 0x4a8a3a : 0x3a7a2e) : -1);
     root.add(mesh(Bn, 0, 0, 0)); solid(-18.3, -3.3, -16.2, -2.6); solid(-19.6, -3.8, -18.7, -2.9);
+    buildArcade(root);
+  }
+  /* two arcade cabinets in front of Random Play's left window: Proxy Clash */
+  function buildArcade(root) {
+    const A = grid(0.0625, 0.03), BODY = 0x2a1f3a, BODY2 = 0x221a30, PINK = 0xff4a7a, CYAN = 0x4ae8f0;
+    const cab = (x0, art) => {
+      const x1 = x0 + 0.875, zb = -3.875, zf = -3.125;
+      A.box(x0, 0, zb, x1, 0.875, zf, (x, y) => (Math.abs(x - x0) < 0.07 || Math.abs(x - x1 + 0.0625) < 0.07) && y > 0.2 ? (Math.floor(y * 8) % 3 ? art : BODY2) : BODY);   // the cabinet, side art
+      A.box(x0, 0.875, zb, x1, 1.0, zf + 0.25, BODY2);                                                                                  // control panel
+      for (const [bx, c] of [[0.5, PINK], [0.625, CYAN], [0.75, 0xf2c230]]) A.box(x0 + bx - 0.0625, 1.0, zf + 0.0625, x0 + bx, 1.0625, zf + 0.125, G(c));   // buttons
+      A.box(x0 + 0.1875, 1.0, zf + 0.0625, x0 + 0.25, 1.125, zf + 0.125, 0x111114); A.box(x0 + 0.1875, 1.125, zf + 0.0625, x0 + 0.25, 1.1875, zf + 0.125, G(PINK)); // the stick
+      A.box(x0, 1.0, zb, x1, 1.75, zf - 0.1875, (x, y) => Math.abs(x - x0) < 0.07 || Math.abs(x - x1 + 0.0625) < 0.07 ? art : BODY);   // the screen housing
+      A.box(x0 + 0.125, 1.0625, zf - 0.1875, x1 - 0.125, 1.6875, zf - 0.125, (x, y) => G(((Math.floor(x * 16) + Math.floor(y * 16)) % 6 === 0) ? 0xffffff : (y > 1.4 ? PINK : CYAN)));   // the screen: two fighters' colours
+      A.box(x0, 1.75, zb, x1, 2.0, zf - 0.0625, (x) => G(Math.floor((x - x0) * 8) % 2 ? art : 0xfff0f6));                              // the lit marquee
+    };
+    cab(-5.0, PINK); cab(-3.75, CYAN);
+    root.add(mesh(A, 0, 0, 0));
+    solid(-5.05, -3.9, -2.85, -2.85);
+    const sg = sign(2.6, 0.55, (c, w, h) => {
+      c.fillStyle = '#16101e'; c.fillRect(0, 0, w, h); c.strokeStyle = '#ff4a7a'; c.lineWidth = 6; c.strokeRect(4, 4, w - 8, h - 8);
+      c.font = `900 ${Math.round(h * 0.62)}px "Bebas Neue", Rubik, sans-serif`; c.textAlign = 'center'; c.textBaseline = 'middle';
+      c.fillStyle = '#4ae8f0'; c.fillText('PROXY', w * 0.33, h * 0.56); c.fillStyle = '#ff4a7a'; c.fillText('CLASH', w * 0.69, h * 0.56);
+    });
+    sg.position.set(-3.9, 2.35, -3.4); root.add(sg);
+    const lp = new THREE.PointLight(0xff6aa0, 0.45, 4); lp.position.set(-3.9, 1.6, -2.4); root.add(lp);
   }
 
   /* ---------------------------------------------------- people -- */
@@ -305,6 +331,7 @@
     lab: { label: 'Battle Lab', sub: 'Shop computer', x: 2.3, z: -7.0, sx: 2.3, sy: 2.2, sz: -8.2, r: 1.0, inside: true },
     howto: { label: 'How to Play', sub: 'Tutorial tapes', x: -4.7, z: -8.5, sx: -5.5, sy: 2.7, sz: -8.5, r: 1.2, inside: true },
     records: { label: 'Proxy Records', sub: 'Notice board', x: 3.6, z: -3.0, sx: 3.6, sy: 2.4, sz: -3.85, r: 1.2 },
+    clash: { label: 'Proxy Clash', sub: 'Arcade · Agent vs Agent', x: -3.9, z: -2.3, sx: -3.9, sy: 2.95, sz: -3.4, r: 1.3 },
   };
   L.STATIONS = STATIONS;
   /* where the Agents spend the evening, and the pose they hold there. `sit` raises (or lowers) a seated
@@ -382,7 +409,7 @@
         const t = U.el('button', { class: 'lb-tag ' + (cls || ''), onpointerdown: ev => { ev.preventDefault(); ev.stopPropagation(); L.goUse(id); } }, U.el('b', null, label), U.el('small', null, sub), U.el('kbd', null, GAME.touch ? 'TAP' : 'E'));
         S.tagLayer.append(t); S.tags[id] = t;
       };
-      for (const id in STATIONS) mk(id, STATIONS[id].label, STATIONS[id].sub, id === 'hdd' ? 'hdd' : '');
+      for (const id in STATIONS) mk(id, STATIONS[id].label, STATIONS[id].sub, id === 'hdd' || id === 'clash' ? id : '');
       for (const e of S.npcs) mk('agent:' + e.id, DATA.AGENTS[e.id].short, 'Talk', 'npc');
       mk('sib', S.sib.id === 'wise' ? 'Wise' : 'Belle', 'Talk', 'npc');
     }

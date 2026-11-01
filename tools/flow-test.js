@@ -39,8 +39,16 @@ const { chromium } = require('playwright');
   await p.click('text=◀ SIXTH STREET'); await p.waitForTimeout(500); await step(40); await shot('10_back_in_lobby');
   await p.evaluate(() => MENU.records()); await shot('11_records');
   await p.click('text=CLOSE');
+  // out to the arcade cabinets: Proxy Clash, a short fight, retreat, the results, back to the street
+  await p.evaluate(() => Lobby.goUse('clash')); await step(260); await shot('12_clash_setup');
+  const clashMode = await p.evaluate(() => GAME.mode + (document.querySelector('.setup.clash') ? ':clash' : ''));
+  await p.click('.setup.clash .deploy .btn:not(.dark)'); await p.waitForTimeout(300);
+  await step(300, 1 / 60); await p.evaluate(() => HUD.update(BT.B, 0.1)); await shot('13_clash_fight');
+  const fight = await p.evaluate(() => ({ rival: BT.B.rival.diff.name, theirs: BT.B.rival.squad.map(r => r.id), onField: CLASH.onField() && CLASH.onField().id, threats: BT.B.threats.length, t: +BT.B.t.toFixed(1) }));
+  await p.evaluate(() => { BT.retreat(); }); await p.waitForTimeout(400); await shot('14_clash_results');
+  await p.click('.results >> text=SIXTH STREET'); await p.waitForTimeout(500); await step(30); await shot('15_back_at_cabinets');
   const acc = await p.evaluate(() => Auth.current());
-  console.log((phone ? 'PHONE ' : '') + JSON.stringify({ name, proxy: acc.proxy, seenIntro: acc.seenIntro, walkedTo: where, modeAfterHdd: mode }));
+  console.log((phone ? 'PHONE ' : '') + JSON.stringify({ name, proxy: acc.proxy, seenIntro: acc.seenIntro, walkedTo: where, modeAfterHdd: mode, clashMode, fight, duels: acc.duels, endMode: await p.evaluate(() => GAME.mode) }));
   console.log(errs.length ? 'ERRORS:\n' + [...new Set(errs)].slice(0, 12).join('\n') : 'no errors');
   await b.close();
 })();
