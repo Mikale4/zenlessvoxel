@@ -305,11 +305,13 @@
     records: { label: 'Proxy Records', sub: 'Notice board', x: 3.6, z: -3.0, sx: 3.6, sy: 2.4, sz: -3.85, r: 1.2 },
   };
   L.STATIONS = STATIONS;
-  const SPOTS = {   // where the Agents spend the evening, and the pose they hold there
+  /* where the Agents spend the evening, and the pose they hold there. `sit` raises (or lowers) a seated
+     Agent so that her hips rest on the seat: Yixuan's bench is 0.5 m high, Burnice's stool 0.75 m. */
+  const SPOTS = {
     caesar: { x: -6.7, z: 0.9, face: 0.4, pose: { armL: [-1.25, -0.7, 0.2], armR: [-1.25, 0.7, -0.2], torso: [-0.05, 0, 0], head: [0.05, -0.3, 0], legL: [0.1, 0, 0.15], tilt: -0.05 } },
-    burnice: { x: 11.0, z: -3.25, face: 0.35, sit: 0.0, pose: { legL: [-1.35, 0, 0.1], legR: [-1.15, 0, -0.15], armL: [-0.9, 0, 0.3], armR: [-1.5, 0.3, -0.2], torso: [-0.1, 0, 0], head: [-0.1, 0.2, 0] } },
+    burnice: { x: 10.75, z: -3.25, face: 0.35, sit: 0.17, pose: { legL: [-1.35, 0, 0.1], legR: [-1.15, 0, -0.15], armL: [-0.9, 0, 0.3], armR: [-1.5, 0.3, -0.2], torso: [-0.1, 0, 0], head: [-0.1, 0.2, 0] } },
     aria: { x: -12.6, z: -2.7, face: 0.5, pose: { armR: [-2.4, 0, -0.5], armL: [-0.2, 0, 0.4], head: [0, 0, 0.18], torso: [0, 0.2, 0.05] }, bounce: true },
-    yixuan: { x: -17.25, z: -2.85, face: 0, sit: -0.22, pose: { legL: [-1.5, 0, 0.55], legR: [-1.5, 0, -0.55], armL: [-0.75, -0.6, 0.0], armR: [-0.75, 0.6, 0.0], torso: [0.05, 0, 0], head: [0.15, 0, 0] } },
+    yixuan: { x: -17.25, z: -2.85, face: 0, sit: 0.03, pose: { legL: [-1.5, 0, 0.55], legR: [-1.5, 0, -0.55], armL: [-0.75, -0.6, 0.0], armR: [-0.75, 0.6, 0.0], torso: [0.05, 0, 0], head: [0.15, 0, 0] } },
   };
   const LINES = {
     caesar: ['Phaethon! The Sons of Calydon ride when you say ride. Point me at the Hollow and I\'ll hold the line.', 'This bike? Rebuilt her three times. Same as the gang: nothing stays broken around me.'],
