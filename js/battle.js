@@ -405,7 +405,7 @@
     const kb = (h.kb || 0.15) * (v.rank === 'minion' ? 1 : v.rank === 'elite' ? 0.35 : 0);
     if (kb > 0) { const d = ang(a, v); v.vx += Math.sin(d) * kb * 5; v.vz += Math.cos(d) * kb * 5; }
     const winding = v.act && v.act.t < (v.act.def.hits && v.act.def.hits.length ? v.act.def.hits[0].t * 0.35 : 0.2);
-    if (v.poise === 0 && (h.heavy || winding)) interrupt(v, h.heavy ? 0.45 : 0.25);
+    if (v.poise === 0 && h.heavy) interrupt(v, 0.45);
     else if (v.poise === 1 && h.heavy && winding) interrupt(v, 0.4);
     // otherwise a light hit is just a flinch you can see (the white flash); it does not stop the enemy
   }

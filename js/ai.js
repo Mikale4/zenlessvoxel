@@ -383,7 +383,7 @@
     const th = BT.assistThreat();
     if (th && th.cmdAt == null) {
       const self = th.plan && th.plan.type === 'dodge' && th.impactAt - th.plan.at <= T.perfectWin;
-      th.cmdAt = !self && Math.random() < 0.7 ? Math.min(th.impactAt - 0.04, B.t + rnd(0.08, 0.32)) : Infinity;
+      th.cmdAt = !self && Math.random() < 0.6 ? Math.min(th.impactAt - 0.04, B.t + rnd(0.08, 0.32)) : Infinity;
     }
     if (th && B.t >= th.cmdAt) { th.cmdAt = Infinity; BT.cmdSwap(1); return; }
     // Quick Assist when launched

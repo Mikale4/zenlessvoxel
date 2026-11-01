@@ -221,7 +221,7 @@
      from the official game). rank: minion | elite | boss.
      poise: 0 = any hit staggers, 1 = only heavy hits, 2 = only anomalies,
      parries and Stun interrupt. */
-  const E = (o) => Object.assign({ rank: 'minion', poise: 0, weak: [], resist: [], speed: 2.4, range: 1.5, daze: 410, stunDur: 4, buMax: 900, atkGap: [1.2, 2.6] }, o);
+  const E = (o) => Object.assign({ rank: 'minion', poise: 0, weak: [], resist: [], speed: 2.4, range: 1.5, daze: 1000, stunDur: 3, buMax: 900, atkGap: [1.2, 2.6] }, o);
   const ENEMIES = {
     // Outer Ring: Hollow Thugs, and the Corrupted Overlord the Sons of Calydon fought
     raider: E({ name: 'Hollow Thug - Raider', faction: 'Thugs', model: 'raider', hp: 185000, atk: 1140, def: 620, speed: 2.7, weak: ['ice', 'physical'],
@@ -234,7 +234,7 @@
         { name: 'Firebomb Toss', anim: 'throw', reach: 8, cd: 2.6, w: 3, hits: [{ t: 0.65, mult: 85, shape: 'proj', speed: 10, arc: 1, fx: 'fireball' }] },
         { name: 'Torch Sweep', anim: 'slash', reach: 1.9, cd: 5, w: 1.2, hits: [{ t: 0.85, mult: 140, heavy: true, flash: 'gold', shape: 'arc', r: 2.2, arc: 140 }] },
       ] }),
-    enforcer: E({ name: 'Hollow Thug - Bulky Enforcer', faction: 'Thugs', model: 'enforcer', rank: 'elite', poise: 1, hp: 720000, atk: 1590, def: 860, speed: 2.5, range: 2.0, daze: 2550, stunDur: 8, buMax: 1500, weak: ['ice', 'physical'], atkGap: [0.8, 1.8],
+    enforcer: E({ name: 'Hollow Thug - Bulky Enforcer', faction: 'Thugs', model: 'enforcer', rank: 'elite', poise: 1, hp: 1010000, atk: 2070, def: 860, speed: 2.5, range: 2.0, daze: 2550, stunDur: 8, buMax: 1500, weak: ['ice', 'physical'], atkGap: [0.5, 1.2],
       attacks: [
         { name: 'Gauntlet Jab', anim: 'punch', reach: 2.0, cd: 2.0, w: 3, move: [0.25, 0.45, 0.6], hits: [{ t: 0.45, mult: 110, shape: 'arc', r: 2.2, arc: 90 }] },
         { name: 'Haymaker', anim: 'slash', reach: 2.2, cd: 4.5, w: 2, move: [0.4, 0.8, 1.0], hits: [{ t: 0.85, mult: 190, heavy: true, flash: 'gold', shape: 'arc', r: 2.4, arc: 120 }] },
@@ -261,7 +261,7 @@
         { name: 'Shard Rake', anim: 'slash2', reach: 1.9, cd: 3.5, w: 3, move: [0.3, 0.9, 1.0], hits: [{ t: 0.45, mult: 70, shape: 'arc', r: 2.0, arc: 120 }, { t: 0.85, mult: 120, flash: 'gold', shape: 'arc', r: 2.1, arc: 120 }] },
         { name: 'Core Beam', anim: 'cast', reach: 7, cd: 6, w: 1.2, hits: [{ t: 0.9, mult: 120, shape: 'line', r: 0.9, len: 8 }] },
       ] }),
-    huskron: E({ name: 'Miasma Ravager - Huskron', faction: 'Corrupted', model: 'huskron', rank: 'elite', poise: 1, hp: 760000, atk: 1620, def: 900, speed: 3.6, range: 2.2, daze: 2700, stunDur: 8, buMax: 1500, weak: ['ice', 'fire'], atkGap: [0.8, 1.8],
+    huskron: E({ name: 'Miasma Ravager - Huskron', faction: 'Corrupted', model: 'huskron', rank: 'elite', poise: 1, hp: 1060000, atk: 2110, def: 900, speed: 3.6, range: 2.2, daze: 2700, stunDur: 8, buMax: 1500, weak: ['ice', 'fire'], atkGap: [0.5, 1.2],
       attacks: [
         { name: 'Spine Bite', anim: 'bite', reach: 2.2, cd: 2.2, w: 3, move: [0.3, 0.5, 0.8], hits: [{ t: 0.5, mult: 120, shape: 'arc', r: 2.4, arc: 100 }] },
         { name: 'Claw Pin', anim: 'slam', reach: 2.4, cd: 4.5, w: 2, hits: [{ t: 0.85, mult: 190, heavy: true, flash: 'gold', shape: 'circle', at: 'front', r: 2.0 }] },
@@ -287,7 +287,7 @@
         { name: 'Blade Arm', anim: 'slash', reach: 1.9, cd: 2.0, w: 3, move: [0.25, 0.45, 0.8], hits: [{ t: 0.45, mult: 90, shape: 'arc', r: 2.1, arc: 110 }] },
         { name: 'Phantom Lunge', anim: 'thrust', reach: 5, cd: 5.5, w: 1.5, move: [0.5, 0.85, 4], hits: [{ t: 0.85, mult: 160, heavy: true, flash: 'gold', shape: 'circle', at: 'front', r: 1.5 }] },
       ] }),
-    dullahan: E({ name: 'Dullahan', faction: 'Ether Mutants', model: 'dullahan', rank: 'elite', poise: 1, hp: 740000, atk: 1650, def: 900, speed: 2.8, range: 2.2, daze: 2650, stunDur: 8, buMax: 1500, weak: ['ice', 'ether'], atkGap: [0.8, 1.8],
+    dullahan: E({ name: 'Dullahan', faction: 'Ether Mutants', model: 'dullahan', rank: 'elite', poise: 1, hp: 1040000, atk: 2140, def: 900, speed: 2.8, range: 2.2, daze: 2650, stunDur: 8, buMax: 1500, weak: ['ice', 'ether'], atkGap: [0.5, 1.2],
       attacks: [
         { name: 'Shard Sword Combo', anim: 'slash2', reach: 2.3, cd: 3.5, w: 3, move: [0.3, 1.1, 1.4], hits: [{ t: 0.5, mult: 100, shape: 'arc', r: 2.6, arc: 140 }, { t: 0.85, mult: 100, shape: 'arc', r: 2.6, arc: 140 }, { t: 1.3, mult: 180, heavy: true, flash: 'gold', shape: 'arc', r: 2.8, arc: 120 }] },
         { name: 'Impaling Charge', anim: 'charge', reach: 9, cd: 8, w: 1.4, move: [0.75, 1.2, 7.5], hits: [{ t: 1.05, mult: 230, heavy: true, launch: true, flash: 'red', shape: 'line', r: 1.3 }] },
@@ -334,7 +334,7 @@
     { key: 'swapCd', label: 'Swap cooldown (s)', type: 'range', min: 0, max: 5, step: 0.25, def: 0.75 },
     { key: 'tacticsFreeze', label: 'Tactics menu stops time', type: 'bool', def: true },
     { group: 'Agents' },
-    { key: 'reflex', label: 'Agent Perfect Dodge skill', type: 'range', min: 0.2, max: 1.6, step: 0.05, def: 1 },
+    { key: 'reflex', label: 'Agent Perfect Dodge skill', type: 'range', min: 0.2, max: 1.6, step: 0.05, def: 0.8 },
     { key: 'dodgeCd', label: 'Dodge cooldown after 2 dodges (s)', type: 'range', min: 0.5, max: 6, step: 0.25, def: 2.2 },
     { key: 'perfectWin', label: 'Perfect Dodge window (s)', type: 'range', min: 0.08, max: 0.4, step: 0.02, def: 0.2 },
     { key: 'energyRate', label: 'Energy / Adrenaline gain', type: 'range', min: 0.25, max: 3, step: 0.05, def: 1 },
