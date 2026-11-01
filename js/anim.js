@@ -217,5 +217,5 @@
     B.rotation.y = pose.spin || 0;
   }
 
-  window.ANIM = { apply, READY };
+  window.ANIM = { apply, READY, ACT: H_ACT, stage, add, mix, P };
 })();

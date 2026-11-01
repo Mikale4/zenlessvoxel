@@ -119,7 +119,7 @@
       color: '#e8452e', color2: '#eee0b8', assist: 'defensive', stance: 'guns',
       blurb: 'The Sons of Calydon\'s bartender, mixing Nitro-Fuel in twin flamethrowers. Her Scorched mark makes every teammate\'s hit set off Afterburn.',
       stats: { hp: 8100, atk: 2700, def: 610, impact: 86, ap: 300, am: 150, cr: 0.1, cd: 0.5, er: 1.45, speed: 4.4 },
-      ai: { range: 3.0, dodge: 0.8, reflex: 0.56, aggr: 1.0 },
+      ai: { range: 3.4, dodge: 0.8, reflex: 0.56, aggr: 1.0, kite: 1.6 },
       energyMax: 120, resource: 'heat',
       core: [
         ['Core Passive: Nitro-Fuel Cocktail', 'Spending Energy builds Heat (1.4 per Energy, max 100; she enters battle at 100). At 50 Heat she enters the Nitro-Fuel Cocktail state until her Heat runs out. In it, Mixed Flame Blend, both EX Specials, Fuel-Fed Flame and Glorious Inferno leave enemies Scorched. When another squad member hits a Scorched enemy, Afterburn fires (once per 1.5 s, costs 8 Heat): Fire DMG from Burnice\'s ATK and Fire buildup, even while she is off-field.'],

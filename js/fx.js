@@ -84,8 +84,8 @@
     const mat = new THREE.MeshBasicMaterial({ color: col, transparent: true, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false });
     const m = new THREE.Mesh(geo, mat);
     const g = new THREE.Group(); g.position.set(x, y, z); g.rotation.y = yaw; g.add(m);
-    m.rotation.x = -Math.PI / 2 + tilt; m.rotation.z = Math.PI / 2;
-    return addLive(g, life, k => { mat.opacity = 1 - k; m.scale.setScalar(1 + k * 0.25); m.rotation.z = Math.PI / 2 + (o.sweep || 0.6) * (k - 0.5); }, [mat, geo]);
+    m.rotation.x = -Math.PI / 2 + tilt; m.rotation.z = -Math.PI / 2;   // the arc's middle faces the way the slash goes
+    return addLive(g, life, k => { mat.opacity = 1 - k; m.scale.setScalar(1 + k * 0.25); m.rotation.z = -Math.PI / 2 + (o.sweep || 0.6) * (k - 0.5); }, [mat, geo]);
   };
   /* an expanding ring on the ground */
   FX.ring = (x, z, r0, r1, col, life, o) => {
@@ -204,9 +204,12 @@
       case 'notes': for (let i = 0; i < 16; i++) { const a = i / 16 * 6.28; FX.p({ x, y: 1.1, z, vx: Math.cos(a) * 5, vz: Math.sin(a) * 5, vy: 0.5, life: 0.45, size: 0.18, col: U.pick([0xff9af0, 0xe45cff, 0x7ff4ff]), drag: 2 }); } break;
       case 'sound': FX.ring(x, z, 0.3, r || 2, 0xe45cff, 0.35, { y: 0.9 }); FX.ring(x, z, 0.3, (r || 2) * 0.7, 0x7ff4ff, 0.3, { y: 1.2 }); FX.glow(x, 1, z, 1.6, 0xe45cff, 0.25); break;
       case 'heart': FX.burst(x, 1.2, z, 34, { col: [0xff9ad0, 0xff5ab0, 0xffffff, 0x7ff4ff], speed: 6, size: 0.16, life: 0.6, g: 2 }); FX.glow(x, 1, z, 2.6, 0xff5ab0, 0.3, { size1: 4.5 }); FX.ring(x, z, 0.4, r || 3, 0xff5ab0, 0.45); break;
-      default: break;
+      default: if (FX.extra[name]) FX.extra[name](o); break;
     }
   };
+  FX.extra = {};
+  /* any object that lives for `life` seconds, animated by update(k, dt, obj) */
+  FX.custom = (obj, life, update, mats) => addLive(obj, life, update ? (k, dt) => update(k, dt, obj) : null, mats);
 
   window.FX = FX;
 })();

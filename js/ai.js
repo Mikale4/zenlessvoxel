@@ -94,6 +94,11 @@
     if (!tgt) { if (fromCombo) return; a.moving = true; steer(a, 0, 3, a.st.speed * 0.5, dt); return; }
     // keep out of miasma pools
     for (const zn of B.zones) if (zn.live && Math.hypot(a.x - zn.x, a.z - zn.z) < zn.r + 0.3) { const d = ang(zn, a); a.moving = true; steer(a, a.x + Math.sin(d) * 3, a.z + Math.cos(d) * 3, a.st.speed, dt); a.face = turn(a.face, ang(a, tgt), 1 - Math.exp(-10 * dt)); return; }
+    // Burnice keeps her distance: a hop back when an enemy crowds her
+    if (!fromCombo && a.def.ai.kite && a.def.kit.hop && (a.cds.hop || 0) <= B.t) {
+      const close = B.enemies.find(v => v.alive && v.spawnT <= 0 && dist(a, v) - v.rad < a.def.ai.kite);
+      if (close && Math.random() < 0.6) { a.cds.hop = B.t + rnd(2.2, 3.5); startSkill(a, a.def.kit.hop, 'move', close); return; }
+    }
     const c = choose(a, tgt, fromCombo); if (!c) return;
     const reach = (c.def.reach || 1.6), d = dist(a, tgt) - tgt.rad;
     if (d > reach) {
@@ -127,7 +132,10 @@
       if ((a.cds.special || 0) <= B.t && Math.random() < 0.3) return { def: K.special, kind: 'special' };
     }
     if (B.t - a.lastBasic > 0.9) a.combo = 0;
-    return { def: K.basic[a.combo % K.basic.length], kind: 'basic' };
+    // ranged fighters skip their close-range combo steps when the target is far
+    let step = K.basic[a.combo % K.basic.length];
+    if (a.def.ai.range > 2.5 && (step.reach || 1.6) < 2.2 && dist(a, tgt) - tgt.rad > 2.6) { a.combo++; step = K.basic[a.combo % K.basic.length]; }
+    return { def: step, kind: 'basic' };
   }
   function pickEx(a) {
     const K = a.def.kit;

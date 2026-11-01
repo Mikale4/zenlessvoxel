@@ -126,10 +126,12 @@
     e.act = { def, t: 0, hi: 0, tgt: opts.tgt || null, dir: e.face, kind: opts.kind || 'basic', fired: {}, data: opts, dur: opts.dur || def.dur };
     e.state = 'act'; e.stT = 0;
     Object.assign(e.anim, { state: 'act', t: 0, act: def, th: def.hits && def.hits.length ? def.hits[0].t : Math.min(0.3, def.dur * 0.5), dur: e.act.dur });
+    if (e.type === 'agent' && window.CHOREO) CHOREO.start(e, e.act);
     return e.act;
   }
   BT.startAct = startAct;
   function endAct(e) {
+    if (e.type === 'agent' && e.act && window.CHOREO) CHOREO.end(e, e.act);
     e.act = null; e.state = 'idle'; e.stT = 0; e.anim.state = 'idle'; e.anim.act = null;
   }
   BT.endAct = endAct;
@@ -149,6 +151,7 @@
       if (tgt && distance > 0 && e.type === 'enemy' && !(d.hits && d.hits.some(h => h.shape === 'line'))) distance = Math.min(distance, Math.max(0, dist(e, tgt) - 0.9));
       e.x += Math.sin(A.dir) * distance * k; e.z += Math.cos(A.dir) * distance * k;
     }
+    if (e.type === 'agent' && window.CHOREO) CHOREO.step(e, A, dt * (A.speed || 1));
     if (d.adrenalinePerSec && e.type === 'agent') gainEnergy(e, d.adrenalinePerSec * dt, true);
     while (d.hits && A.hi < d.hits.length && A.t >= d.hits[A.hi].t) {
       const h = d.hits[A.hi++];
@@ -439,7 +442,7 @@
     const B = BT.B;
     for (let i = 0; i < n && B.fandom.length < 6; i++) {
       const a = rnd(0, Math.PI * 2), r = rnd(1.2, 2.6), px = clamp(x + Math.cos(a) * r, B.bounds[0] + 0.5, B.bounds[2] - 0.5), pz = clamp(z + Math.sin(a) * r, B.bounds[1] + 0.5, B.bounds[3] - 0.5);
-      const fx = FX.glow(px, 0.5, pz, 0.7, 0x5fe8e0, 9999, { size1: 0.7 });
+      const fx = window.CHOREO ? CHOREO.critter(px, pz) : FX.glow(px, 0.5, pz, 0.7, 0x5fe8e0, 9999, { size1: 0.7 });
       B.fandom.push({ x: px, z: pz, fx, t: 0 });
       FX.burst(px, 0.4, pz, 6, { col: [0x5fe8e0, 0xffffff], speed: 2, size: 0.08, life: 0.4 });
     }
@@ -550,6 +553,7 @@
     const B = BT.B, out = active(), idx = B.squad.indexOf(ag);
     if (out === ag) return;
     if (out) {
+      if (out.act && window.CHOREO) CHOREO.end(out, out.act); out.airY = 0;
       out.obj.visible = false; out.act = null; out.state = 'idle'; out.anim.state = 'idle'; out.queue.length = 0; out.dodge = null;
       FX.burst(out.x, 1, out.z, 14, { col: [0xffffff, D.ATTR[out.def.attr].hex], speed: 3, size: 0.1, life: 0.35, g: -2 });
       for (const c of B.companions) if (c.owner === out) showCompanion(c, false);
@@ -891,6 +895,7 @@
     for (const a of B.squad) {
       if (!a.alive) continue;
       if (a.dodgeCd > 0) { a.dodgeCd -= dt; if (a.dodgeCd <= 0) a.dodgeCharges = R.dodgeCharges; }
+      if (!a.act && a.airY > 0) a.airY = Math.max(0, a.airY - dt * 9);
       if (a.dodge && B.t > a.dodge.until) { a.dodge = null; if (a.state === 'dodge') { a.state = 'idle'; a.anim.state = 'idle'; } }
       const on = a === ag;
       if (a.def.resource === 'adrenaline') gainEnergy(a, (on ? 2.2 : 1.0) * dt + (a.adrBoost > B.t ? 2 * dt : 0), true);
@@ -900,7 +905,7 @@
     // the Radiant Aegis
     if (B.aegis && B.aegis.until <= B.t && B.aegis.hp > 0) { B.aegis.hp = 0; B.aegis.atkUntil = B.t + 5; }
     // Fandom Power tokens bob
-    for (const f of B.fandom) { f.t += dt; f.fx.position.y = 0.5 + Math.sin(f.t * 3) * 0.12; }
+    for (const f of B.fandom) f.t += dt;
     // the AI: Agents, enemies, and (on AUTO) the commander
     if (B.phase === 'fight') {
       BT.thinkAgents(dt);
@@ -958,11 +963,12 @@
     const B = BT.B;
     for (const c of B.companions) {
       const o = c.owner; if (!c.obj.visible) continue;
-      const A = o.act, wingMove = A && /wings|ultYixuan|exYixuan|auric|array/.test(A.def.anim || '');
+      const A = o.act, dive = c.dive && B.real - c.dive.t0 < c.dive.dur && c.dive.tgt.alive ? c.dive : null, wingMove = !!dive || (A && /wings|ultYixuan|auric|array/.test(A.def.anim || ''));
       let tx, tz, ty;
-      if (wingMove && A.tgt && A.tgt.alive) { const k = Math.sin(Math.min(1, A.t / A.dur) * Math.PI); tx = U.lerp(o.x, A.tgt.x, k * 0.9); tz = U.lerp(o.z, A.tgt.z, k * 0.9); ty = 2.4 + k * 1.2; }
+      if (dive) { const k = (B.real - dive.t0) / dive.dur, s = Math.sin(k * Math.PI); tx = U.lerp(o.x, dive.tgt.x, s); tz = U.lerp(o.z, dive.tgt.z, s); ty = 2.4 - s * 1.5; if (!dive.hit && k > 0.45) { dive.hit = true; FX.named('ink', { x: dive.tgt.x, z: dive.tgt.z, y: 1, r: 1.4 }); FX.glow(dive.tgt.x, 1, dive.tgt.z, 1.8, 0xffcf4a, 0.25); } }
+      else if (wingMove && A.tgt && A.tgt.alive) { const k = Math.sin(Math.min(1, A.t / A.dur) * Math.PI); tx = U.lerp(o.x, A.tgt.x, k * 0.9); tz = U.lerp(o.z, A.tgt.z, k * 0.9); ty = 2.4 + k * 1.2; }
       else { tx = o.x - Math.sin(o.face) * 0.6 + Math.cos(o.face) * 0.9; tz = o.z - Math.cos(o.face) * 0.6 - Math.sin(o.face) * 0.9; ty = 2.35; }
-      const k = 1 - Math.exp(-(wingMove ? 9 : 4) * Math.max(dt, rdt * 0.2));
+      const k = 1 - Math.exp(-(dive ? 16 : wingMove ? 9 : 4) * Math.max(dt, rdt * 0.2));
       const px = c.x, pz = c.z; c.x += (tx - c.x) * k; c.z += (tz - c.z) * k; c.y += (ty - c.y) * k;
       const sp = Math.hypot(c.x - px, c.z - pz) / Math.max(1e-4, rdt);
       if (sp > 0.3) c.face = turn(c.face, Math.atan2(c.x - px, c.z - pz), 1 - Math.exp(-6 * rdt)); else c.face = turn(c.face, o.face, 1 - Math.exp(-3 * rdt));
