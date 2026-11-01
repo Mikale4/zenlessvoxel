@@ -80,7 +80,7 @@
         }
       }, 0, 0, 0);
       cliff(-75, 75, -86, -66, 22, 3); cliff(-56, -34, -60, 14, 12, 7); cliff(34, 58, -60, 10, 12, 11);
-      cliff(-30, -14, -64, -48, 15, 5); cliff(12, 28, -70, -52, 18, 9);
+      cliff(-30, -14, -64, -48, 15, 5); cliff(12, 28, -65, -52, 18, 9);   // (it began inside the back ridge, and the two flickered)
       // a rusty shipping container
       make(scene, 0.2, g => {
         g.box(0, 0, 0, 30, 13, 11, (x, y, z) => x === 0 || x === 30 ? RUST2 : (x % 3 === 0 ? RUST2 : (h3(x, y, z) < 0.08 ? 0x6a5a4a : RUST)));
@@ -103,7 +103,7 @@
       make(scene, 0.15, tires(4), 11, 0, -9.2); make(scene, 0.15, tires(3), 12.3, 0, -8.4); make(scene, 0.15, tires(5), -13.5, 0, -9.5);
       const tireStack = make(scene, 0.15, tires(3), -9.6, 0, 5.4);
       // chain-link fence along the back
-      for (const [x, ry] of [[-22, 0], [-12, 0], [18, 0], [26, 0.25]]) make(scene, 0.1, g => {
+      for (const [x, ry] of [[-22, 0], [-12, 0], [18, 0], [26.15, 0.25]]) make(scene, 0.1, g => {   // (the last one clear of the one before: their rails overlapped)
         for (let x2 = 0; x2 <= 80; x2++) for (let y = 0; y <= 26; y++) { if (x2 % 20 === 0) g.set(x2, y, 0, 0x6a6c72); else if ((x2 + y) % 4 === 0 || (x2 - y + 400) % 4 === 0) g.set(x2, y, 0, 0x9a9ca2); }
         g.box(0, 26, 0, 80, 26, 0, 0x6a6c72);
       }, x, 0, -19.5, ry);

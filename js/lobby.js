@@ -98,11 +98,13 @@
     const s = 0.25, { x0, x1, z0, z1 } = STORE, H1 = 3.5, H2 = 7.0;
     const BRICK = (x, y, z) => { const row = Math.floor(y / 0.25), off = row & 1 ? 0.25 : 0; return ((Math.floor((x + z + off) / 0.5)) % 7 === 0) ? 0x7a3226 : (row % 4 === 0 ? 0x8d3c2e : 0x9c4635); };
     // the shell: side and back walls to the first floor, the floor
-    const B = grid(s, 0.06);
-    B.box(x0 - 0.25, 0, z0, x0, H1, z1, BRICK); B.box(x1, 0, z0, x1 + 0.25, H1, z1, BRICK); B.box(x0 - 0.25, 0, z0 - 0.25, x1 + 0.25, H1, z0, BRICK);
+    // (nothing in one mesh may share a face with another: where two surfaces lie in the same plane they
+    // flicker against each other, so the side walls stop where the storefront begins, and so on)
+    const B = grid(s, 0.06), zf = z1 - 0.25;
+    B.box(x0 - 0.25, 0, z0, x0, H1, zf, BRICK); B.box(x1, 0, z0, x1 + 0.25, H1, zf, BRICK); B.box(x0 - 0.25, 0, z0 - 0.25, x1 + 0.25, H1, z0, BRICK);
     B.box(x0, -0.25, z0, x1, 0.01, z1, (x, y, z) => (Math.floor(x / 0.5) & 1) ? 0x8a6a4a : 0x7b5d41);                // wooden floor
-    B.box(x0, 0, z0, x0 + 0.25, 1.0, z1, 0x2f3d4c); B.box(x1 - 0.25, 0, z0, x1, 1.0, z1, 0x2f3d4c); B.box(x0, 0, z0, x1, 1.0, z0 + 0.25, 0x2f3d4c); // wainscot
-    B.box(x0, 1.0, z0, x0 + 0.25, H1, z1, 0xe6d9bd); B.box(x1 - 0.25, 1.0, z0, x1, H1, z1, 0xe6d9bd); B.box(x0, 1.0, z0, x1, H1, z0 + 0.25, 0xe6d9bd);
+    B.box(x0, 0, z0, x0 + 0.25, 1.0, zf, 0x2f3d4c); B.box(x1 - 0.25, 0, z0, x1, 1.0, zf, 0x2f3d4c); B.box(x0, 0, z0, x1, 1.0, z0 + 0.25, 0x2f3d4c); // wainscot
+    B.box(x0, 1.0, z0, x0 + 0.25, H1, zf, 0xe6d9bd); B.box(x1 - 0.25, 1.0, z0, x1, H1, zf, 0xe6d9bd); B.box(x0, 1.0, z0, x1, H1, z0 + 0.25, 0xe6d9bd);
     root.add(mesh(B, 0, 0, 0));
     solid(x0 - 0.3, z0, x0, z1); solid(x1, z0, x1 + 0.3, z1); solid(x0, z0 - 0.3, x1, z0);
     // the front: a yellow storefront with the door between two windows, the sign above
@@ -131,7 +133,7 @@
     for (const wx of [-4.5, -1.5, 1.5]) U2.cut(wx, 4.5, z1 - 0.25, wx + 2, 6, z1);
     U2.box(x0 - 0.5, H2, z0 - 0.5, x1 + 0.5, H2 + 0.25, z1 + 0.25, 0x5a5e66);              // roof edge
     U2.box(x0 - 0.25, H1, z1, x1 + 0.25, H1 + 0.25, z1 + 0.5, TRIM);                      // a ledge over the storefront
-    U2.box(x0, H1 - 0.25, z0, x1, H1, z1, 0x3a3a40);                                       // ceiling
+    U2.box(x0 + 0.25, H1 - 0.25, z0 + 0.25, x1 - 0.25, H1, z1 - 0.25, 0x3a3a40);           // ceiling, between the walls' inner layers
     RP.upper = mesh(U2, 0, 0, 0); root.add(RP.upper);
     for (const wx of [-3.5, -0.5, 2.5]) { const gl = glass(2, 1.5, 0xffd890, 0.55); gl.position.set(wx, 5.25, z1 - 0.13); RP.upper.add(gl); gl.position.sub(RP.upper.position); }
     const ST = grid(0.125, 0.03);                                                           // the stair
@@ -171,18 +173,18 @@
     I.box(-6, 0, -11.5, -0.75, 2.5, -11.25, 0x3a4652); I.box(3.75, 0, -11.5, 6, 2.5, -11.25, 0x3a4652);   // the partition
     I.box(-0.75, 2.25, -11.5, 3.75, 2.5, -11.25, 0x3a4652);
     solid(-6, -11.55, -0.75, -11.2); solid(3.75, -11.55, 6, -11.2);
-    I.box(-0.5, 0, -13.875, 3.5, 0.875, -13.125, 0x2a2c32); I.box(-0.5, 0.75, -13.875, 3.5, 0.875, -13.125, 0x3a3c44);                     // desk
-    I.box(0.25, 0.875, -13.875, 2.75, 2.375, -13.75, 0x16161a); I.box(0.375, 1.0, -13.75, 2.625, 2.25, -13.625, (x, y) => G(((Math.floor(x * 8) + Math.floor(y * 8)) % 5 === 0) ? 0x9af4ff : (y > 1.7 ? 0x2a7aa8 : 0x1f5a88))); // the big screen: a Hollow map
-    for (const [mx, my] of [[-0.375, 1.25], [3.0, 1.25]]) { I.box(mx, 0.875, -13.75, mx + 0.75, my + 0.625, -13.625, 0x16161a); I.box(mx + 0.125, 1.0, -13.625, mx + 0.625, my + 0.5, -13.5, G(0x5fe8e0)); }
+    I.box(-0.5, 0, -13.75, 3.5, 0.875, -13.125, 0x2a2c32); I.box(-0.5, 0.75, -13.75, 3.5, 0.875, -13.125, 0x3a3c44);                       // desk
+    I.box(0.25, 0.875, -13.75, 2.75, 2.375, -13.625, 0x16161a); I.box(0.375, 1.0, -13.625, 2.625, 2.25, -13.5, (x, y) => G(((Math.floor(x * 8) + Math.floor(y * 8)) % 5 === 0) ? 0x9af4ff : (y > 1.7 ? 0x2a7aa8 : 0x1f5a88))); // the big screen: a Hollow map
+    for (const [mx, my] of [[-0.5, 1.25], [3.125, 1.25]]) { I.box(mx, 0.875, -13.75, mx + 0.75, my + 0.625, -13.5, 0x16161a); I.box(mx + 0.125, 1.0, -13.5, mx + 0.625, my + 0.5, -13.375, G(0x5fe8e0)); }
     I.box(1.125, 0, -12.75, 1.875, 0.5, -12.0, 0x1c1c22); I.box(1.125, 0.5, -12.875, 1.875, 1.375, -12.75, 0xd8603a); I.box(1.25, 0.5, -12.625, 1.75, 0.625, -12.125, 0x2a2a30); // the chair
-    I.box(4.5, 0, -13.875, 5.75, 2.125, -13.0, 0x24262c); for (let y = 0.25; y < 2; y += 0.25) for (let x = 4.75; x < 5.6; x += 0.25) I.box(x, y, -13.0, x + 0.125, y + 0.125, -12.875, G(hash(x, y) > 0.5 ? 0x7aff9a : 0xffb040)); // rack LEDs
+    I.box(4.5, 0, -13.75, 5.75, 2.125, -13.0, 0x24262c); for (let y = 0.25; y < 2; y += 0.25) for (let x = 4.75; x < 5.6; x += 0.25) I.box(x, y, -13.0, x + 0.125, y + 0.125, -12.875, G(hash(x, y) > 0.5 ? 0x7aff9a : 0xffb040)); // rack LEDs
     for (let x = -0.25; x < 5; x += 0.375) I.box(x, 0, -12.75 + Math.sin(x * 3) * 0.25, x + 0.375, 0.0625 + 0.06, -12.625 + Math.sin(x * 3) * 0.25, 0x111114); // cables
     solid(-0.6, -14, 3.6, -13.05); solid(4.4, -14, 6, -12.9); solid(1.1, -12.8, 1.9, -12.0);
     // posters
     const POST = [[0xd84a3a, 0xf2c230], [0x3a7ad8, 0xf0f0f0], [0x8a5ad8, 0x5fe8e0], [0x2a2a30, 0xff8a3a]];
-    [[-5.875, 1.5, -10.5, 'x'], [5.875, 1.5, -6.5, 'x'], [-4.0, 1.25, -13.875, 'z'], [-2.0, 1.25, -13.875, 'z']].forEach(([px, py, pz, ax], i) => {
+    [[-5.75, 2.375, -10.5, 'x', 0.75], [5.625, 1.5, -6.5, 'x', 1.0], [-4.0, 1.25, -13.75, 'z', 1.0], [-2.0, 1.25, -13.75, 'z', 1.0]].forEach(([px, py, pz, ax, ph], i) => {
       const [a, b] = POST[i % POST.length];
-      if (ax === 'x') I.box(px, py, pz, px + 0.125, py + 1.0, pz + 0.75, (x, y, z) => (y - py > 0.6 ? b : a)); else I.box(px, py, pz, px + 0.75, py + 1.0, pz + 0.125, (x, y) => (y - py > 0.6 ? b : a));
+      if (ax === 'x') I.box(px, py, pz, px + 0.125, py + ph, pz + 0.75, (x, y, z) => (y - py > ph * 0.6 ? b : a)); else I.box(px, py, pz, px + 0.75, py + ph, pz + 0.125, (x, y) => (y - py > 0.6 ? b : a));
     });
     root.add(mesh(I, 0, 0, 0));
     // a light over the counter and one over the HDD (inside, so they show when the ceiling is cut away)
@@ -196,7 +198,7 @@
     F.box(xa, 0, -14, xb, h, -4, (x, y, z) => {
       if (z > -13.5 && z < -4.5 && x > xa + 0.4 && x < xb - 0.5 && y > 0.4 && y < h - 0.5) return -1;   // hollow
       if (open && z >= -4.5 && x >= open[0] && x < open[1] && y < open[2]) return -1;                    // the shopfront, open
-      if (open && x >= open[0] && x < open[1] && y < open[2] && z >= -7.5 && z < -4.5) return -1;         // and the shop behind it
+      if (open && x >= open[0] && x < open[1] && y < open[2] && z >= -8 && z < -4.5) return -1;           // and the shop behind it
       if (z >= -4.5 && y > 3.5 && ((Math.floor(x) % 3) === 1) && (Math.floor(y) % 3) === 1) return opts && opts.lit ? G(0xffd890) : 0x3a4250; // windows
       return (Math.floor(y / 0.5) % 6 === 0) ? wall2 : wall;
     });
@@ -211,7 +213,7 @@
     BN.box(-20.5, 2.75, -7.5, -8.5, 3.0, -4.25, 0x2c2c32); BN.box(-20.5, 0, -7.75, -8.5, 3.0, -7.5, 0x2e3e48);
     for (let x = -20; x < -9; x += 1.5) BN.box(x, 0, -7.5, x + 1.25, 2.25, -7.0, (xx, y) => (Math.abs(y % 0.5) < 0.13) ? 0x3a2a20 : [0xd84a3a, 0x3a7ad8, 0xf2c230, 0x3ab87a, 0xe86ab0, 0x141416][Math.floor(hash(xx * 4, y * 2) * 6)]); // record shelves
     BN.box(-15.5, 0, -6.25, -12.5, 0.875, -5.5, 0x3a2a20); BN.box(-15.375, 0.875, -6.125, -12.625, 1.0, -5.625, (x) => [0xd84a3a, 0x3a7ad8, 0xf2c230, 0x8a5ad8][Math.floor(x * 4) & 3]); // a crate table of records
-    BN.box(-20.5, 0, -4.25, -8.5, 3.25, -4.0, (x, y) => y < 0.5 || y > 2.75 ? 0x2c3a34 : -1);
+    BN.box(-20.5, 0, -4.25, -8.5, 3.0, -4.0, (x, y) => y < 0.5 || y >= 2.5 ? 0x2c3a34 : -1);
     for (let i = 0; i < 6; i++) { const cx = -19.5 + i * 1.75; BN.box(cx, 1.0, -4.5, cx + 1.25, 2.25, -4.25, (x, y) => Math.hypot(x - cx - 0.625, y - 1.625) < 0.6 ? (Math.hypot(x - cx - 0.625, y - 1.625) < 0.15 ? [0xd84a3a, 0xf2c230, 0x3ab87a][i % 3] : 0x141416) : 0x2e3e48); }
     BN.box(-12, 0, -3.75, -10, 1.0, -3.25, 0x3a2a20); BN.box(-11.875, 1.0, -3.625, -10.125, 1.5, -3.375, (x) => [0xd84a3a, 0x3a7ad8, 0xf2c230, 0x8a5ad8][Math.floor(x * 4) & 3]); // record rack outside
     root.add(mesh(BN, 0, 0, 0)); solid(-12.1, -3.8, -9.9, -3.2);
@@ -230,7 +232,7 @@
     N.box(8.5, 0, -7.5, 15.5, 1.0, -6.75, 0x8a8c94); N.box(9.0, 1.0, -7.25, 10.0, 1.5, -6.75, 0x5a5a60); N.box(12.0, 1.0, -7.25, 13.0, 1.75, -6.75, 0x5a5a60); // the range, two big pots
     N.box(10.25, 1.75, -7.5, 14.75, 2.25, -7.25, 0x3a2a20); for (let x = 10.5; x < 14.5; x += 0.5) N.box(x, 2.25, -7.5, x + 0.25, 2.5, -7.25, 0xe8e8e0); // a shelf of bowls
     N.box(8, 0, -4.75, 16, 1.0, -4.0, (x, y) => y >= 0.75 ? 0xc89a5a : 0x7a2a22);                         // counter
-    N.box(8, 2.5, -4.25, 16, 3.25, -4.0, (x) => (Math.floor(x / 0.75) & 1) ? 0xd8342c : 0xb82a24);        // the curtain
+    N.box(8, 2.25, -4.25, 16, 3.0, -4.0, (x) => (Math.floor(x / 0.75) & 1) ? 0xd8342c : 0xb82a24);        // the curtain
     for (const sx of [9.25, 10.75, 12.25, 13.75, 15.0]) { N.box(sx - 0.25, 0, -3.5, sx + 0.25, 0.5, -3.0, 0x2a2a30); N.box(sx - 0.25, 0.5, -3.5, sx + 0.25, 0.75, -3.0, 0xd8342c); solid(sx - 0.3, -3.55, sx + 0.3, -2.95); }
     N.box(8.25, 1.0, -4.75, 9.0, 1.5, -4.25, 0xe8e8e0); N.box(14.5, 1.0, -4.75, 15.5, 1.25, -4.25, 0xe8e8e0); // bowls, a pot
     root.add(mesh(N, 0, 0, 0)); solid(8, -4.8, 16, -3.95);
@@ -245,7 +247,7 @@
     const K = grid(0.25, 0.03);
     K.box(17.5, -0.25, -7.5, 22.5, 0.01, -4.25, 0xe0e0dc); K.box(17.5, 2.75, -7.5, 22.5, 3.0, -4.25, G(0xfff8e8)); K.box(17.5, 0, -7.75, 22.5, 3.0, -7.5, 0xf4f4f0);
     for (const x of [18, 20, 21.5]) K.box(x, 0, -7.0, x + 0.75, 1.75, -5.25, (xx, y) => (Math.abs(y % 0.5) < 0.13) ? 0xb0b0b8 : [0xd84a3a, 0x3a7ad8, 0xf2c230, 0x3ab87a, 0xff8a3a][Math.floor(hash(xx * 4, y * 3) * 5)]); // shelves of snacks
-    K.box(17.25, 0, -4.25, 22.75, 3.0, -4.0, (x, y) => y < 0.5 ? 0x3a3a40 : y > 2.5 ? (y > 2.75 ? 0x2a6ad8 : 0xff8a3a) : -1);
+    K.box(17.5, 0, -4.25, 22.5, 3.0, -4.0, (x, y) => y < 0.5 ? 0x3a3a40 : y >= 2.5 ? (y >= 2.75 ? 0x2a6ad8 : 0xff8a3a) : -1);
     root.add(mesh(K, 0, 0, 0));
     const kg = glass(5.5, 2.0, 0xfff8e0, 0.55); kg.position.set(20, 1.5, -4.1); root.add(kg);
     const k1 = sign(1.6, 0.8, (c, w, h) => { c.fillStyle = '#2a6ad8'; c.fillRect(0, 0, w, h); c.fillStyle = '#fff'; c.font = `900 ${Math.round(h * 0.7)}px Rubik, sans-serif`; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('141', w / 2, h * 0.55); });
