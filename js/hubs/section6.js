@@ -145,7 +145,7 @@
     blurb: 'Hollow Special Operations Section 6\'s office, high in HAND Headquarters: four desks, the Hollow board, the famous sofa.',
     build(root) { STREET.begin(); room(root); desks(root); city(root); return STREET.finish({ x0: X0 + 0.4, x1: X1 - 0.4, z0: Z0 + 0.4, z1: Z1 - 0.4 }); },
     spawn: [-8.6, 4.5, PI / 2], arrive: [-8.6, 4.5, PI / 2],
-    cam: 'free', yaw0: 0, camDist: 8.8, music: 'shop', inMusic: 'shop',
+    cam: 'free', yaw0: 0, camDist: 8.8, music: 'hand', inMusic: 'hand',
     travel: { label: 'Travel', sub: 'Lift · down to HAND Headquarters', x: -9.2, z: 4.5, sx: -9.6, sy: 3.0, sz: 4.5, r: 1.5 },
     stations: {},
     // the Agents who live here: Section 6's

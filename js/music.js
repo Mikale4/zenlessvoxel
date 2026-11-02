@@ -9,7 +9,15 @@
      `<key>2` takes over when a boss enters phase 2. */
   const TRACKS = {
     title: ['title - 19 Percent.mp3'],                                  // the official website's theme
-    street: ['street - 60 Percent Fantasy - Serenity.mp3', 'street - 60 Percent Fantasy - Passion.mp3'],   // Sixth Street, evening
+    // the areas, as the real game plays them: weekdays by day / by night (6 PM, 12 AM), weekends by day / by night
+    street_day: ['street_day - 60 Percent Daily - Leisure.mp3'], street: ['street - 60 Percent Fantasy - Serenity.mp3'],      // Sixth Street
+    street_we: ['street_we - 60 Percent Daily - Freedom.mp3'], street_wn: ['street - 60 Percent Fantasy - Passion.mp3'],
+    lumina: ['lumina - Action!.mp3'], lumina_night: ['lumina_night - Still Action!.mp3'],                                      // Lumina Square
+    lumina_we: ['lumina_we - Vacation!.mp3'], lumina_wn: ['lumina_wn - Still Vacation!.mp3'],
+    failume: ['failume - Sunny Failume.mp3'], failume_night: ['failume_night - Lightstream Alley.mp3'],                       // Failume Heights
+    failume_we: ['failume_we - Afternoon Gossip.mp3'], failume_wn: ['failume_wn - Years of Stars.mp3'],
+    blazewood: ['blazewood - Blaze.mp3'],                                                                                      // Blazewood
+    hand: ['hand - Hollow Neutralization.mp3'],                                                                                // HAND Headquarters (and Section 6's office)
     shop: ['shop - Time To Play.mp3'],                                  // Random Play
     dive: ['dive - 60 Percent Fantasy.mp3'],
     clash_menu: ['clash_menu - Up-Up-Down-Down-Left-Left-Right-Right.mp3'],   // Godfinger, the arcade
@@ -29,7 +37,8 @@
     win: ['win - Victory.mp3'],
     lose: ['lose - Defeat.mp3'],
   };
-  const SCREENS = { title: 1, street: 1, shop: 1, dive: 1, clash_menu: 1 };   // these pick up where they left off; a fight starts from the top
+  const SCREENS = { title: 1, street: 1, street_day: 1, street_we: 1, street_wn: 1, lumina: 1, lumina_night: 1, lumina_we: 1, lumina_wn: 1,
+    failume: 1, failume_night: 1, failume_we: 1, failume_wn: 1, blazewood: 1, hand: 1, shop: 1, dive: 1, clash_menu: 1 };   // these pick up where they left off; a fight starts from the top
   const ONCE = { win: 1, lose: 1 };                                            // jingles: once, then quiet
   const GESTURES = ['pointerdown', 'pointerup', 'touchend', 'keydown', 'click'];
   const M = { vol: 0.5, key: null };

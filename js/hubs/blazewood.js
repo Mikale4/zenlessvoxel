@@ -252,7 +252,7 @@
     blurb: 'The Sons of Calydon\'s town in the desert: the 747, Cheesetopia, the bar in the fuel truck, bikes everywhere.',
     build(root) { STREET.begin(); ground(root); lower(root); middle(root); upperLevel(root); return STREET.finish({ x0: -15.2, x1: 15.2, z0: -29.6, z1: 28.6 }); },
     spawn: [0, 25.6, PI], arrive: [0, 25.6, PI],
-    cam: 'free', yaw0: 0, music: 'street', inMusic: 'shop',
+    cam: 'free', yaw0: 0, music: 'blazewood', inMusic: 'shop',
     travel: { label: 'Travel', sub: 'The Outer Ring road · back to the city', x: 0, z: 27.8, sx: 0, sy: 3.2, sz: 28.7, r: 1.8 },
     stations: {},
     // the Agents who live here: the Sons of Calydon's

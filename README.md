@@ -107,7 +107,8 @@ and closes in and rises to keep you in sight over the buildings.
 | **Section 6 Office** (Throne Quarter) | Section 6's office high in HAND Headquarters, open to the sky: the HAND emblem, the desks (Yanagi's file piles, Soukaku's handwriting books and her drawing, Harumasa's medical file, the chief's tic-tac-toe), the Hollow board under its sticky notes, the reel-to-reel cabinets, the custom sofa; things to look at, as in the game; the lift down | Miyabi, Harumasa |
 
 The other areas' shopkeepers run the same menus as Sixth Street's (a meal, a coffee, a shop, the day's luck), so
-whatever you buy and eat works the same everywhere. Music in the new areas is Sixth Street's for now.
+whatever you buy and eat works the same everywhere. Each area plays its own music from the real game (see [Music](#music)),
+and each has its own errands (see [Things to do](#things-to-do-on-sixth-street)).
 
 ## Things to do on Sixth Street
 
@@ -121,10 +122,15 @@ whatever you buy and eat works the same everywhere. Music in the new areas is Si
   or a coffee to go. A meal and a coffee stack, and both last a whole Hollow dive.
 - **Shops.** The **141** (Nitro-Fuel, milk tea, jerky, bin bags, coffee beans), **Howl's newsstand** (a free scratch card
   once a day, the Ridu Weekly's gossip), and the **vending machines** (a can, drunk on the spot).
-- **Errands.** Five shopkeepers and regulars ask for something each day, out of eleven: fetch Mrs. Yani bin bags, find
-  Cookie for her worried owner, find Cyclone's ball under the Box Galaxy bench, take the courier's parcel to Susie, bring
-  Enzo the crate of bolts off the 141's truck, win a medal from Officer Mewmew with an A-rank Patrol, put your name on
-  Asha's Proxy Clash board, and more.
+- **Errands.** Every area asks its own: each day five on Sixth Street (out of eleven) and two in each of the other areas
+  (out of two to four). On Sixth Street: fetch Mrs. Yani bin bags, find Cookie for her worried owner, find Cyclone's ball
+  under the Box Galaxy bench, take the courier's parcel to Susie, bring Enzo the crate of bolts off the 141's truck, win
+  a medal from Officer Mewmew with an A-rank Patrol, put your name on Asha's Proxy Clash board, and more. In Lumina
+  Square, carry Eve's papers to the Galleria or Orchidea's flowers to Coff Cafe, find Yi's lost sticker, clear an Elite
+  for Public Security; in Failume Heights, get Sweety a teapot from Ginger, collect Reed's stock from Vince, find
+  incense for A-Shuo, show the disciples a Patrol at Yunkui Summit; in Blazewood, run Kasa's takeout to the workshop,
+  find Slowpoke, fetch Bolter's parts, clear an Elite in the Outer Ring for Dorian; in the Section 6 Office, get the
+  chief to look at her documents, or remind Harumasa about his check-up. The requests panel says where everyone is.
 - **The Agents' stories.** Each Agent has three chapters: a request of her own (something from a shop, a fight in the
   Hollow with her in the squad, a time of day to find her), then a scene. **Trust** grows when you talk to her (once a
   day), win a fight with her (once a day) and finish her chapters; the second opens at trust 4, the third at 9.
@@ -250,12 +256,18 @@ From HOYO-MiX's official albums *Hyper Commission* (2024) and *Hyper Commission 
 *Loading...* (the KHInsider gamerip), in `audio/`. Each track is where the real game plays it (the *Played In* column on
 the Zenless Zone Zero Wiki's album pages). The music starts on your first click or key (browsers block sound until
 then), crossfades between screens, picks a screen's track back up where it left off, and starts a fight's from the top.
+The areas follow the real game's schedule: by day (6 AM, 12 PM) or by night (6 PM, 12 AM), on a weekday or at the
+weekend (your clock's day), and the sofa's next time of day changes it too.
 Battle Lab: *Music volume*.
 
 | Where | Track | In the real game |
 |---|---|---|
 | Title | 19% | The official website's theme |
-| Sixth Street | 60% Fantasy - Serenity, then 60% Fantasy - Passion | Sixth Street, evenings |
+| Sixth Street | 60% Daily - Leisure / 60% Fantasy - Serenity / 60% Daily - Freedom / 60% Fantasy - Passion | Sixth Street: weekdays by day / by night, weekends by day / by night |
+| Lumina Square | Action! / Still Action! / Vacation! / Still Vacation! | Lumina Square, the same way |
+| Failume Heights | Sunny Failume / Lightstream Alley / Afternoon Gossip / Years of Stars | Failume Heights, the same way |
+| Blazewood | Blaze | Blazewood |
+| Section 6 Office | Hollow Neutralization | HAND Headquarters (the wiki names no track of the office's own) |
 | Inside Random Play | Time To Play | Random Play |
 | Hollow Deep Dive (squad select) | 60% Fantasy | Random Play |
 | Proxy Clash (setup) | Up-Up-Down-Down-Left-Left-Right-Right | Godfinger, the arcade |

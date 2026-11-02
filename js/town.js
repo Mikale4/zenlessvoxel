@@ -12,8 +12,9 @@
      the 141         the Bangboo trio's stall: Nitro-Fuel, milk tea, jerky, bin bags, beans
      the newsstand   Howl's scratch card, once a day; the Ridu Weekly's gossip
      vending machines a can, drunk on the spot
-   ERRANDS    the shopkeepers' and regulars' requests: five a day out of ten (fetch,
-              find, deliver, a medal challenge in the Hollow, a high score at Proxy Clash)
+   ERRANDS    the shopkeepers' and regulars' requests (fetch, find, deliver, a medal
+              challenge in the Hollow, a high score at Proxy Clash): each area asks its
+              own, five a day on Sixth Street, two in each of the others
    AGENTS     trust grows by talking (once a day), fighting together (a win, once a
               day) and by their stories; each Agent has three chapters (a request of
               her own, then a scene), the next opening at trust 4 and 9.
@@ -55,6 +56,8 @@
     binbags: { name: 'Bin bags', price: 8, note: 'A roll of twenty.' },
     beans: { name: 'Coffee beans', price: 15, note: 'A bag of Tin Master\'s brand.' },
     coffee: { name: 'Coffee to go', price: 15 },
+    papers: { name: 'Bundle of City News' }, bouquet: { name: 'Bouquet' }, sticker: { name: 'Helmet sticker' }, teapot: { name: 'Old teapot' }, incense: { name: 'Incense sticks' },
+    stock: { name: 'Crate of stock' }, takeout: { name: 'Cheesetopia takeout' }, parts: { name: 'Spare bike parts' }, documents: { name: 'Folder of documents' },
     parcel: { name: 'Parcel' }, ball: { name: 'Cyclone\'s ball', proper: 1 }, bolts: { name: 'Crate of bolts' }, bowl: { name: 'Bowl of noodles' }, sleeve: { name: 'Record sleeve' }, plush: { name: 'Claw machine plush' }, intel: { name: 'Roadworks intel' },
   };
   const low = k => ITEMS[k].proper ? ITEMS[k].name : ITEMS[k].name.toLowerCase();
@@ -90,9 +93,34 @@
     { id: 'elfy_sleeve', from: 'elfy', title: 'A lost sleeve', ask: 'A record sleeve blew out of the crates. I saw it skid across to Godfinger. Would you fetch it?', steps: [{ t: 'pick', at: 'gf:wall', label: 'A record sleeve', item: 'sleeve' }, { t: 'bring', item: 'sleeve', to: 'elfy' }], thanks: 'Not a scratch on it. Thank you. Bardic Needle owes you one.', pay: 35 },
     { id: 'susie_claw', from: 'susie', title: 'Claw machine test', ask: 'The boss says the claw machine is "too generous". Could you give it a try and tell me?', steps: [{ t: 'pick', at: 'box:claw', label: 'Try the claw machine', item: 'plush' }, { t: 'talk', to: 'susie' }], thanks: 'You won one? On the first go?! ...Don\'t tell the boss.', pay: 20 },
     { id: 'asha_score', from: 'asha', title: 'Top of the board', ask: 'Somebody called Mirage keeps signing the Proxy Clash board. Win one and put your name up there instead!', steps: [{ t: 'clash' }, { t: 'talk', to: 'asha' }], thanks: 'Your name\'s on the board! I\'ll leave it there. For a day. Maybe two.', pay: 50 },
+    // Lumina Square
+    { id: 'eve_papers', hub: 'lumina', from: 'eve', title: 'Papers for the Galleria', ask: 'The Galleria ordered a bundle of City News and nobody came for it. Would you run it over to Mia? Round building, can\'t miss it.', steps: [{ t: 'give', item: 'papers' }, { t: 'bring', item: 'papers', to: 'mia', reply: 'Oh, the papers! The lounge has been asking all morning. Thank you!' }], thanks: 'Delivered? You\'re quicker than my usual runner. Here.', pay: 30 },
+    { id: 'orchidea_bouquet', hub: 'lumina', from: 'orchidea', title: 'Flowers for the cafe', ask: 'Tin Master ordered flowers for the cafe\'s tables. Would you carry the bouquet down to Coff Cafe for me?', steps: [{ t: 'give', item: 'bouquet' }, { t: 'bring', item: 'bouquet', to: 'tinlumina', reply: 'Flowers. The tables have needed them. Thank you, Proxy.' }], thanks: 'He liked them? Then they\'re in good hands.', pay: 30 },
+    { id: 'yi_sticker', hub: 'lumina', from: 'yi', title: 'A lost sticker', ask: 'One of my helmet stickers peeled off in the wind. It blew toward the LUMINA monument. Find it for me?', steps: [{ t: 'pick', at: 'mon:look', label: 'A sticker by the monument', item: 'sticker' }, { t: 'bring', item: 'sticker', to: 'yi' }], thanks: 'That\'s the one! Back where it belongs. Inspiration restored.', pay: 25 },
+    { id: 'officer_elite', hub: 'lumina', from: 'officerL', title: 'Public Security\'s request', ask: 'Public Security could use a hand, Proxy. Clear an Elite in the Hollow and report back here.', steps: [{ t: 'clear', f: { enc: 'elite' } }, { t: 'talk', to: 'officerL' }], thanks: 'Good work. N.E.P.S. thanks you. Officially.', pay: 55 },
+    // Failume Heights
+    { id: 'sweety_teapot', hub: 'failume', from: 'sweety', title: 'A teapot for Yum Cha Sin', ask: 'Lee cracked our best teapot doing kung fu. Ginger at Buyan has an old one he keeps for "a special table". Would you ask him for it?', steps: [{ t: 'talk', to: 'ginger', reply: 'For Yum Cha Sin? Then it\'s found its table. Take it, gently.' }, { t: 'give', item: 'teapot' }, { t: 'bring', item: 'teapot', to: 'sweety' }], thanks: 'Oh, it\'s lovely! The tea will taste better already. Lee, no kung fu near this one!', pay: 40 },
+    { id: 'reed_stock', hub: 'failume', from: 'reed', title: 'Stock from the pawnshop', ask: 'Vince is minding a crate of my stock until I pay him back. I paid him back! Could you go and get it?', steps: [{ t: 'talk', to: 'vince', reply: 'Reed\'s crate? Paid in full. Here, take it. Mind the corners.' }, { t: 'give', item: 'stock' }, { t: 'bring', item: 'stock', to: 'reed' }], thanks: 'My stock! Good Goods is open for business again.', pay: 35 },
+    { id: 'ashuo_incense', hub: 'failume', from: 'ashuo', title: 'Incense for the temple', ask: 'Woof. (A-Shuo nudges an empty incense box toward you, then looks toward the town. Good Goods, maybe.)', steps: [{ t: 'pick', at: 'goods:browse', label: 'Incense sticks at Good Goods', item: 'incense' }, { t: 'bring', item: 'incense', to: 'ashuo' }], thanks: 'Woof! (A-Shuo\'s tail sweeps the floor clean.)', pay: 30 },
+    { id: 'disciple_patrol', hub: 'failume', from: 'disciple1', title: 'Show us how it\'s done', ask: 'The wooden dummies don\'t hit back. Clear a Patrol at Yunkui Summit and tell us how a real fight goes!', steps: [{ t: 'clear', f: { enc: 'patrol', arena: 'summit' } }, { t: 'talk', to: 'disciple1' }], thanks: 'You really did it! We\'ll train twice as hard.', pay: 45 },
+    // Blazewood
+    { id: 'kasa_takeout', hub: 'blazewood', from: 'kasa', title: 'Takeout for the workshop', ask: 'The workshop ordered lunch and never came for it. Take this to Leigh before it goes cold?', steps: [{ t: 'give', item: 'takeout' }, { t: 'bring', item: 'takeout', to: 'leigh', reply: 'Lunch! Kasa remembered. The boys will fight over the fries.' }], thanks: 'Delivered hot? You\'d make a good Cheesetopia rider.', pay: 35 },
+    { id: 'leif_slowpoke', hub: 'blazewood', from: 'leif', title: 'Where\'s Slowpoke?', ask: 'Slowpoke wandered off again! He\'s slow, but he\'s sneaky. Can you find him?', steps: [{ t: 'talk', to: 'slowpoke', reply: '(Slowpoke is staring at a parked motorbike. He has not moved in some time. Found him.)' }, { t: 'talk', to: 'leif' }], thanks: 'You found him! Slowpoke, no more running away. ...Walking away. Whatever.', pay: 30 },
+    { id: 'bolter_parts', hub: 'blazewood', from: 'bolter', title: 'Parts for the truck', ask: 'The truck needs a part off the workshop bench. Lola says I\'d get distracted. She\'s right. Grab it for me?', steps: [{ t: 'pick', at: 'shop:bike1', label: 'Spare parts on the workbench', item: 'parts' }, { t: 'bring', item: 'parts', to: 'bolter' }], thanks: 'That\'s the one! Cow Cow rides again.', pay: 35 },
+    { id: 'dorian_elite', hub: 'blazewood', from: 'dorian', title: 'Trouble in the Outer Ring', ask: 'Something big\'s been prowling the Outer Ring Hollow. Clear an Elite out there and the Sons\'ll owe you one.', steps: [{ t: 'clear', f: { enc: 'elite', arena: 'outer' } }, { t: 'talk', to: 'dorian' }], thanks: 'That was you? Nice. Drinks are on me at the truck.', pay: 55 },
+    // the Section 6 Office
+    { id: 'hand_documents', hub: 'section6', from: 'handclerk', title: 'Documents for the chief', ask: 'These need the chief\'s signature. All of them. Today. Could you... make sure Miyabi actually sees them?', steps: [{ t: 'give', item: 'documents' }, { t: 'bring', item: 'documents', to: 'miyabi', reply: '...Signatures. I see. Thank you, Proxy. I will sign them. Eventually.' }], thanks: 'She took them? That\'s further than I usually get.', pay: 40, trust: { miyabi: 1 } },
+    { id: 'hand_checkup', hub: 'section6', from: 'handclerk', title: 'A missed check-up', ask: 'Harumasa skipped his medical check-up again. If you see him, remind him? He listens to people who aren\'t me.', steps: [{ t: 'talk', to: 'harumasa', reply: 'A check-up? Ugh... fine, fine. Tell them I\'ll go. Probably.' }, { t: 'talk', to: 'handclerk' }], thanks: '"Probably"? That\'s practically a yes. Thank you.', pay: 30, trust: { harumasa: 1 } },
     { id: 'tin_beans', from: 'tinmaster', title: 'Coffee beans', ask: 'The morning rush emptied the grinder. The 141 keeps my beans. Would you fetch a bag?', steps: [{ t: 'buy', item: 'beans' }, { t: 'bring', item: 'beans', to: 'tinmaster' }], thanks: 'Exactly the right roast. Your next cup is on the house. Well, the Denny is.', pay: 30 },
   ];
-  const errandsToday = () => { const d = today(); return ERRANDS.slice().sort((a, b) => hashS(d + a.id) - hashS(d + b.id)).slice(0, 5); };
+  const errandsToday = () => {
+    const d = today(), out = [];
+    for (const h of window.HUBS.order()) out.push(...ERRANDS.filter(e => (e.hub || 'sixth') === h).sort((a, b) => hashS(d + a.id) - hashS(d + b.id)).slice(0, h === 'sixth' ? 5 : 2));
+    return out;
+  };
+  /* someone from another area's cast (hubs.js), and where they are */
+  const hubNPC = id => { for (const k of window.HUBS.order()) { const H = window.HUBS[k]; for (const p of [].concat(H.staff || [], H.regulars || [], H.pets || [])) if (p.id === id) return { name: p.name, hub: k }; } return null; };
+  const whereOf = id => { const n = hubNPC(id); const h = n ? n.hub : (D.AGENTS[id] ? window.HUBS.homeOf(id) : 'sixth'); return h === 'sixth' ? '' : ` (${window.HUBS[h].name})`; };
 
   /* ------------------------------------------------- the Agents' chapters --
      three each: a request of her own, then a scene. 'A' is she, 'P' is you. */
@@ -169,7 +197,7 @@
   /* --------------------------------------------------------- bookkeeping -- */
   const me = () => { const a = Auth.current() || {}; return { who: a.proxy || 'wise', name: a.proxy === 'belle' ? 'Belle' : 'Wise' }; };
   const agentName = id => D.AGENTS[id] ? D.AGENTS[id].short : id;
-  const nameOf = id => ({ kasa: 'Kasa', clerk747: '747 Clerk', howl: 'Howl', ashuo: 'A-Shuo', sweety: 'Sweety', reed: 'Reed', vince: 'Vince', ginger: 'Ginger', lee: 'Lee', chopjr: 'Chop Junior', tinlumina: 'Tin Master', eve: 'Eve', orchidea: 'Orchidea', mia: 'Mia', sage: 'Sage in a Barrel', sib: (me().who === 'wise' ? 'Belle' : 'Wise'), cookie: 'Cookie', owner: '???', yani: 'Mrs. Yani', mewmew: 'Officer Mewmew', tinmaster: 'Tin Master', chop: 'General Chop', susie: 'Susie', elfy: 'Elfy', asha: 'Asha', enzo: 'Enzo', jonah: 'Jonah', courier: 'Courier' })[id] || agentName(id);
+  const nameOf = id => ({ kasa: 'Kasa', clerk747: '747 Clerk', howl: 'Howl', ashuo: 'A-Shuo', sweety: 'Sweety', reed: 'Reed', vince: 'Vince', ginger: 'Ginger', lee: 'Lee', chopjr: 'Chop Junior', tinlumina: 'Tin Master', eve: 'Eve', orchidea: 'Orchidea', mia: 'Mia', sage: 'Sage in a Barrel', sib: (me().who === 'wise' ? 'Belle' : 'Wise'), cookie: 'Cookie', owner: '???', yani: 'Mrs. Yani', mewmew: 'Officer Mewmew', tinmaster: 'Tin Master', chop: 'General Chop', susie: 'Susie', elfy: 'Elfy', asha: 'Asha', enzo: 'Enzo', jonah: 'Jonah', courier: 'Courier' })[id] || (hubNPC(id) || {}).name || agentName(id);
   const whoOf = id => id === 'sib' ? (me().who === 'wise' ? 'belle' : 'wise') : id;
   const chState = id => (S().ch[id] = st.ch[id] || { n: 0, active: false, step: 0 });
   const trust = id => S().trust[id] || 0;
@@ -399,10 +427,11 @@
 
   /* -------------------------------------------------------------- panels -- */
   T.agentInfo = id => { const c = chState(id), n = CH[id] ? CH[id].length : 0; return { trust: trust(id), done: c.n, of: n, active: c.active, next: c.n < n ? GATE[c.n] : null, title: CH[id] && CH[id][c.n] ? CH[id][c.n].title : '' }; };
+  const pickHub = at => { const e = ERRANDS.find(x => x.steps.some(s => s.at === at)); return (e && e.hub) || 'sixth'; };
   const stepText = s => ({
-    buy: () => `Buy ${low(s.item)} at ${s.item === 'coffee' ? 'Coff Cafe' : 'the 141'}`,
-    bring: () => `Bring the ${low(s.item)} to ${nameOf(s.to)}`,
-    talk: () => `Talk to ${nameOf(s.to)}`, pick: () => `Find: ${s.label}`,
+    buy: () => `Buy ${low(s.item)} at ${s.item === 'coffee' ? 'Coff Cafe' : 'the 141 (or Good Goods, or the 747)'}`,
+    bring: () => `Bring the ${low(s.item)} to ${nameOf(s.to)}${whereOf(s.to)}`,
+    talk: () => `Talk to ${nameOf(s.to)}${whereOf(s.to)}`, pick: () => `Find: ${s.label}${s.at && pickHub(s.at) !== 'sixth' ? ` (${window.HUBS[pickHub(s.at)].name})` : ''}`,
     clear: () => { const f = s.f || {}; return `In the Hollow: clear ${f.enc ? ({ patrol: 'a Patrol', elite: 'an Elite', boss: 'a Notorious hunt' })[f.enc] : 'a fight'}${f.arena ? ' at ' + ARENAS[f.arena].name : ''}${f.rank ? ` with rank ${f.rank} or better` : ''}${f.with ? ` with ${agentName(f.with)} in the squad` : ''}${f.lead ? ` with ${agentName(f.lead)} leading` : ''}`; },
     clash: () => `Win a Proxy Clash at Godfinger${s.f && s.f.with ? ` with ${agentName(s.f.with)} in the squad` : ''}`,
     order: () => `Eat ${s.dish ? NOODLES.find(d => d.id === s.dish).name.toLowerCase() : 'a bowl of noodles'} at Waterfall Soup`,
@@ -418,7 +447,7 @@
       el('h3', null, 'IN PROGRESS'),
       ...(qs.length ? qs.map(q => row(q.kind === 'chapter' ? `${agentName(q.agent)}: ${q.def.title}` : q.def.title, '▶ ' + stepText(stepOf(q)), q.kind)) : [row('Nothing yet', 'People with a ! over their heads have something for you.')]),
       el('h3', null, 'ASKING TODAY'),
-      ...errandsToday().filter(e => !st.active[e.id]).map(e => row(e.title, st.done[e.id] === today() ? 'Done today' : `${nameOf(e.from)} · +${e.pay} Denny`, st.done[e.id] === today() ? 'done' : '')),
+      ...errandsToday().filter(e => !st.active[e.id]).map(e => row(e.title, st.done[e.id] === today() ? 'Done today' : `${nameOf(e.from)} · ${window.HUBS.get(e.hub || 'sixth').name} · +${e.pay} Denny`, st.done[e.id] === today() ? 'done' : '')),
       el('h3', null, 'AGENTS'),
       el('div', { class: 'jr-agents' }, ...Object.keys(CH).map(id => { const i = T.agentInfo(id); return el('div', { class: 'jr-ag' }, el('img', { src: (window.PORTRAITS || {})[id] || '', alt: '' }), el('b', null, agentName(id)), el('small', null, `Trust ${i.trust} · stories ${i.done}/${i.of}`), el('small', null, i.active ? 'Request in progress' : i.next == null ? 'All stories seen' : i.trust >= i.next ? 'Has something to ask (!)' : `Next story at trust ${i.next}`)); })),
       el('div', { class: 'row' }, el('button', { class: 'btn small', onclick: () => p.remove() }, 'CLOSE'), el('button', { class: 'btn dark small', onclick: () => { p.remove(); MENU.records(); } }, 'RECORDS')));

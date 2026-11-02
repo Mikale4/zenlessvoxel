@@ -13,7 +13,8 @@
      stations: { id: { label, sub, x, z, sx, sy, sz, r } }  things to use
      cam: 'street' (Sixth Street's: it faces the shopfronts on your side)
           | 'free' (yaw0 to start; you turn it; camDist)
-     music: the area's track (music.js)
+     music: the area's track (music.js), or four: [weekday by day, weekday by night,
+            weekend by day, weekend by night], as the real game plays them
      agents: { id: [4 routine slots] }  the Agents who live here (and so are
              not on Sixth Street): 'spot-prefix weight, ...' as street-life.js
      staff: [{ id, name, at | x,z,face, act, hours: [slots] }]
@@ -33,7 +34,7 @@
     build: root => STREET.build(root),
     spawn: [0, -5.4, 0], arrive: [-55.4, -3.6, 0.4],
     cam: 'street', sib: true, rp: () => STREET.RP, inStore: (x, z) => STREET.inStore(x, z),
-    music: 'street', inMusic: 'shop',
+    music: ['street_day', 'street', 'street_we', 'street_wn'], inMusic: 'shop',
     travel: { label: 'Travel', sub: 'Metro · around New Eridu', x: -56.25, z: -5.2, sx: -56.25, sy: 3.1, sz: -6.4, r: 1.6 },
     stations: {
       hdd: { label: 'Hollow Deep Dive', sub: 'HDD system · into the Hollow', x: 0.5, z: -11.7, sx: 1.5, sy: 2.7, sz: -13.4, r: 1.5, inside: true },

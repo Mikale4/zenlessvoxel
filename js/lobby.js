@@ -297,8 +297,8 @@
     if (inside !== S.inside) {
       S.inside = inside;
       const RP = S.hub.rp && S.hub.rp(); if (RP) { RP.front.visible = !inside; RP.upper.visible = !inside; RP.low.visible = inside; }
-      MUSIC.play(inside ? S.hub.inMusic || 'shop' : S.hub.music || 'street');
     }
+    const mk = musicKey(inside); if (mk !== S.musicKey) { S.musicKey = mk; MUSIC.play(mk); }   // (the time of day can change it too)
     // what is close enough to use
     let near = null, nd = 1e9;
     const cand = Object.keys(STATIONS).map(id => [id, STATIONS[id].x, STATIONS[id].z, STATIONS[id].r]).concat(LIFE.people().map(p => [p.key, p.e.x, p.e.z, p.kind === 'staff' ? 3.0 : p.kind === 'cat' ? 1.0 : 1.6]), S.sib ? [['sib', S.sib.x, -7.0, 1.3]] : [], TOWN.places().map(q => ['place:' + q.id, q.x, q.z, 1.4]));
@@ -320,6 +320,12 @@
     tags();
     if (S.pendingUse) { const id = S.pendingUse; S.pendingUse = null; use(id); }
   };
+  /* the area's track: inside the shop, or for the time of day and the day of the week */
+  function musicKey(inside) {
+    if (inside) return S.hub.inMusic || 'shop';
+    const m = S.hub.music || 'street'; if (typeof m === 'string') return m;
+    const d = new Date().getDay(); return m[(d === 0 || d === 6 ? 2 : 0) + (S.slot >= 2 ? 1 : 0)];
+  }
   /* how far back the camera can be and still see you over the buildings (built.tall: [x0, z0, x1, z1, height]):
      closer is higher, as the camera's arc has it */
   function clearDist(x, z, yaw, dist) {

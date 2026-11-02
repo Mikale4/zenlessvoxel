@@ -531,7 +531,7 @@
     blurb: 'The HIA Club, Public Security, the Galleria and Gravity Cinema, and the shops along the river.',
     build(root) { STREET.begin(); ground(root); neps(root); northWest(root); west(root); plaza(root); east(root); galleria(root); riverside(root); skyline(root); return STREET.finish({ x0: -22.8, x1: 23.2, z0: -24.4, z1: 25.3 }); },
     spawn: [-13.1, 3.0, PI / 2], arrive: [-7.5, 16.6, PI],
-    cam: 'free', yaw0: 0, music: 'street', inMusic: 'shop',
+    cam: 'free', yaw0: 0, music: ['lumina', 'lumina_night', 'lumina_we', 'lumina_wn'], inMusic: 'shop',
     travel: { label: 'Travel', sub: 'Lumina Square Station · Metro', x: -0.2, z: 4.0, sx: 0.5, sy: 4.4, sz: 4.0, r: 1.7 },
     stations: { lab: { label: 'HIA Club', sub: 'Combat Simulation · Battle Lab', x: -13.3, z: 3.0, sx: -14.2, sy: 3.9, sz: 3.0, r: 1.6 } },
     // the Agents who live here: the places the wiki's Lumina Square trust events take them

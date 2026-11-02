@@ -320,7 +320,7 @@
     blurb: 'Suibian Temple, Yum Cha Sin, the porcelain market and the cable car: the old town on the mountain by the sea.',
     build(root) { STREET.begin(); ground(root); mountain(root); westRow(root); square(root); temple(root); return STREET.finish({ x0: -20.2, x1: 27.2, z0: -14.6, z1: 16.6 }); },
     spawn: [15, -4.2, 0], arrive: [4.5, -6.4, 0],
-    cam: 'free', yaw0: 0, music: 'street', inMusic: 'shop',
+    cam: 'free', yaw0: 0, music: ['failume', 'failume_night', 'failume_we', 'failume_wn'], inMusic: 'shop',
     travel: { label: 'Travel', sub: 'Cable car · Failume Heights Station', x: 4.5, z: -6.9, sx: 4.5, sy: 4.4, sz: -7.4, r: 1.7 },
     stations: {
       hdd: { label: 'Hollow Deep Dive', sub: 'HDD system · Suibian Temple', x: 21.6, z: 3.0, sx: 22.6, sy: 3.6, sz: 3.0, r: 1.6 },
