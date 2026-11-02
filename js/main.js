@@ -82,11 +82,13 @@
     sc.add(new THREE.HemisphereLight(0xffffff, 0x404050, 0.9)); const dl = new THREE.DirectionalLight(0xffffff, 0.7); dl.position.set(2, 3, 4); sc.add(dl);
     const list = []; for (const id in D.AGENTS) { list.push([id, D.AGENTS[id].color]); const f = D.AGENTS[id].forms; if (f) for (const k in f) if (f[k].model !== id && MODELS[f[k].model]) list.push([f[k].model, D.AGENTS[id].color]); }
     list.push(['wise', 0x3a5a9a], ['belle', 0xf07a20], ['eous', 0xb8ff3a]);
+    for (const id of window.TOWN_FACES || []) list.push([id, 0x4a5a6a]);           // Sixth Street's people (models-street.js)
     for (const [id, color] of list) {
       if (!MODELS[id]) continue;
       const R = VX.rig(id, MODELS[id]); sc.add(R.root); R.root.rotation.y = 0.35;
-      const h = R.height, bang = MODELS[id].kind === 'bangboo';
-      cam.position.set(0.35 * (bang ? 0.7 : 1), h * (bang ? 0.62 : 0.86), bang ? 1.35 : 1.55); cam.lookAt(0, h * (bang ? 0.58 : 0.8), 0);
+      const h = R.height, bang = MODELS[id].kind === 'bangboo', quad = MODELS[id].kind === 'quad';
+      if (quad) { const s = MODELS[id].scale * 12; cam.position.set(s * 0.6, s * 0.9, s * 2.4); cam.lookAt(0, s * 0.6, s * 0.4); }
+      else { cam.position.set(0.35 * (bang ? 0.7 : 1), h * (bang ? 0.62 : 0.86), bang ? 1.35 : 1.55); cam.lookAt(0, h * (bang ? 0.58 : 0.8), 0); }
       const bg = new THREE.Color(color); sc.background = bg.multiplyScalar(0.35);
       r.render(sc, cam); P[id] = r.domElement.toDataURL('image/png');
       sc.remove(R.root);
@@ -129,6 +131,8 @@
     startBattle(opts) {
       leaveLobby(); clearPreview(); GAME.mode = 'battle'; U.$('screens').innerHTML = '';
       quiet(false);
+      // a meal at Waterfall Soup and the day's coffee go into this fight (a dive brings its own: dive.js)
+      if (!opts.dive && window.TOWN && Auth.current()) { const fb = TOWN.takeBuff(); if (fb) { opts.buff = Object.assign({}, fb.buff, opts.buff || {}); opts.buffNote = fb.note; } }
       MUSIC.play(opts.clash ? 'clash_' + opts.clash.rival : opts.arena + '_' + opts.encounter);
       VOICE.prime(opts.squad.concat(opts.clash ? opts.clash.squad : []));
       BT.T.auto = !!BT.T.auto;
@@ -164,6 +168,7 @@
   BT.hooks.finish = B => {
     if (B.opts.attract) { if (GAME.mode === 'title') GAME.attract(); return; }
     if (B.result === 'retreat') MUSIC.play('lose');   // as in the real game: Defeat plays on a lost or a quit Commission
+    if (B.opts.dive && DIVE.after(B)) return;         // one fight of a Hollow dive (dive.js)
     MENU.results(B);
   };
   BT.hooks.phase2 = () => MUSIC.phase2();

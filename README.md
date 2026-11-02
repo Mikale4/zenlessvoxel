@@ -19,6 +19,10 @@ Or locally: open `index.html` in a browser (no server or install needed).
 - **Twelve real enemies**, three encounters per battleground (Patrol, Elite, Notorious boss):
   Hollow Thug Raider / Pyromaniac / Bulky Enforcer and **Corrupted Overlord - Pompey**; Miasma Spawn, Miasma Walker - Arcavor,
   Miasma Ravager - Huskron and the **Miasma Priest**; Faun, Specter, Dullahan and **Notorious - Dead End Butcher**.
+- **Hollow dives**: a whole Hollow, zone after zone, then its Notorious. Pick the way on, carry your HP, collect Resonia
+  between fights (see [Hollow dives](#hollow-dives)).
+- **Things to do on Sixth Street**: Denny, food that buffs your next fight, shops, errands for the shopkeepers and
+  regulars, and three story chapters for every Agent (see [Things to do](#things-to-do-on-sixth-street)).
 - **Proxy Clash**: Agents against Agents, a rival Proxy's squad against yours, in five modes: 1v1 Duel, 2v2 and 3v3
   Tag Team (one on the field at a time), 2v2 and 3v3 All-Out (everyone at once).
 - **The Battle Lab**: every rule and number as a toggle or slider, saved in your browser.
@@ -34,20 +38,95 @@ As in Post Parade, the title screen runs a **live battle** behind the logo (a ra
 A new Proxy chooses who they are, as in the real game: **Wise** or **Belle**, the siblings who run Random Play. The other
 one minds the shop.
 
-Home is **Sixth Street at dusk**, in voxels, to walk around in. **Random Play** (walk in through the door: its front
-comes away) has the **Hollow Deep Dive System** in the back room (into battle), the **shop computer** (Battle Lab), the
-**tutorial tapes** (How to Play) and the **notice board** by the door (your records: dives, clears, best rank on every
-battleground). Your sibling is behind the counter, **Eous** waddles after you, and the Agents are out on the street:
-Caesar by her bike, Burnice at Chop's Noodles, Aria at Bardic Needle, Yixuan meditating on a bench under her bird,
-Qingyi on patrol by the notice board, Ju Fufu bouncing on her toes beside Hu Wei, Orphie at the end of the street with
-Magus, her tail, curled behind her, and Remielle in the middle of it all, one hand raised to the dusk. Talk
-to one to read her file and take her into the Hollow. Walk with **WASD / arrows** (Shift runs), **E** uses what has a
-sign over it; or click / tap where to go (a sign: go and use it), or drag to steer on a phone. The dock at the bottom
-goes straight to every place. Out front, two **arcade cabinets** run **Proxy Clash**.
+Home is **Sixth Street**, in voxels, to walk around in, built as it is in the real game from the Zenless Zone Zero Wiki's
+location shots, shop pictures and maps (`street.js`, `street2.js`). West to east:
+
+| North side | South side |
+|---|---|
+| the **metro entrance** (METRO PASSAGE / EXIT, the New Eridu Metro map) | the **404 Livehouse** (its front is this game's guess) |
+| **Box Galaxy** (Susie's gadgets; the black Bangboo statue and its PROHIBITED hand, a bench, the strays) | a garage, and the **Sage in a Barrel** |
+| **Coff Cafe** (Tin Master; the patio, the striped umbrella, Mr. Panda's posters, a payphone) | the **141** (the Bangboo trio's stall, the freezer, the Ice Cream Kingdom machine, the truck) |
+| an alley (a courier, a Hollow Raider, the dumpster) | **Godfinger** (Asha; the pixel billboard, chequers, banners; the Proxy Clash cabinets) |
+| **Waterfall Soup** (General Chop; the koi board, the stools) | the back road (**Officer Mewmew**), **Howl's newsstand** |
+| the alley to the parking lot (the booth, a vending machine, a payphone) | **Bardic Needle** (Elfy; the record door, album walls, crates) |
+| **Random Play** | a stuck vending machine, shutters |
+| **Turbo** (Enzo's container garage, its stair and roof) | the roadworks at the east end |
+
+Buildings are voxels a quarter of a metre across, shopfronts an eighth, fittings and props a sixteenth (vending machines
+with cans, buttons and a pick-up flap; payphones with keypads; slatted benches; arcade cabinets; the 141's truck).
+
+**Random Play** (walk in through the door: its front comes away), as in the shop shots: the mesh-panelled counter with
+stickers and a Bangboo plush, the logo painted on the brick, posters on a red pegboard, the oil-drum sofa, an orange TV,
+a monstera; the **Hollow Deep Dive System** in the back room under a wall of monitors (into battle), the **shop computer**
+(Battle Lab), the **tutorial tapes** (How to Play), the **sofa** (Rest: the next time of day) and the **poster board** by
+the door (your records). Your sibling is behind the counter and **Eous** waddles after you.
+
+**Who's out** (`street-life.js`). The day runs in the real game's four slots, from your clock: **morning** (6 AM),
+**afternoon** (12 PM), **evening** (6 PM), **late night** (12 AM), with its own light, lamps and lit windows; the sofa moves
+it on. The shopkeepers keep their posts in their hours; the eight Agents follow routines from where the game puts them
+(Caesar at Turbo and the 141, Burnice at Waterfall Soup and the newsstand, Aria at Godfinger and, evenings, outside the
+404, Yixuan on the bench across from Random Play and at the newsstand, Qingyi at Turbo and, late at night, outside Random
+Play, Ju Fufu with General Chop, Orphie at the noodle counter, Remielle on her way to Random Play), and stop to talk in
+twos and threes; the regulars keep their hours (Luo and Phil by Turbo in the morning, Jonah and Roy at the newsstand at
+six, Mrs. Yani's rounds, the cat's owner, Cookie napping on the 141 truck in the afternoon, the Dazed Dude at midnight);
+passers-by come off the metro and the ends of the street (office workers by day, students at six). Each walks to her spot
+along a path round everything (A* on a half-metre grid), and does what it is for: eats at the counter, sips coffee, plays a
+cabinet, browses the crates, reads a magazine, phones, leans, sits. They look up as you pass, say something now and then,
+and you can talk to every one of them (the Agents in their own voices).
+
+Walk with **WASD / arrows** (Shift runs), **E** uses what has a sign over it; or click / tap where to go (a sign: go and
+use it), or drag to steer on a phone. The camera turns to face the shopfronts on your side of the street; **Z / C**, a
+right-button drag or the arrow buttons turn it yourself. The dock at the bottom goes straight to every place.
+
+## Things to do on Sixth Street
+
+`town.js`. Everything is saved per Proxy.
+
+- **Denny.** You start with 60. A fight in the Hollow pays by encounter and rank (a Patrol about 40, a Notorious about
+  120, more for an S), a Proxy Clash win pays by rival, and a Hollow dive pays on the way out. The chip at the top shows it.
+- **Food is for fighting**, as in the real game. **Waterfall Soup**: General Chop's noodles, 30 Denny, eaten on a stool at
+  the counter, last until your next fight (house: +8% damage and HP; spicy: +15% Daze; seafood: +20% Decibels, +10%
+  Energy). **Coff Cafe**: Tin Master's coffee of the day, once a day, sipped on the patio (+20% Energy, +1 Assist Point),
+  or a coffee to go. A meal and a coffee stack, and both last a whole Hollow dive.
+- **Shops.** The **141** (Nitro-Fuel, milk tea, jerky, bin bags, coffee beans), **Howl's newsstand** (a free scratch card
+  once a day, the Ridu Weekly's gossip), and the **vending machines** (a can, drunk on the spot).
+- **Errands.** Five shopkeepers and regulars ask for something each day, out of eleven: fetch Mrs. Yani bin bags, find
+  Cookie for her worried owner, find Cyclone's ball under the Box Galaxy bench, take the courier's parcel to Susie, bring
+  Enzo the crate of bolts off the 141's truck, win a medal from Officer Mewmew with an A-rank Patrol, put your name on
+  Asha's Proxy Clash board, and more.
+- **The Agents' stories.** Each Agent has three chapters: a request of her own (something from a shop, a fight in the
+  Hollow with her in the squad, a time of day to find her), then a scene. **Trust** grows when you talk to her (once a
+  day), win a fight with her (once a day) and finish her chapters; the second opens at trust 4, the third at 9.
+
+A **!** over someone means they have something for you; a **?** means you have something for them. **REQUESTS** on the
+dock lists what you are doing, who is asking today, what you are carrying, and every Agent's trust and stories. Agents
+also show their trust on the Agents panel.
+
+## Hollow dives
+
+`dive.js`. On the squad screen, pick **HOLLOW DIVE** under the encounters, then **START DIVE**. A dive is five zones of
+one battleground: the way in (a fight), two forks, a fork before the end (one way is always a supply cache), and the
+battleground's **Notorious**. At each fork you choose which TV to go through:
+
+| Tile | What it is |
+|---|---|
+| **Combat** | The battleground's Patrol. Win it, then pick 1 of 3 Resonia. |
+| **Elite** | The Elite: rarer Resonia and more Denny. |
+| **Supply cache** | Every Agent recovers 40% HP; a downed Agent gets back up with 25%. |
+| **Resonium crate** | Pick 1 of 2 Resonia, no fight. |
+| **???** | Something in the dark: a Bangboo stuck in a crate, an Ether vein (Denny for HP), a Bangboo merchant, a pocket of clean air, a TV that says PICK A DOOR. |
+| **Notorious** | The boss. Clear it to clear the dive. |
+
+**Resonia** (B, A or S) last the rest of the dive: more damage, Daze, Energy, Decibels, Anomaly buildup or max HP, an
+extra Assist Point each fight, or a heal or a revive on the spot. **HP carries over** from fight to fight (the living
+catch their breath: +10%); an Agent who went down stays down until a supply cache or a Resonium gets her up, and if the
+whole squad goes down the dive is over. Denny is paid on the way out: everything plus 60 for a cleared dive, half if the
+squad went down, what you had earned if you **pull out** (between zones, or Retreat from Tactics). Fights in a dive count
+for errands and stories too.
 
 ## Proxy Clash: Agent against Agent
 
-At the arcade cabinets in front of Random Play, a **rival Proxy** dials in with a squad of their own. Pick a mode, your
+At Godfinger's two cabinets across the street from Random Play, a **rival Proxy** dials in with a squad of their own. Pick a mode, your
 squad, the rival, their squad (or let them choose: mirror matches are fine, their Agents stand on red rings), the
 battleground, and fight. Five modes:
 
@@ -231,7 +310,11 @@ Plain JavaScript and three.js (r128, vendored in `lib/`), no build step. Every m
 | `js/voxel.js` | Voxel grid, mesher (ambient occlusion), rigs |
 | `js/models-*.js` | Agents (`models-agents.js`, `models-agents2.js`), companions (Yixuan's ink bird, Ju Fufu's Hu Wei; Orphie's Magus is her tail, part of her model), enemies, and the Proxies (Wise, Belle) and Eous, matched to official art |
 | `js/auth.js` | Proxy accounts: register / sign in (salted SHA-256 in this browser), per-account saves and records |
-| `js/lobby.js` | Sixth Street: the walkable home screen, its places, people and signs |
+| `js/lobby.js` | Sixth Street: you, the camera, the time of day, the light pool, the places to use, the signs |
+| `js/street.js` · `js/street2.js` | Sixth Street's buildings and props (north side, south side), as in the real game |
+| `js/street-life.js` · `js/models-street.js` | Its people: routines, paths, activities, chatter; the shopkeepers, regulars, passers-by and animals |
+| `js/town.js` | Things to do on Sixth Street: Denny, the shops, food buffs, errands, the Agents' trust and stories, the REQUESTS panel |
+| `js/dive.js` | Hollow dives: the zones and forks, Resonia, HP carried between fights, the pay on the way out |
 | `js/arenas.js` | The three battlegrounds |
 | `js/data.js` | **All the numbers**: rules, kits, enemies, encounters, Battle Lab defaults |
 | `js/battle.js` | The battle: damage, Daze/Stun/Chains, anomalies, assists, ultimates, hazards, camera |

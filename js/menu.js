@@ -38,6 +38,7 @@
     sel = U.store.get('setup', DEF_SETUP()); normSel();
     csel = U.store.get('clash', DEF_CLASH()); normClash(); rolled = null;
     const t = U.store.get('tuning', {}); for (const k in D.TUNING_DEFAULTS) BT.T[k] = k in t ? t[k] : D.TUNING_DEFAULTS[k];
+    if (window.TOWN) TOWN.reload();
     SFX.setVolume(BT.T.volume); MUSIC.setVolume(BT.T.music); VOICE.setVolume(BT.T.voice);
     return a;
   };
@@ -145,35 +146,52 @@
     const acc = Auth.current(); if (!acc) return MENU.title(); if (!acc.proxy) return MENU.chooseProxy();
     scr().innerHTML = '';
     const tags = el('div', { class: 'lb-tags' });
-    const chip = (k, v) => el('span', { class: 'lb-chip' }, el('b', null, String(v)), k);
+    const chip = (k, v, id) => el('span', { class: 'lb-chip' }, el('b', id ? { id } : null, String(v)), k);
     const dock = (label, sub, fn, cls) => el('button', { class: 'lb-btn ' + (cls || ''), onclick: () => { SFX.unlock(); SFX.play('ui'); fn(); } }, el('b', null, label), el('small', null, sub));
     const ui = el('div', { class: 'scr lobby-ui' }, tags,
       el('div', { class: 'lb-top' },
         el('div', { class: 'lb-me' }, el('img', { src: portrait(acc.proxy), alt: '' }), el('div', null, el('b', null, acc.user), el('small', null, `${NAME[acc.proxy]} · Proxy of Random Play`))),
-        chip('HOLLOW DIVES', acc.battles), chip('CLEARED', acc.clears), chip('CLASH WINS', `${acc.duelWins}/${acc.duels}`),
+        chip('DENNY', U.fmt(TOWN.denny()), 'lbDenny'), chip('FIGHTS WON', `${acc.clears}/${acc.battles}`), chip('DIVES CLEARED', `${acc.diveClears}/${acc.dives}`), chip('CLASH WINS', `${acc.duelWins}/${acc.duels}`),
         el('span', { style: { flex: 1 } }),
         el('button', { class: 'lb-out', onclick: () => { Auth.logout(); U.store.ns = null; MENU.loadAccount(); MENU.title(); } }, 'SIGN OUT')),
-      el('div', { class: 'lb-help' }, GAME.touch ? 'Tap where to go, or drag to steer · tap a sign to use it' : 'WASD / arrows to walk · Shift to run · E to use · or click where to go'),
+      el('div', { class: 'lb-help' }, GAME.touch ? 'Tap where to go, or drag to steer · tap a sign to use it · the arrows turn the view' : 'WASD / arrows to walk · Shift to run · E to use · Z / C or right-drag to turn the view'),
+      el('div', { class: 'lb-clock', id: 'lbClock' }),
+      el('div', { class: 'lb-cam' }, el('button', { title: 'Turn the view', onpointerdown: ev => { ev.preventDefault(); Lobby.turn(1); } }, '⟲'), el('button', { title: 'Turn the view', onpointerdown: ev => { ev.preventDefault(); Lobby.turn(-1); } }, '⟳')),
       el('nav', { class: 'lb-dock' },
         dock('HOLLOW DEEP DIVE', 'Into the Hollow', () => MENU.setup(), 'hdd'),
         dock('PROXY CLASH', 'Agent vs Agent', () => MENU.clash(), 'clash'),
         dock('AGENTS', 'Who is in town', () => MENU.agents()),
+        dock('REQUESTS', 'Errands & stories', () => TOWN.journal()),
         dock('BATTLE LAB', 'Rules & numbers', () => MENU.lab('lobby')),
-        dock('HOW TO PLAY', 'Tutorial tapes', () => MENU.howto()),
-        dock('RECORDS', 'Your clears', () => MENU.records())));
+        dock('HOW TO PLAY', 'Tutorial tapes', () => MENU.howto())));
     scr().append(ui);
-    GAME.toLobby({ me: acc.proxy, tags, onUse: lobbyUse, spawn: o.spawn });
+    GAME.toLobby({ me: acc.proxy, tags, onUse: lobbyUse, spawn: o.spawn, slot: slotNow() });
+    clock();
     if (o.intro || !acc.seenIntro) setTimeout(() => intro(acc), 450);
   };
-  function lobbyUse(id) {
+  /* the time of day: your clock's slot, moved on by however often you have rested on the sofa */
+  const slotNow = () => (LIFE.clockSlot() + (U.store.get('slotShift', 0) || 0)) % 4;
+  function clock() { const c = $('lbClock'); if (c) { const s = Lobby.slot(); c.innerHTML = ''; c.append(LIFE.SLOT_LABEL[s], el('small', null, `Sixth Street · ${LIFE.SLOT_TIME[s]}`)); } }
+  const REST = ['Morning! The shutters are going up all along the street.', 'Afternoon already. The lunch crowd\'s queuing at Waterfall Soup.', 'Evening. This is when Sixth Street really wakes up.', 'Past midnight. Only the night owls are out now... and the cat.'];
+  function rest() {
+    const acc = Auth.current() || {}, s0 = sibOf(acc.proxy);
+    U.store.set('slotShift', ((U.store.get('slotShift', 0) || 0) + 1) % 4);
+    const s = slotNow(); Lobby.setSlot(s); clock();
+    MENU.say([{ who: acc.proxy, name: NAME[acc.proxy], text: '(You put your feet up on the oil-drum sofa for a while...)' }, { who: s0, name: NAME[s0], text: REST[s] }]);
+  }
+  function lobbyUse(id, who) {
     const acc = Auth.current() || {};
     if (id === 'hdd') return MENU.setup();
     if (id === 'clash') return MENU.clash();
     if (id === 'lab') return MENU.lab('lobby');
     if (id === 'howto') return MENU.howto();
     if (id === 'records') return MENU.records();
-    if (id === 'sib') { const s = sibOf(acc.proxy); return MENU.say([{ who: s, name: NAME[s], text: U.pick(Lobby.LINES[s]) }]); }
-    if (id.startsWith('agent:')) return MENU.talk(id.slice(6));
+    if (id === 'rest') return rest();
+    if (id.startsWith('place:')) return TOWN.usePlace(id.slice(6));
+    // errands, stories and shops first (town.js); then just a word
+    if (id === 'sib') { if (TOWN.talk('sib', who)) return; const s = sibOf(acc.proxy); return MENU.say([{ who: s, name: NAME[s], text: U.pick(Lobby.LINES[s]) }]); }
+    if (id.startsWith('agent:')) { if (TOWN.talk(id.slice(6), who)) return; return MENU.talk(id.slice(6)); }
+    if (id.startsWith('npc:') && who) { if (TOWN.talk(who.id, who)) return; return MENU.say([{ who: who.id, name: who.name, text: LIFE.lineFor(who.id) }]); }
   }
   function intro(acc) {
     if (GAME.mode !== 'lobby') return;
@@ -181,21 +199,32 @@
     MENU.say([
       { who: s, name: sn, text: `Morning, ${me}. Random Play's open, the tapes are rewound, and Eous has the Hollow Deep Dive System warmed up in the back room.` },
       { who: 'eous', name: 'Eous', text: 'Ehn-ne! Ehn-nu-nu!' },
-      { who: s, name: sn, text: 'Eight Agents are out on Sixth Street tonight, and every one of them wants a Proxy: Caesar, Burnice, Aria, Yixuan, Qingyi, Ju Fufu, Orphie and Remielle. Go and say hello.' },
+      { who: s, name: sn, text: 'Eight Agents are out on Sixth Street, and every one of them wants a Proxy: Caesar, Burnice, Aria, Yixuan, Qingyi, Ju Fufu, Orphie and Remielle. They get about: Waterfall Soup, the 141, Godfinger, Turbo... Go and say hello.' },
       { who: s, name: sn, text: 'When you\'re ready, sit down at the HDD. You guide them through the Hollow; they do the fighting.' },
-      { who: s, name: sn, text: 'Oh, and the arcade cabinets out front? Proxy Clash. Other Proxies dial in with their own Agents and fight yours. Somebody called Mirage keeps topping the board...' },
-      { who: s, name: sn, text: `The shop computer has the Battle Lab, the tutorial tapes are on the shelf, and the notice board by the door keeps your records. ${GAME.touch ? 'Tap where you want to go, or drag to steer,' : 'Walk with WASD or the arrow keys,'} and use anything with a sign over it.` },
+      { who: s, name: sn, text: 'Oh, and Godfinger across the street? Two of Asha\'s cabinets run Proxy Clash. Other Proxies dial in with their own Agents and fight yours. Somebody called Mirage keeps topping the board...' },
+      { who: s, name: sn, text: `The shop computer has the Battle Lab, the tutorial tapes are on the shelf, the poster board by the door keeps your records, and the sofa's there when you want to let the day go by. ${GAME.touch ? 'Tap where you want to go, or drag to steer,' : 'Walk with WASD or the arrow keys,'} and use anything with a sign over it.` },
     ], () => Auth.update({ seenIntro: true }));
   }
   /* a conversation at the bottom of the screen: a portrait, a name, a line at a time */
+  /* (a line may end in choices: { label, fn }, picked by a click or its number; Escape takes the last) */
   MENU.say = (lines, done) => {
     const old = document.querySelector('.dlg'); if (old) old.remove();
-    let i = 0;
-    const img = el('img', { alt: '' }), nm = el('b'), tx = el('p'), next = el('span', { class: 'dlg-next' }, '▶');
-    const box = el('div', { class: 'dlg', onpointerdown: ev => { ev.preventDefault(); step(); } }, img, el('div', null, nm, tx), next);
-    const show = () => { const L = lines[i]; img.src = portrait(L.who); nm.textContent = L.name; tx.textContent = L.text; next.textContent = i < lines.length - 1 ? '▶' : '✓'; };
-    const key = ev => { if (['Enter', ' ', 'e', 'E', 'Escape'].includes(ev.key)) { ev.preventDefault(); if (ev.key === 'Escape') i = lines.length; step(); } };
-    function step() { i++; if (i >= lines.length) { box.remove(); removeEventListener('keydown', key); if (done) done(); return; } show(); }
+    let i = 0, closed = false;
+    const img = el('img', { alt: '' }), nm = el('b'), tx = el('p'), next = el('span', { class: 'dlg-next' }, '▶'), ch = el('div', { class: 'dlg-choices' });
+    const box = el('div', { class: 'dlg', onpointerdown: ev => { if (ev.target.closest('.dlg-choices')) return; ev.preventDefault(); if (!lines[i].choices) step(); } }, img, el('div', null, nm, tx, ch), next);
+    const choose = c => { close(); if (c && c.fn) c.fn(); };
+    const show = () => {
+      const L = lines[i]; img.src = portrait(L.who); nm.textContent = L.name; tx.textContent = L.text; next.textContent = i < lines.length - 1 ? '▶' : '✓';
+      next.style.display = L.choices ? 'none' : ''; ch.innerHTML = '';
+      if (L.choices) L.choices.forEach((c, k) => ch.append(el('button', { class: 'btn small' + (k ? ' dark' : ''), onclick: ev => { ev.stopPropagation(); choose(c); } }, `${k + 1}. ${c.label}`)));
+    };
+    const close = () => { if (closed) return; closed = true; box.remove(); removeEventListener('keydown', key); };
+    const key = ev => {
+      const L = lines[i];
+      if (L.choices) { const n = parseInt(ev.key, 10); if (n >= 1 && n <= L.choices.length) { ev.preventDefault(); choose(L.choices[n - 1]); } else if (ev.key === 'Escape') { ev.preventDefault(); choose(L.choices[L.choices.length - 1]); } return; }
+      if (['Enter', ' ', 'e', 'E', 'Escape'].includes(ev.key)) { ev.preventDefault(); if (ev.key === 'Escape') i = lines.length; step(); }
+    };
+    function step() { i++; if (i >= lines.length) { close(); if (done) done(); return; } show(); }
     addEventListener('keydown', key);
     show(); document.body.append(box);
   };
@@ -222,8 +251,9 @@
   }
   MENU.agents = () => {
     const box = el('div', { class: 'box' }, el('h2', null, 'AGENTS ON SIXTH STREET'), el('p', null, 'Talk to them in the street, or open their files here.'),
-      el('div', { class: 'cards ag-cards' }, ...Object.keys(D.AGENTS).map(id => el('button', { class: 'card' + (sel.squad.includes(id) ? ' sel' : ''), onclick: () => { p.remove(); MENU.dossier(id); } },
-        sel.squad.includes(id) ? el('span', { class: 'ord' }, String(sel.squad.indexOf(id) + 1)) : null, el('img', { src: portrait(BT.modelFor(id, sel.look)), alt: '' }), el('b', null, D.AGENTS[id].name), el('small', null, `${D.AGENTS[id].spec} · ${D.ATTR[D.AGENTS[id].attr].name}`)))),
+      el('div', { class: 'cards ag-cards' }, ...Object.keys(D.AGENTS).map(id => { const ti = TOWN.agentInfo(id); return el('button', { class: 'card' + (sel.squad.includes(id) ? ' sel' : ''), onclick: () => { p.remove(); MENU.dossier(id); } },
+        sel.squad.includes(id) ? el('span', { class: 'ord' }, String(sel.squad.indexOf(id) + 1)) : null, el('img', { src: portrait(BT.modelFor(id, sel.look)), alt: '' }), el('b', null, D.AGENTS[id].name), el('small', null, `${D.AGENTS[id].spec} · ${D.ATTR[D.AGENTS[id].attr].name}`),
+        el('small', { class: 'trust' }, `Trust ${ti.trust} · stories ${ti.done}/${ti.of}${ti.active ? ' · on a request' : ''}`)); })),
       el('div', { class: 'row' }, el('button', { class: 'btn small', onclick: () => p.remove() }, 'CLOSE')));
     const p = el('div', { class: 'panel' }, box); scr().append(p);
   };
@@ -244,7 +274,7 @@
         el('td', { class: 'rk ' + (c && c.best ? c.best : '') }, c && c.best ? c.best : '—'), el('td', null, c && c.time ? fmtT(c.time) : ''));
     });
     const box = el('div', { class: 'box records' }, el('h2', null, 'PROXY RECORDS'),
-      el('p', null, `${acc.user || 'Proxy'}: ${acc.battles} Hollow dive${acc.battles === 1 ? '' : 's'}, ${acc.clears} cleared · ${acc.duels || 0} Proxy Clash${acc.duels === 1 ? '' : 'es'}, ${acc.duelWins || 0} won.`),
+      el('p', null, `${acc.user || 'Proxy'}: ${acc.battles} fight${acc.battles === 1 ? '' : 's'} in the Hollow, ${acc.clears} won · ${acc.dives} Hollow dive${acc.dives === 1 ? '' : 's'}, ${acc.diveClears} cleared · ${acc.duels || 0} Proxy Clash${acc.duels === 1 ? '' : 'es'}, ${acc.duelWins || 0} won.`),
       el('table', null, el('tr', null, el('th', null, 'BATTLEGROUND'), el('th', null, 'ENCOUNTER'), el('th', null, 'BEST'), el('th', null, 'TIME')), ...rows),
       el('h4', null, 'PROXY CLASH'),
       el('table', { class: 'clash-rec' }, el('tr', null, el('th', null, 'RIVAL'), ...MODES.map(m => el('th', null, `${m.name} ${m.allOut ? 'ALL-OUT' : m.size > 1 ? 'TAG' : 'DUEL'}`)), el('th', null, 'BEST'), el('th', null, 'FASTEST')), ...crow),
@@ -287,9 +317,12 @@
       en.append(el('button', { class: 'opt' + (sel.encounter === k ? ' sel' : ''), onclick: () => { SFX.play('ui'); sel.encounter = k; save(); MENU.setup(); } },
         el('b', null, { patrol: 'PATROL · ', elite: 'ELITE · ', boss: 'NOTORIOUS · ' }[k] + enc.name), el('small', null, `${enc.waves.length} wave${enc.waves.length > 1 ? 's' : ''}: ` + ids.map(i => D.ENEMIES[i].name).join(', '))));
     }
+    // or the whole Hollow: zone after zone, HP carried over, Resonia between fights, its Notorious at the end (dive.js)
+    en.append(el('button', { class: 'opt dive-opt' + (sel.encounter === 'dive' ? ' sel' : ''), onclick: () => { SFX.play('ui'); sel.encounter = 'dive'; save(); MENU.setup(); } },
+      el('b', null, 'HOLLOW DIVE · ' + ARENAS[sel.arena].name), el('small', null, 'Five zones, then the Notorious. Pick your way through; HP carries over; a Resonium after every fight.')));
     right.append(en);
     right.append(el('div', { class: 'deploy' },
-      el('button', { class: 'btn', onclick: () => { SFX.unlock(); MENU.deploy(); } }, 'DEPLOY'),
+      el('button', { class: 'btn', onclick: () => { SFX.unlock(); MENU.deploy(); } }, sel.encounter === 'dive' ? 'START DIVE' : 'DEPLOY'),
       Auth.current() ? el('button', { class: 'btn dark small', onclick: () => { SFX.play('ui'); MENU.lobby({ spawn: [1.5, -11.0] }); } }, '◀ SIXTH STREET') : null,
       el('button', { class: 'btn dark small', onclick: () => MENU.lab() }, 'BATTLE LAB'),
       el('button', { class: 'btn dark small', onclick: () => MENU.howto() }, 'HOW TO PLAY'),
@@ -319,6 +352,7 @@
 
   MENU.deploy = () => {
     scr().innerHTML = '';
+    if (sel.encounter === 'dive') return DIVE.start({ squad: sel.squad, arena: sel.arena, look: sel.look });
     VOICE.line(sel.squad[0], ['confirm']);
     GAME.startBattle({ squad: sel.squad.slice(), arena: sel.arena, encounter: sel.encounter, look: Object.assign({}, sel.look) });
   };
@@ -402,7 +436,7 @@
     right.append(ar);
     right.append(el('div', { class: 'deploy' },
       el('button', { class: 'btn', onclick: () => { SFX.unlock(); MENU.clashGo(); } }, 'FIGHT'),
-      Auth.current() ? el('button', { class: 'btn dark small', onclick: () => { SFX.play('ui'); MENU.lobby({ spawn: [-3.9, -1.6] }); } }, '◀ SIXTH STREET') : null,
+      Auth.current() ? el('button', { class: 'btn dark small', onclick: () => { SFX.play('ui'); MENU.lobby({ spawn: [-25.9, 5.4] }); } }, '◀ SIXTH STREET') : null,
       el('button', { class: 'btn dark small', onclick: () => MENU.lab() }, 'BATTLE LAB'),
       el('button', { class: 'btn dark small', onclick: () => MENU.howto() }, 'HOW TO PLAY'),
       el('div', { class: 'hint' }, `${M0.name} ${M0.title} · ${mySquad().map(id => D.AGENTS[id].short).join(' / ')}${csel.squad.length < N ? ' (filled in)' : ''}  vs  ${theirs.map(id => D.AGENTS[id].short).join(' / ')} · ${BT.T.auto ? 'AUTO is ON (T toggles it in battle)' : 'AUTO is OFF: you move and command'}`)));
@@ -507,13 +541,18 @@
   MENU.closeTactics = () => { const t = $('tactics'); if (t) t.remove(); if (BT.B && !document.querySelector('.panel')) BT.B.paused = false; };
 
   /* ---------------------------------------------------------- results */
-  MENU.results = B => {
-    if (B.rival) return clashResults(B);
-    const S = B.stats, t = B.t, win = B.result === 'win', downs = B.squad.filter(a => !a.alive).length;
+  /* the rank of a fight in the Hollow: time against par, Agents lost (in a dive, not those who came in down), Perfect Dodges and Assists */
+  MENU.rank = B => {
+    const S = B.stats, t = B.t, win = B.result === 'win', carry = B.opts.carry || {}, downs = B.squad.filter(a => !a.alive && carry[a.id] !== 0).length;
     const par = { patrol: 70, elite: 95, boss: 150 }[B.opts.encounter];
     let score = 0; if (win) { score = 3; if (t > par) score--; if (t > par * 1.6) score--; score -= downs; if (S.perfect + S.assists >= 4) score++; }
-    const rank = !win ? 'F' : score >= 4 ? 'S' : score >= 3 ? 'A' : score >= 2 ? 'B' : 'C';
+    return !win ? 'F' : score >= 4 ? 'S' : score >= 3 ? 'A' : score >= 2 ? 'B' : 'C';
+  };
+  MENU.results = B => {
+    if (B.rival) return clashResults(B);
+    const S = B.stats, t = B.t, win = B.result === 'win', downs = B.squad.filter(a => !a.alive).length, rank = MENU.rank(B);
     if (B.result !== 'retreat' && Auth.current()) Auth.record({ arena: B.opts.arena, encounter: B.opts.encounter, win, rank, time: t });
+    const tw = Auth.current() ? TOWN.afterBattle(B, rank) : null;          // Denny, trust, errand steps
     const fmtT = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
     const row = (k, v) => [el('span', null, k), el('b', null, v)];
     const box = el('div', { class: 'box' },
@@ -522,6 +561,7 @@
       el('div', { class: 'hint' }, `${B.arena.name} · ${B.enc.name}`),
       el('div', { class: 'stats' }, ...row('Time', fmtT(t)), ...row('Damage dealt', U.fmt(S.dmg)), ...row('Biggest hit', U.fmt(S.maxHit)), ...row('Damage taken', U.fmt(S.taken)),
         ...row('Perfect Dodges', S.perfect), ...row('Perfect Assists', S.assists), ...row('Stuns / Chain Attacks', `${S.stuns} / ${S.chains}`), ...row('Anomalies / Disorders', `${S.anomalies} / ${S.disorders}`), ...row('Ultimates', S.ults), ...row('Agents down', downs)),
+      tw ? el('div', { class: 'town-note' }, tw.text) : null,
       el('div', { class: 'row', style: { justifyContent: 'center' } },
         el('button', { class: 'btn', onclick: () => { MENU.deploy(); } }, 'RETRY'),
         el('button', { class: 'btn dark', onclick: () => { GAME.toMenu(); MENU.setup(); } }, 'SQUAD SELECT'),
@@ -538,6 +578,7 @@
     const rank = !win ? 'F' : score >= 4 ? 'S' : score >= 3 ? 'A' : score >= 2 ? 'B' : 'C';
     let acc = Auth.current();
     if (B.result !== 'retreat' && acc) acc = Auth.record({ clash: true, rival: RV.id, mode: mode.id, win, rank, time: t }) || acc;
+    const tw = acc ? TOWN.afterBattle(B, rank) : null;
     const c = acc && acc.clash && acc.clash[RV.id];
     const fmtT = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
     const row = (k, v) => [el('span', null, k), el('b', null, v)];
@@ -550,10 +591,11 @@
         ...row('Damage dealt / taken', `${U.fmt(S.dmg)} / ${U.fmt(S.taken)}`), ...row('Perfect Dodges (you / them)', `${S.perfect} / ${RS.perfect}`), ...row('Perfect Assists (you / them)', `${S.assists} / ${RS.assists}`),
         ...row('Stuns / Chain Attacks (you)', `${S.stuns} / ${S.chains}`), ...row('Stuns / Chain Attacks (them)', `${RS.stuns} / ${RS.chains}`), ...row('Ultimates (you / them)', `${S.ults} / ${RS.ults}`),
         ...(c ? row(`Your record vs ${RV.diff.name}`, `${c.w} won · ${c.l} lost`) : [])));
+    if (tw) box.append(el('div', { class: 'town-note' }, tw.text));
     box.append(el('div', { class: 'row', style: { justifyContent: 'center' } },
       el('button', { class: 'btn', onclick: () => MENU.clashGo() }, 'REMATCH'),
       el('button', { class: 'btn dark', onclick: () => { GAME.toMenu(); MENU.clash(); } }, 'PROXY CLASH'),
-      Auth.current() ? el('button', { class: 'btn dark', onclick: () => MENU.lobby({ spawn: [-3.9, -1.6] }) }, 'SIXTH STREET') : null));
+      Auth.current() ? el('button', { class: 'btn dark', onclick: () => MENU.lobby({ spawn: [-25.9, 5.4] }) }, 'SIXTH STREET') : null));
     scr().innerHTML = ''; scr().append(el('div', { class: 'scr results' }, box));
   }
 

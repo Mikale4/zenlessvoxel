@@ -124,6 +124,8 @@
 
   /* ------------------------------------------------------------- start -- */
   BT.init = (world, tuning) => { BT.world = world; BT.T = tuning; };
+  /* this fight's multiplier on a rate (a meal, a coffee, a dive's Resonia: B.buff) */
+  const BUFF = k => (BT.B && BT.B.buff && BT.B.buff[k]) || 1;
   BT.start = opts => {
     BT.end();
     const T = BT.T, clash = !!(opts.clash && window.CLASH), allOut = clash && CLASH.modeOf(opts.clash, opts.squad.length).allOut;
@@ -138,6 +140,9 @@
       eh: { swing: 0, out: 0, assist: 0, perfect: 0, dodged: 0, inv: 0, block: 0, hit: 0 },
       stats: { dmg: 0, perfect: 0, assists: 0, chains: 0, stuns: 0, anomalies: 0, disorders: 0, ults: 0, taken: 0, maxHit: 0 },
     };
+    // a meal at Waterfall Soup, the day's coffee, a dive's Resonia: multipliers on this fight; a dive's HP carried over
+    B.buff = Object.assign({ dmg: 1, daze: 1, db: 1, energy: 1, anomaly: 1, hp: 1, assist: 0 }, opts.buff || {});
+    if (B.buff.assist) B.assist = Math.min(R.assistPointsMax, B.assist + B.buff.assist);
     B.companions = [];
     for (const s of B.squad) if (COMPANION[s.id]) B.companions.push(makeCompanion(s, COMPANION[s.id]));
     squadSetup(B);
@@ -151,7 +156,13 @@
       if (allOut) B.squad.forEach((s, i) => { s.obj.visible = true; s.x = (i - (B.squad.length - 1) / 2) * 2.6; s.z = 4.5; s.face = Math.PI; for (const c of B.companions) if (c.owner === s) showCompanion(c, true); });
       CLASH.start(B);
     } else spawnWave(0);
+    if (B.buff.hp !== 1) for (const s of B.squad) { s.hpMax = Math.round(s.hpMax * B.buff.hp); s.hp = s.hpMax; }
+    if (opts.carry) {                                                   // a dive: each Agent comes in with the HP she left the last fight with
+      for (const s of B.squad) { const f = opts.carry[s.id]; if (f == null) continue; s.hp = Math.max(0, Math.round(s.hpMax * f)); if (s.hp <= 0) { s.alive = false; s.state = 'dead'; s.obj.visible = false; } }
+      if (!B.squad[B.active].alive) { const nx = B.squad.find(s => s.alive); if (nx) { B.squad[B.active].obj.visible = false; B.active = B.squad.indexOf(nx); nx.obj.visible = true; nx.x = 0; nx.z = 4.5; nx.face = Math.PI; } }
+    }
     log(`${B.arena.name}: ${enc.name}`, 'sys');
+    if (opts.buffNote) log(opts.buffNote, 'skill');
     if (B.bloomLog) log(B.bloomLog, 'skill');
     const rem = B.squad.find(s => s.id === 'remielle'); if (rem) log(`Remielle's Lumiflux takes on ${D.ATTR[rem.flux].name} (Attribute Flux).`, 'skill');
     if (BT.hooks.start) BT.hooks.start(B);
@@ -232,7 +243,7 @@
 
   /* ------------------------------------------------------ resources -- */
   function gainEnergy(a, n, raw) {
-    const T = BT.T; a.energy = Math.min(a.def.energyMax, a.energy + n * (raw ? 1 : T.energyRate));
+    const T = BT.T; a.energy = Math.min(a.def.energyMax, a.energy + n * (raw ? 1 : T.energyRate * BUFF('energy')));
   }
   function spendEnergy(a, n) {
     a.energy = Math.max(0, a.energy - n);
@@ -241,7 +252,7 @@
   }
   BT.gainEnergy = gainEnergy; BT.spendEnergy = spendEnergy;
   function gainDecibels(a, n) {
-    const B = BT.B, T = BT.T; n *= T.decibelRate;
+    const B = BT.B, T = BT.T; n *= T.decibelRate * BUFF('db');
     for (const s of B.squad) if (s.alive) s.decibels = Math.min(R.decibelMax, s.decibels + (s === a ? n : n * R.decibelShare));
   }
   BT.gainDecibels = gainDecibels;
@@ -271,14 +282,14 @@
     if (A && B.roar > B.t) bonus += A.kind === 'chain' ? 0.117 : (A.kind === 'ult' || A.kind === 'ult2') ? 0.233 : 0;   // Tiger's Roar
     if (B.squad.some(s => s.pflow)) bonus += 0.1;                            // Remielle's Phase Flow
     const defK = A && A.def.aftershock && a.orFIF && B.zeroIn > B.t ? 0.75 : 1;   // Forged in Flames
-    dmg *= bonus * (sheer ? 1 : defMult(v.def_ * defK)) * resMult(v, attr) * stunMult(v) * T.agentDmg;
+    dmg *= bonus * (sheer ? 1 : defMult(v.def_ * defK)) * resMult(v, attr) * stunMult(v) * T.agentDmg * BUFF('dmg');
     return { dmg: Math.max(1, Math.round(dmg)), crit };
   }
   /* anomaly-type damage (ticks, bursts, Disorder, Afterburn, Abloom): scales with AP */
   function anomalyDamage(src, v, pct, attr, atkSnap, apSnap) {
     const T = BT.T, B = BT.B;
     let dmg = (atkSnap || atkOf(src)) * pct / 100 * ((apSnap || src.st.ap) / 100);
-    dmg *= defMult(v.def_) * resMult(v, attr) * stunMult(v) * (v.vuln > B.t ? 1.25 : 1) * T.agentDmg;
+    dmg *= defMult(v.def_) * resMult(v, attr) * stunMult(v) * (v.vuln > B.t ? 1.25 : 1) * T.agentDmg * BUFF('dmg');
     return Math.max(1, Math.round(dmg));
   }
   BT.anomalyDamage = anomalyDamage;
@@ -310,7 +321,7 @@
   function addDaze(a, v, amount) {
     const B = BT.B, T = BT.T;
     if (v.stun > 0 || !v.alive) return;
-    let k = T.dazeRate * (a.impactUp > B.t ? 1.2 : 1) * (v.flinch > 0 ? 1 + D.ANOMALY.assault.flinchDaze : 1);
+    let k = T.dazeRate * BUFF('daze') * (a.impactUp > B.t ? 1.2 : 1) * (v.flinch > 0 ? 1 + D.ANOMALY.assault.flinchDaze : 1);
     v.daze += amount * k;
     if (v.enhanced) { v.enhDaze = (v.enhDaze || 0) + amount * k; if (v.enhDaze >= v.dazeMax * 0.3) breakEnhance(v); }
     if (v.daze >= v.dazeMax) stunEnemy(v, a);
@@ -372,7 +383,7 @@
     const B = BT.B, T = BT.T;
     if (!v.alive || !amount) return;
     const type = D.ATTR[attr].anomaly, A0 = D.ANOMALY[type]; if (!A0) return;
-    v.bu[type] = (v.bu[type] || 0) + amount * (a.st.am / 100) * T.anomalyRate * (mul || 1) * (resMult(v, attr) > 1 ? 1.2 : resMult(v, attr) < 1 ? 0.8 : 1);
+    v.bu[type] = (v.bu[type] || 0) + amount * (a.st.am / 100) * T.anomalyRate * BUFF('anomaly') * (mul || 1) * (resMult(v, attr) > 1 ? 1.2 : resMult(v, attr) < 1 ? 0.8 : 1);
     const max = v.def.buMax * (v.buMul[type] || 1);
     if (v.bu[type] >= max) { v.bu[type] = 0; v.buMul[type] = Math.min(2, (v.buMul[type] || 1) * 1.2); triggerAnomaly(a, v, type); }
   }
@@ -525,7 +536,7 @@
     if (bur && a !== bur && v.scorched && bur.heat >= 8 && v.afterburnCd <= B.t) {
       bur.heat -= 8; v.afterburnCd = B.t + 1.5; if (bur.heat <= 0) exitNitro(bur);
       const mult = 220 * (1 + Math.min(0.3, bur.st.ap / 1000));
-      const dmg = Math.round(atkOf(bur) * mult / 100 * defMult(v.def_) * resMult(v, 'fire') * stunMult(v) * (v.vuln > B.t ? 1.25 : 1) * T.agentDmg);
+      const dmg = Math.round(atkOf(bur) * mult / 100 * defMult(v.def_) * resMult(v, 'fire') * stunMult(v) * (v.vuln > B.t ? 1.25 : 1) * T.agentDmg * BUFF('dmg'));
       hurtEnemy(v, dmg, { attr: 'fire', src: bur, cls: 'afterburn' });
       addBuildup(bur, v, 'fire', 80, squadHas(s => s.id !== 'burnice' && (s.def.spec === 'Anomaly' || s.def.faction === 'Sons of Calydon')) ? 1.65 : 1);
       FX.named('flameRing', { x: v.x, z: v.z, r: 1.2, attr: 'fire' });
@@ -866,7 +877,7 @@
       log(B.allOut ? `${ag.def.short} pulls ${th.target.def.short} clear of a ${th.flash === 'red' ? 'red flash' : 'flash (no Assist Points)'}: Perfect Dodge.` : `${ag.def.short} switches in on a ${th.flash === 'red' ? 'red flash' : 'flash with no Assist Points'}: Perfect Dodge.`, 'assist');
     }
     if (!B.allOut && out.id === 'yixuan' && e.type === 'enemy' && squadHas(s => ['Stun', 'Support', 'Defense'].includes(s.def.spec))) {   // Auric Ink Undercurrent: the lightning strike
-      const dmg = Math.round(out.st.sheer * 2.25 * resMult(e, 'auric') * stunMult(e) * BT.T.agentDmg);
+      const dmg = Math.round(out.st.sheer * 2.25 * resMult(e, 'auric') * stunMult(e) * BT.T.agentDmg * BUFF('dmg'));
       hurtEnemy(e, dmg, { attr: 'auric', src: out, cls: 'afterburn' }); gainEnergy(out, 5, true);
       FX.beam(new THREE.Vector3(e.x, 8, e.z), new THREE.Vector3(e.x, 0.5, e.z), 0xffcf4a, 0.25, 0.25);
     }

@@ -13,6 +13,8 @@
 
   // ready stances (added to each part's rest rotation)
   const READY = {
+    // off duty: on Sixth Street, arms at the sides
+    casual: { armL: [-0.04, 0, 0.1], armR: [-0.04, 0, -0.1], torso: [0.02, 0, 0], head: [0, 0, 0], legL: [0, 0, 0.03], legR: [0, 0, -0.03], hipsY: 0 },
     shield: { armL: [-0.95, 0.15, 0.15], armR: [-0.75, 0, -0.1], torso: [0.08, 0.15, 0], head: [0, -0.1, 0], legL: [-0.25, 0, 0.05], legR: [0.2, 0, -0.05], hipsY: -0.04 },
     guns: { armL: [-0.75, 0, 0.12], armR: [-0.75, 0, -0.12], torso: [0.05, 0, 0], head: [0, 0, 0], legL: [-0.15, 0, 0.06], legR: [0.15, 0, -0.06], hipsY: -0.02 },
     idol: { armL: [-0.15, 0, 0.35], armR: [-0.65, 0, -0.1], torso: [0, 0, 0.04], head: [0.05, 0, 0.06], legL: [0, 0, 0.04], legR: [0.1, 0, -0.02], hipsY: 0 },
