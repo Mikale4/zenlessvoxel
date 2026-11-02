@@ -12,8 +12,8 @@ Or locally: open `index.html` in a browser (no server or install needed).
 
 - **Eight Agents**, with kits, skill names and core passives from the official game:
   **Caesar King** (Defense · Physical), **Burnice White** (Anomaly · Fire), **Aria** (Anomaly · Ether), **Yixuan** (Rupture · Auric Ink, with her ink bird),
-  **Qingyi** (Stun · Electric), **Ju Fufu** (Stun · Fire, with Hu Wei, her tiger cauldron), **Orphie & Magus** (Attack · Fire, with Magus, her
-  mechanical serpent) and **Remielle Dan** (Anomaly · Lumiflux).
+  **Qingyi** (Stun · Electric), **Ju Fufu** (Stun · Fire, with Hu Wei, her tiger cauldron), **Orphie & Magus** (Attack · Fire: Magus is her
+  sentient mechanical tail, and the Obol Squad's captain) and **Remielle Dan** (Anomaly · Lumiflux).
 - **Three battlegrounds:** **Blazewood** (the Sons of Calydon's Outer Ring camp, with explosive fuel barrels),
   **Yunkui Summit** (mountain temple, miasma pools), and a **Hollow Concert Stage** (the Angels of Delusion's venue, falling stage lights).
 - **Twelve real enemies**, three encounters per battleground (Patrol, Elite, Notorious boss):
@@ -36,7 +36,7 @@ comes away) has the **Hollow Deep Dive System** in the back room (into battle), 
 battleground). Your sibling is behind the counter, **Eous** waddles after you, and the Agents are out on the street:
 Caesar by her bike, Burnice at Chop's Noodles, Aria at Bardic Needle, Yixuan meditating on a bench under her bird,
 Qingyi on patrol by the notice board, Ju Fufu bouncing on her toes beside Hu Wei, Orphie at the end of the street with
-Magus coiled in the air, and Remielle in the middle of it all, one hand raised to the dusk. Talk
+Magus, her tail, curled behind her, and Remielle in the middle of it all, one hand raised to the dusk. Talk
 to one to read her file and take her into the Hollow. Walk with **WASD / arrows** (Shift runs), **E** uses what has a
 sign over it; or click / tap where to go (a sign: go and use it), or drag to steer on a phone. The dock at the bottom
 goes straight to every place. Out front, two **arcade cabinets** run **Proxy Clash**.
@@ -62,7 +62,7 @@ the same.
 Their Agents fight with **the same kits as yours**: basic combos and their cancels, Specials, EX Specials and the
 follow-ups the kits chain, each Agent's core move (Burnice's Mixed Flame Blend and her hop back, Aria's Perfect Pitch,
 Caesar's Dead End, Qingyi's Enchanted Moonlit Blossoms, Ju Fufu's spin, Orphie's Heat Charge, Remielle's Rainbow's End),
-their companions (a rival Hu Wei jumps on your Agents, a rival Magus fires Corrosive Flash from the bench), dodges,
+Hu Wei (a rival's jumps on your Agents too), a rival Orphie flashing in from the bench for Corrosive Flash, dodges,
 Perfect Dodges and Dodge Counters, Perfect Blocks (Caesar, Yixuan), Ultimates. Their Proxy
 rotates the squad, pulls a hurt Agent out, and spends **Assist Points**: a teammate can step in, **parry one of your
 heavy hits** and follow up. You command yours exactly as in the Hollow.
@@ -90,7 +90,7 @@ best rank and fastest win.
 
 **Balance.** Their Agents' damage is set per rival and per mode (`data.js` RIVALS): it runs above your Agents' because
 yours carry buffs, Anomalies, Disorders, Abloom, Afterburn, Refringe, Subjugation, Tiger's Roar, Zeroed In and the Aegis
-that theirs do not. A rival's Hu Wei and Magus hit at half that multiplier (they fire on a timer, with no breathers),
+that theirs do not. A rival's Hu Wei and Corrosive Flash hit at half that multiplier (they fire on a timer, with no breathers),
 and a rival waits about as long for Moonlit Blossoms, the spin and Heat Charge as your Agents take to earn them. It was
 calibrated with `tools/clash-test.js` (`batch=6 mode=all3`, ...): your squad on AUTO against each rival, over random
 matchups drawn from all eight Agents on all three battlegrounds. How often AUTO won at the final settings (small
@@ -176,7 +176,7 @@ Plain JavaScript and three.js (r128, vendored in `lib/`), no build step. Every m
 | File | What it does |
 |---|---|
 | `js/voxel.js` | Voxel grid, mesher (ambient occlusion), rigs |
-| `js/models-*.js` | Agents (`models-agents.js`, `models-agents2.js`), companions (the ink bird, Hu Wei, Magus), enemies, and the Proxies (Wise, Belle) and Eous, matched to official art |
+| `js/models-*.js` | Agents (`models-agents.js`, `models-agents2.js`), companions (Yixuan's ink bird, Ju Fufu's Hu Wei; Orphie's Magus is her tail, part of her model), enemies, and the Proxies (Wise, Belle) and Eous, matched to official art |
 | `js/auth.js` | Proxy accounts: register / sign in (salted SHA-256 in this browser), per-account saves and records |
 | `js/lobby.js` | Sixth Street: the walkable home screen, its places, people and signs |
 | `js/arenas.js` | The three battlegrounds |

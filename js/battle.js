@@ -100,8 +100,9 @@
   }
   // for clash.js: the rival Proxy's Agents are built from the same parts
   BT.makeEnt = makeEnt; BT.makeCompanion = makeCompanion; BT.disposeEnt = disposeEnt;
-  // the companions that come with an Agent: Yixuan's ink bird, Ju Fufu's Hu Wei, Orphie's Magus
-  const COMPANION = BT.COMPANION = { yixuan: 'inkbird', jufufu: 'huwei', orphie: 'magus' };
+  // the companions that come with an Agent: Yixuan's ink bird, Ju Fufu's Hu Wei (Magus is no companion:
+  // it is Orphie's own tail, part of her model)
+  const COMPANION = BT.COMPANION = { yixuan: 'inkbird', jufufu: 'huwei' };
   /* passives that depend on who else is in the squad */
   function squadSetup(B) {
     const S = B.squad;
@@ -732,8 +733,7 @@
   /* -------------------------------------------------- swapping, assists -- */
   function showCompanion(c, on) {
     if (c.id === 'huwei') on = c.owner.alive;              // Hu Wei stays on the field whoever is fighting
-    if (c.id === 'magus' && !on && c.burst) return;         // (Magus finishes a Corrosive Flash)
-    if (on && !c.obj.visible) { const o = anchorOf(c.owner); c.x = o.x + 1; c.z = o.z; c.y = c.id === 'huwei' ? 1.1 : 2.4; }
+    if (on && !c.obj.visible) { const o = anchorOf(c.owner); c.x = o.x + 1; c.z = o.z; c.y = c.id === 'huwei' ? 0.28 : 2.4; }
     c.obj.visible = on;
   }
   /* where a companion fights: by its Agent on the field, else by whoever is fighting for her side */
@@ -1226,17 +1226,17 @@
   BT.retreat = () => { const B = BT.B; if (!B || B.result) return; B.result = 'retreat'; B.phase = 'end'; if (BT.hooks.finish) BT.hooks.finish(B); };
 
   /* companions: Yixuan's ink bird at her shoulder (it swoops in on her wing strikes); Hu Wei, Ju Fufu's
-     cauldron, which stays on the field whoever is fighting and drops on the target every few seconds;
-     Magus, Orphie's serpent, which comes up beside her to fire, and from the bench flashes in to fire
-     Corrosive Flash at whatever her side is hitting. A rival's companions do the same for the rival. */
+     cauldron, which rolls along beside whoever is fighting and jumps on the target every few seconds.
+     A rival's companions do the same for the rival. And Orphie, off the field, flashes in to fire
+     Corrosive Flash (her tail, Magus, does the firing). */
   function stepCompanions(dt, rdt) {
     const B = BT.B;
     for (const c of B.companions) {
-      if (!c.owner.alive) { c.obj.visible = false; c.slam = null; c.burst = null; continue; }
+      if (!c.owner.alive) { c.obj.visible = false; c.slam = null; continue; }
       if (c.id === 'huwei') stepHuwei(c, dt, rdt);
-      else if (c.id === 'magus') stepMagus(c, dt, rdt);
       else if (c.obj.visible) stepBird(c, dt, rdt);
     }
+    for (const o of B.squad.concat(B.rival ? B.rival.squad : [])) if (o.id === 'orphie') corrosiveFlash(o, dt, rdt);
   }
   function stepBird(c, dt, rdt) {
     const B = BT.B, o = c.owner;
@@ -1263,17 +1263,22 @@
     if (an.tgt && F.includes(an.tgt)) return an.tgt;
     return F.sort((x, y) => dist(x, an) - dist(y, an))[0] || null;
   }
-  /* Hu Wei jumps onto a target (choreography, its own attack, Suppressing Tiger Cauldron) */
+  /* Hu Wei comes down on a target (choreography, its own attack, Suppressing Tiger Cauldron). mode:
+     jump    a leap, spinning, onto the target
+     flail   Ju Fufu swings it round her by its tail, then down onto the target
+     ride    it spins like a top under her (Mountain King's Game): no landing
+     meteor  it drops from high above, on fire (her Ultimate) */
   function huweiSlam(c, v, o) {
     const B = BT.B; if (!c.owner.alive || !v) return;
     if (c.slam && c.slam.strike && !c.slam.landed && !o.strike) return;   // (a jump that will hit is not cut short by a show one)
     c.obj.visible = true;
-    c.slam = { t0: B.t, dur: o.dur || 0.8, tgt: v, x0: c.x, z0: c.z, big: o.big || 1, popcorn: o.popcorn, strike: o.strike || null, landed: false };
+    c.slam = { t0: B.t, dur: o.dur || 0.8, tgt: v, x0: c.x, z0: c.z, big: o.big || 1, popcorn: o.popcorn, strike: o.strike || null, landed: false, mode: o.mode || 'jump', a0: ang(c.owner, c) };
   }
   BT.huweiSlam = huweiSlam;
   function slamLands(c, S) {
     const B = BT.B, v = S.tgt, r = S.big * 1.3;
     FX.named('explode', { x: v.x, z: v.z, r: r * 1.2 }); FX.named('quake', { x: v.x, z: v.z, r: r * 1.3 });
+    FX.glow(v.x, 0.6, v.z, 1.4 * S.big, 0xff8a2a, 0.3, { size1: 2.4 * S.big });     // the tiger's brow-mark flares
     if (S.popcorn) FX.named('popcorn', { x: v.x, z: v.z, r });
     B.cam.shake = Math.max(B.cam.shake, S.big > 1 ? 0.3 : 0.12); SFX.play(S.big > 1 ? 'boom' : 'heavy');
     if (S.strike) companionStrike(c, S.strike, v);
@@ -1303,7 +1308,7 @@
     B.roar = B.t + 30;
   }
   function stepHuwei(c, dt, rdt) {
-    const B = BT.B, o = c.owner, an = anchorOf(o), K = o.def.kit.huwei;
+    const B = BT.B, o = c.owner, an = anchorOf(o), K = o.def.kit.huwei, R0 = 0.28;   // R0: it sits on the ground
     c.obj.visible = true;
     // its own attack every few seconds, on whatever its side is fighting
     if (B.phase === 'fight' && dt > 0 && !c.slam && !B.result) {
@@ -1315,14 +1320,29 @@
       }
     }
     const S = c.slam, P = c.rig.parts;
-    let scale = 1;
+    let scale = 1, spin = 0;
+    const px = c.x, pz = c.z;
     if (S) {
       const k = (B.t - S.t0) / S.dur, v = S.tgt, top = 2.4 + S.big * 0.7;
-      if (k >= 1 || (!v.alive && !S.landed)) c.slam = null;
-      else {
-        if (k < 0.55) { const q = k / 0.55; c.x = U.lerp(S.x0, v.x, q); c.z = U.lerp(S.z0, v.z, q); c.y = 1.1 + Math.sin(q * Math.PI * 0.5) * top; }
-        else if (k < 0.7) { const q = (k - 0.55) / 0.15; c.x = v.x; c.z = v.z; c.y = 1.1 + top * (1 - q * q) - q * 0.9; }
-        else { c.x = v.x; c.z = v.z; c.y = 0.2 + (k - 0.7) * 2.4; }
+      if (k >= 1 || (!v.alive && !S.landed && S.mode !== 'ride')) c.slam = null;
+      else if (S.mode === 'ride') {                                   // a top under her, spinning
+        c.x = o.x; c.z = o.z; c.y = R0; spin = B.real * 22;
+        if (Math.random() < 0.6) FX.p({ x: c.x + rnd(-0.4, 0.4), y: 0.1, z: c.z + rnd(-0.4, 0.4), vy: rnd(0.5, 1.5), life: 0.3, size: 0.15, col: U.pick([0xffd060, 0xff8a2a]), g: -1 });
+      } else {
+        if (k < 0.55) {
+          const q = k / 0.55;
+          if (S.mode === 'flail') {                                   // round her on its tail, twice
+            const a = S.a0 + q * Math.PI * 4, r = 1.6; c.x = o.x + Math.sin(a) * r; c.z = o.z + Math.cos(a) * r; c.y = 0.9 + q * 0.6;
+            if (rdt > 0) { const hand = sockWorld(o, 'weapon', new THREE.Vector3()); FX.beam(hand, new THREE.Vector3(c.x, c.y, c.z), 0xf0b030, 0.07, 0.05); }
+          } else if (S.mode === 'meteor') { c.x = v.x; c.z = v.z; c.y = 7.5 - q * 1.5; if (Math.random() < 0.8) FX.p({ x: c.x, y: c.y, z: c.z, vy: 2, life: 0.4, size: 0.4, size1: 0.1, col: U.pick([0xffd060, 0xff8a2a, 0xff4a1a]) }); }
+          else { c.x = U.lerp(S.x0, v.x, q); c.z = U.lerp(S.z0, v.z, q); c.y = R0 + Math.sin(q * Math.PI * 0.5) * top; }
+          spin = q * Math.PI * 4;
+        } else if (k < 0.7) {
+          const q = (k - 0.55) / 0.15, y0 = S.mode === 'meteor' ? 6 : S.mode === 'flail' ? 1.5 : R0 + top;
+          if (S.mode === 'flail') { c.x = U.lerp(c.x, v.x, q); c.z = U.lerp(c.z, v.z, q); } else { c.x = v.x; c.z = v.z; }
+          c.y = y0 * (1 - q * q) + R0 * q * q;
+          if (S.mode !== 'jump' && Math.random() < 0.8) FX.p({ x: c.x, y: c.y, z: c.z, vy: 2, life: 0.35, size: 0.35, size1: 0.1, col: U.pick([0xffd060, 0xff8a2a]) });
+        } else { c.x = v.x; c.z = v.z; c.y = R0 + (k - 0.7) * 1.2; }
         if (k >= 0.7 && !S.landed) { S.landed = true; slamLands(c, S); }
         scale = 1 + (S.big - 1) * (k < 0.7 ? Math.sin(Math.min(1, k / 0.55) * Math.PI / 2) : Math.max(0, 1 - (k - 0.7) / 0.3));
         c.face = turn(c.face, ang(c, v), 1 - Math.exp(-10 * rdt));
@@ -1330,71 +1350,65 @@
       }
     }
     if (!c.slam) {
-      // it hops along beside whoever is fighting
+      // it rolls along beside whoever is fighting
       const tx = an.x - Math.sin(an.face) * 0.5 - Math.cos(an.face) * 1.0, tz = an.z - Math.cos(an.face) * 0.5 + Math.sin(an.face) * 1.0;
       const k = 1 - Math.exp(-5 * Math.max(dt, rdt * 0.2));
-      const px = c.x, pz = c.z; c.x += (tx - c.x) * k; c.z += (tz - c.z) * k;
-      const moving = Math.hypot(c.x - px, c.z - pz) / Math.max(1e-4, rdt) > 0.6;
-      c.y += ((moving ? 0.25 + Math.abs(Math.sin(B.real * 9)) * 0.35 : 0.2) - c.y) * (1 - Math.exp(-12 * rdt));
-      const tg = sideTarget(o, an);
-      c.face = turn(c.face, tg ? ang(c, tg) : an.face, 1 - Math.exp(-5 * rdt));
+      c.x += (tx - c.x) * k; c.z += (tz - c.z) * k; c.y += (R0 - c.y) * (1 - Math.exp(-14 * rdt));
+      const moved = Math.hypot(c.x - px, c.z - pz);
+      if (moved > 0.002) { c.face = turn(c.face, Math.atan2(c.x - px, c.z - pz), 1 - Math.exp(-10 * rdt)); c.roll = (c.roll || 0) + moved / R0; }
+      else { const tg = sideTarget(o, an); c.face = turn(c.face, tg ? ang(c, tg) : an.face, 1 - Math.exp(-5 * rdt)); c.roll = (c.roll || 0) * Math.exp(-6 * rdt); }   // stopped: it sits up, face front
       if (P.head) P.head.rotation.x = Math.sin(B.real * 3) * 0.05;
     }
+    if (P.body) P.body.rotation.x = c.slam ? 0 : (c.roll || 0) % (Math.PI * 2);
     c.flap += rdt * 5;
     if (P.armL) P.armL.rotation.z = Math.sin(c.flap) * 0.15; if (P.armR) P.armR.rotation.z = -Math.sin(c.flap) * 0.15;
     if (P.tail) P.tail.rotation.x = 0.2 + Math.sin(c.flap * 0.8) * 0.25;
     c.obj.scale.setScalar(scale);
-    c.obj.position.set(c.x, c.y, c.z); c.obj.rotation.y = c.face;
+    c.obj.position.set(c.x, c.y, c.z); c.obj.rotation.y = c.face + spin;
   }
-  function stepMagus(c, dt, rdt) {
-    const B = BT.B, o = c.owner, K = o.def.kit.corrosive;
-    const onF = o.rival ? !o.benched : onFieldA(o), myMove = onF && o.act && o.act.def.magus;
-    // Corrosive Flash: off the field (All-Out: between her own Magus moves), Magus fires on a teammate's target
-    if (B.phase === 'fight' && dt > 0 && !c.burst && !B.result) {
+  /* Corrosive Flash: while Orphie is off the field (All-Out: standing idle between her own moves) and a
+     teammate is attacking, she flashes in beside her, braces, and Magus fires four laser pulses at that
+     teammate's target from over her shoulder; then (if she was off the field) she is gone again. She cannot
+     be hit while she is out there: she is not on the field. */
+  function corrosiveFlash(o, dt, rdt) {
+    const B = BT.B, K = o.def.kit.corrosive; if (!o.alive) { o.cflash = null; return; }
+    const allOut = o.rival ? B.rival && B.rival.allOut : B.allOut, onF = o.rival ? !o.benched : onFieldA(o);
+    let F = o.cflash;
+    if (F && F.ghost && onF) { o.cflash = F = null; }                  // swapped in meanwhile: she is simply on the field now
+    if (!F) {
+      if (B.phase !== 'fight' || dt <= 0 || B.result) return;
       o.corrT -= dt;
-      const allOut = o.rival ? B.rival.allOut : B.allOut;
-      if (o.corrT <= 0 && (allOut ? !myMove : !onF)) {
-        const side = o.rival ? B.rival.squad.filter(r => r.alive && !r.benched) : fielded();
-        const sh = side.find(s => s !== o && s.act && s.act.def.hits && s.act.def.hits.length && s.act.tgt && s.act.tgt.alive);
-        if (sh) {
-          o.corrT = K.every; c.burst = { t0: B.t, dur: 1.25, an: sh, tgt: sh.act.tgt, n: 0 };
-          if (!c.obj.visible) { c.obj.visible = true; c.x = sh.x; c.z = sh.z; c.y = 3.4; }
-          if (!o.rival && !c.told) { c.told = true; log(`Magus: ${K.name}, from the bench (every ${K.every} s while another Agent attacks).`, 'skill'); }
-        } else o.corrT = 0.4;
+      if (o.corrT > 0 || (allOut ? (o.act || o.state !== 'idle') : onF)) return;
+      const side = o.rival ? B.rival.squad.filter(r => r.alive && !r.benched) : fielded();
+      const sh = side.find(s => s !== o && s.act && s.act.def.hits && s.act.def.hits.length && s.act.tgt && s.act.tgt.alive);
+      if (!sh) { o.corrT = 0.4; return; }
+      o.corrT = K.every;
+      F = o.cflash = { t0: B.t, dur: 1.2, tgt: sh.act.tgt, n: 0, ghost: !onF };
+      if (F.ghost) {
+        const side2 = Math.random() < 0.5 ? 1 : -1;
+        o.x = sh.x + Math.cos(sh.face) * 1.5 * side2; o.z = sh.z - Math.sin(sh.face) * 1.5 * side2; o.face = ang(o, F.tgt); o.airY = 0;
+        o.obj.visible = true; FX.burst(o.x, 1, o.z, 14, { col: [0xffffff, 0xff6a1a], speed: 3, size: 0.1, life: 0.35, g: -2 });
       }
+      if (F.ghost) { F.act = { anim: 'orBrace', tail: 'cannon' }; Object.assign(o.anim, { state: 'act', t: 0, th: 0.35, dur: 1.2, act: F.act }); }
+      if (!o.rival && !o.told) { o.told = true; log(`Orphie & Magus: ${K.name}, from the bench (every ${K.every} s while another Agent attacks).`, 'skill'); }
     }
-    let tx, ty, tz, rate = 5, face = null;
-    const Bu = c.burst;
-    if (Bu) {
-      const k = (B.t - Bu.t0) / Bu.dur, an = Bu.an, v = Bu.tgt;
-      if (k >= 1 || !v.alive) c.burst = null;
-      else {
-        tx = an.x + Math.cos(an.face) * 1.3; tz = an.z - Math.sin(an.face) * 1.3; ty = 2.3; rate = 10; face = ang(c, v);
-        const pulses = [0.3, 0.42, 0.54, 0.66];
-        while (Bu.n < 4 && k >= pulses[Bu.n]) { Bu.n++; magusPulse(c, v); companionStrike(c, { h: { mult: K.mult, daze: 15, bu: K.bu, attr: 'fire' }, kind: 'corrosive', name: K.name, bheat: Bu.n === 1 ? K.bheat : 0 }, v); if (!v.alive) break; }
-      }
+    const k = (B.t - F.t0) / F.dur, v = F.tgt;
+    if (F.ghost) { if (rdt > 0) o.face = turn(o.face, ang(o, v), 1 - Math.exp(-12 * rdt)); o.anim.t = B.t - F.t0; }
+    const pulses = [0.3, 0.42, 0.54, 0.66];
+    while (F.n < 4 && k >= pulses[F.n] && v.alive) { F.n++; magusPulse(o, v); companionStrike({ owner: o, x: o.x, z: o.z }, { h: { mult: K.mult, daze: 15, bu: K.bu, attr: 'fire' }, kind: 'corrosive', name: K.name, bheat: F.n === 1 ? K.bheat : 0 }, v); }
+    if (k >= 1 || !v.alive) {
+      o.cflash = null;
+      if (F.ghost && o.anim.act === F.act) { o.anim.state = 'idle'; o.anim.act = null; }
+      if (F.ghost) { o.obj.visible = false; FX.burst(o.x, 1, o.z, 12, { col: [0xffffff, 0xff6a1a], speed: 3, size: 0.1, life: 0.3, g: -2 }); }
+      return;
     }
-    if (!c.burst) {
-      if (!onF) { c.obj.visible = false; return; }
-      c.obj.visible = true;
-      if (myMove) { const f = o.act.dir; tx = o.x + Math.sin(f) * 0.6 + Math.cos(f) * 0.9; tz = o.z + Math.cos(f) * 0.6 - Math.sin(f) * 0.9; ty = 1.7 + (o.airY || 0); rate = 12; face = f; }
-      else { tx = o.x - Math.sin(o.face) * 0.7 + Math.cos(o.face) * 0.8; tz = o.z - Math.cos(o.face) * 0.7 - Math.sin(o.face) * 0.8; ty = 2.0 + (o.airY || 0); }
-    }
-    const k = 1 - Math.exp(-rate * Math.max(dt, rdt * 0.2));
-    const px = c.x, pz = c.z; c.x += (tx - c.x) * k; c.z += (tz - c.z) * k; c.y += (ty - c.y) * k;
-    if (face != null) c.face = turn(c.face, face, 1 - Math.exp(-12 * rdt));
-    else { const sp = Math.hypot(c.x - px, c.z - pz) / Math.max(1e-4, rdt); c.face = turn(c.face, sp > 0.3 ? Math.atan2(c.x - px, c.z - pz) : o.face, 1 - Math.exp(-5 * rdt)); }
-    // the long tail sways, the crest fins beat
-    c.flap += rdt * 6; const P = c.rig.parts;
-    if (P.tail) { P.tail.rotation.y = Math.sin(c.flap) * 0.35; P.tail.rotation.x = 0.15 + Math.sin(c.flap * 0.7) * 0.12; }
-    if (P.armL) P.armL.rotation.z = 0.2 + Math.sin(c.flap * 1.6) * 0.3; if (P.armR) P.armR.rotation.z = -0.2 - Math.sin(c.flap * 1.6) * 0.3;
-    if (P.head) P.head.rotation.x = face != null ? -0.1 : Math.sin(c.flap * 0.5) * 0.1;
-    c.obj.position.set(c.x, c.y + Math.sin(B.real * 2.2) * 0.1, c.z); c.obj.rotation.y = c.face;
+    // a rival on the bench is not drawn by the main loop: place and pose her here
+    if (o.rival && F.ghost) { o.obj.position.set(o.x, 0, o.z); o.obj.rotation.y = o.face; ANIM.apply(o, Math.max(dt, rdt * 0.5), B.t); }
   }
-  function magusPulse(c, v) {
-    const o = new THREE.Vector3(); sockWorld(c, 'weapon', o);
+  function magusPulse(o, v) {
+    const p = new THREE.Vector3(); sockWorld(o, 'muzzle', p);
     const end = new THREE.Vector3(v.x, 0.9, v.z);
-    FX.beam(o.clone(), end, 0xff4a1a, 0.22, 0.12); FX.beam(o, end, 0xfff0c0, 0.08, 0.1);
-    FX.glow(v.x, 0.9, v.z, 1.2, 0xff7a2a, 0.15); SFX.play('fire');
+    FX.beam(p.clone(), end, 0xff4a1a, 0.22, 0.12); FX.beam(p, end, 0xfff0c0, 0.08, 0.1);
+    FX.glow(p.x, p.y, p.z, 0.9, 0xffa040, 0.1); FX.glow(v.x, 0.9, v.z, 1.2, 0xff7a2a, 0.15); SFX.play('fire');
   }
 })();

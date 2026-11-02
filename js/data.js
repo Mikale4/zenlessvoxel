@@ -290,13 +290,13 @@
     orphie: {
       id: 'orphie', name: 'Orphie & Magus', short: 'Orphie', faction: 'Obol Squad', spec: 'Attack', attr: 'fire', rank: 'S',
       color: '#ff6a1a', color2: '#c8202a', assist: 'defensive', stance: 'soldier',
-      blurb: 'Captain of the Obol Squad and Magus, her mechanical fire-breathing serpent. Magus sweeps lasers and flame blades on her command; with Bottled Heat full she pours it all into one long Heat Charge laser, and even off the field Magus fires on the squad\'s targets.',
+      blurb: 'Orphie of the Obol Squad and Magus, the sentient mechanical tail that grows from her back, a red dragon\'s head on its end; Magus is the squad\'s captain. The tail does the fighting: it whips a fire blade round her, drives it along the ground, and fires lasers from over her shoulder. With Bottled Heat full she kneels and Magus pours it all into one long Heat Charge laser; off the field she flashes in to fire Corrosive Flash.',
       stats: { hp: 8500, atk: 3100, def: 650, impact: 93, ap: 90, am: 92, cr: 0.35, cd: 0.9, er: 1.6, speed: 4.7 },
       ai: { range: 2.2, dodge: 0.72, reflex: 0.6, aggr: 1.0 },
       energyMax: 120, resource: 'heatO',
       core: [
         ['Core Passive: Taming Wind and Fire', 'CRIT Rate +25%, Aftershock DMG +85%. Orphie & Magus start with 100 Bottled Heat (max 125); EX Specials, the Chain Attack and the Ultimate restore 20. With 100, hold Special for EX Special Attack: Heat Charge: Magus fires a laser that grows hotter the longer it runs and ends in Fiery Eruption. When its laser hits, the whole squad gains Zeroed In for 12 s: +255 ATK.'],
-        ['Off the field', 'While another Agent attacks, Magus fires Special Attack: Corrosive Flash, four laser Aftershocks at her target (once every 5 s, +20 Bottled Heat).'],
+        ['Off the field', 'While another Agent attacks, Orphie flashes in beside her and Magus fires Special Attack: Corrosive Flash, four laser Aftershocks at her target (once every 5 s, +20 Bottled Heat). She cannot be hit while she does: she is not on the field.'],
         ['Additional Ability: Forged in Flames', 'With a Stun or Support Agent in the squad: Aftershock DMG dealt by Agents with Zeroed In ignores 25% DEF.'],
       ],
       kit: {
@@ -327,7 +327,7 @@
     remielle: {
       id: 'remielle', name: 'Remielle Dan', short: 'Remielle', faction: 'Covenant of Dayat', spec: 'Anomaly', attr: 'lumiflux', rank: 'S',
       color: '#ff8aa8', color2: '#b8a4e8', assist: 'defensive', stance: 'dancer',
-      blurb: 'A first-generation Void Hunter of the Covenant of Dayat, and the first Lumiflux Agent: her light takes on the attribute of whoever stands next to her in the squad. Her Lumiflux Buildup lets a teammate\'s Anomaly Refringe into a bigger blast, and from the wings, in Phase Flow, she keeps the light falling.',
+      blurb: 'A first-generation Void Hunter of the Covenant of Dayat, and the first Lumiflux Agent. She fights with her great mechanical wings: they slash in arcs of light, carry her gliding round the target, and call the light down from above. Her light takes on the attribute of whoever stands next to her in the squad; her Lumiflux Buildup lets a teammate\'s Anomaly Refringe into a bigger blast, and from the wings, in Phase Flow, she keeps the light falling.',
       stats: { hp: 8100, atk: 2900, def: 640, impact: 86, ap: 380, am: 155, cr: 0.1, cd: 0.5, er: 1.4, speed: 4.8 },
       ai: { range: 2.0, dodge: 0.8, reflex: 0.62, aggr: 1.0 },
       energyMax: 120, resource: 'radiance',

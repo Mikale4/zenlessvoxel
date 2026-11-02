@@ -29,14 +29,18 @@
    QINGYI    sweeps, pokes and flurries of a folding bo staff crackling with
              sparks; Moonlit Blossoms cuts through the target side to side;
              leaping slams call lightning down.
-   JU FUFU   claw swipes in threes, a rolling flurry, a spin like a top in a
-             ring of fire; Hu Wei, her cauldron, jumps on the target (bigger
-             for her EX, Chain Attack and Ultimate) in a burst of popcorn.
-   ORPHIE    kicks and commands: Magus comes up beside her to fire lasers
-             (a long one for Heat Charge) and swing its fire blade.
-   REMIELLE  a dancer's rapier: slashes, a lunge, a pirouette; she rises and
-             brings light down on the target in the colour her Lumiflux took
-             on, with feathers drifting and prism rings.
+   JU FUFU   claw swipes in threes, a rolling flurry; Hu Wei, her cauldron, rolls
+             beside her: she rides it spinning like a top, somersaults over it as
+             it slams in, swings it round on its tail, and drops it from the sky
+             like a burning meteor (official skill previews).
+   ORPHIE    Magus is her tail: it whips the fire blade round her, drives it
+             along the ground, coils round her, arches over her shoulder to fire
+             lasers (kneeling, one long one for Heat Charge); she kicks.
+             (official skill previews: Zenless Zone Zero Wiki)
+   REMIELLE  her great mechanical wings are her weapons: they sweep in arcs of
+             light, carry her gliding round the target and into the air; the
+             light comes down in the colour her Lumiflux took on, with feathers
+             drifting and prism rings. (official Agent Mechanics clips)
    ========================================================================== */
 (function () {
   'use strict';
@@ -254,7 +258,7 @@
     set(K.basic[0], { anim: 'qySwing', motion: [{ t0: 0.02, t1: 0.16, kind: 'fwd', d: 0.5 }], stream: [{ t0: 0.08, t1: 0.22, kind: 'spark' }], events: [{ t: 0.16, fx: 'crescent', y: 0.95, tilt: -0.1, r: 2.4, arc: 2.8, col: EL }] });
     set(K.basic[1], { anim: 'qyPoke', motion: [{ t0: 0.02, t1: 0.15, kind: 'fwd', d: 0.6 }], events: [{ t: 0.15, fx: 'thrustLine', col: EL2, len: 3.2 }] });
     set(K.basic[2], { anim: 'qyFlurry', motion: [{ t0: 0.05, t1: 0.8, kind: 'fwd', d: 0.6, ease: 'lin' }], stream: [{ t0: 0.08, t1: 0.8, kind: 'spark' }], events: [0.12, 0.27, 0.42, 0.57, 0.72].map(t => ({ t, fx: 'thrustLine', col: EL2, len: 2.4 })) });
-    set(K.basic[3], { anim: 'qySlam', motion: [{ t0: 0.05, t1: 0.36, kind: 'leap', h: 0.9, d: 0.6 }] }); bolt(K.basic[3].hits[0]);
+    set(K.basic[3], { anim: 'qySlam', motion: [{ t0: 0.05, t1: 0.36, kind: 'leap', h: 0.9, d: 0.6 }], events: [{ t: 0.32, fx: 'crescent', y: 1.3, tilt: 1.45, r: 2.6, arc: 3.0, col: EL, sweep: 1.6 }] }); bolt(K.basic[3].hits[0]);
     // Enchanted Moonlit Blossoms: five dashing strikes that cut through the target from side to side, then the finish
     set(K.moonlit, { anim: 'qyMoonlit', track: 1.32, motion: [0, 1, 2, 3, 4].map(i => ({ t0: 0.04 + i * 0.2, t1: 0.16 + i * 0.2, kind: 'orbit', ang: 2.2, gap: 1.0, side: i % 2 ? 1 : -1 })).concat([{ t0: 1.0, t1: 1.35, kind: 'leap', h: 1.6, d: 0, toTarget: true }]),
       stream: [{ t0: 0, t1: 1.0, kind: 'afterimage', col: EL }, { t0: 0, t1: 1.0, kind: 'spark' }], events: [0.15, 0.35, 0.55, 0.75, 0.95].map(t => ({ t, fx: 'thrustLine', col: EL2, len: 3 })).concat([{ t: 1.35, fx: 'boltAt', big: true }, { t: 1.35, fx: 'whiteFlash' }]) });
@@ -273,7 +277,13 @@
   };
 
   // ------------------------------------------------------------ Ju Fufu
-  ACT.fuUlt = (b, t, th, d) => t < 0.9 ? ACT.fuCall(b, t, 0.5, 0.9) : ACT.fuPounce(b, t - 0.9, 0.5, d - 0.9);
+  // she sits on Hu Wei as it spins under her, then hops off
+  ACT.fuRide = (b, t, th, d) => t < 1.15 ? add(b, { legL: [-1.5, 0, 0.5], legR: [-1.5, 0, -0.5], armL: [-0.7, 0, 1.35], armR: [-0.7, 0, -1.35], torso: [0.05, 0, 0], lift: 0.55 + Math.sin(t * 9) * 0.04, spin: t * 17 }) : ACT.fuPounce(b, t - 1.15, 0.15, d - 1.15);
+  // a somersault up over the target, then the landing
+  ACT.fuFlip = (b, t, th, d) => t < th ? add(b, { legL: [-1.6, 0, 0.2], legR: [-1.6, 0, -0.2], armL: [-1.0, 0, 0.6], armR: [-1.0, 0, -0.6], torso: [0.6, 0, 0], tilt: -clamp(t / th, 0, 1) * PI * 2, lift: 0.2 }) : ACT.fuPounce(b, t - th + 0.08, 0.08, d - th + 0.08);
+  // round and round with Hu Wei on its tail, then down
+  ACT.fuSwing = (b, t, th, d) => t < th - 0.1 ? add(b, { armR: [-1.7, 0, -1.25], armL: [-1.2, 0, 1.0], torso: [-0.1, 0, 0], legL: [-0.4, 0, 0.3], legR: [0.3, 0, -0.3], hipsY: -0.1, spin: clamp(t / (th - 0.1), 0, 1) * PI * 4 }) : ACT.fuCall(b, t - (th - 0.2), 0.2, d - th + 0.2);
+  ACT.fuUlt = (b, t, th, d) => t < 0.85 ? ACT.fuSwing(b, t, 0.75, 0.85) : ACT.fuPounce(b, t - 0.85, 0.55, d - 0.85);
   CH.jufufu = () => {
     const K = DATA.AGENTS.jufufu.kit;
     const set = (def, o) => { Object.assign(def, o); if (o.motion) delete def.move; };
@@ -283,79 +293,102 @@
     set(K.basic[1], { anim: 'fuClawL', motion: [{ t0: 0.02, t1: 0.15, kind: 'fwd', d: 0.6 }], events: [{ t: 0.15, fx: 'clawArcs', tilt: 0.9, col: FI2 }] });
     set(K.basic[2], { anim: 'fuRoll', motion: [{ t0: 0.05, t1: 0.75, kind: 'fwd', d: 0.9, ease: 'lin' }], stream: [{ t0: 0.08, t1: 0.75, kind: 'fireTrail' }], events: [0.12, 0.42, 0.72].map(t => ({ t, fx: 'crescent', y: 0.8, tilt: 0, r: 1.8, arc: 5.8, col: FI, sweep: 2.8 })) });
     set(K.basic[3], { anim: 'fuPounce', motion: [{ t0: 0.02, t1: 0.36, kind: 'leap', h: 1.1, d: 0.9 }], events: [{ t: 0.36, fx: 'fireRing', r: 2.3 }] });
-    // Mountain King's Game: she spins in a ring of fire round the target while Hu Wei drops in
-    set(K.spin, { anim: 'fuTop', track: 1.3, motion: [{ t0: 0, t1: 0.3, kind: 'toTarget', gap: 0.5 }, { t0: 0.3, t1: 1.1, kind: 'orbit', ang: PI * 1.6, gap: 0.8, side: 'auto' }, { t0: 1.15, t1: 1.3, kind: 'leap', h: 0.9, d: 0, toTarget: true }],
-      stream: [{ t0: 0.05, t1: 1.15, kind: 'flameRing', r: 2.0 }, { t0: 0.05, t1: 1.15, kind: 'fireTrail' }], events: [{ t: 0.66, fx: 'huwei', dur: 0.9, popcorn: true }, { t: 1.3, fx: 'bigBurst', col: 0xff7a2a }] });
+    // Mountain King's Game: she rides Hu Wei as it spins like a top round the target, then hops off with a kick
+    set(K.spin, { anim: 'fuRide', track: 1.3, motion: [{ t0: 0, t1: 0.3, kind: 'toTarget', gap: 0.5 }, { t0: 0.3, t1: 1.1, kind: 'orbit', ang: PI * 1.6, gap: 0.8, side: 'auto' }, { t0: 1.15, t1: 1.3, kind: 'leap', h: 0.9, d: 0, toTarget: true }],
+      stream: [{ t0: 0.05, t1: 1.15, kind: 'flameRing', r: 2.0 }], events: [{ t: 0, fx: 'huwei', mode: 'ride', dur: 1.15 }, { t: 1.3, fx: 'bigBurst', col: 0xff7a2a }] });
     set(K.dash, { anim: 'fuClawR', motion: [{ t0: 0, t1: 0.26, kind: 'toTarget', gap: 1.0 }], stream: [{ t0: 0, t1: 0.26, kind: 'fireTrail' }], events: [{ t: 0.26, fx: 'clawArcs', tilt: -0.9, col: FI }] });
     set(K.counter, { anim: 'fuClawL', motion: [{ t0: 0, t1: 0.1, kind: 'side', d: 1.2, side: 'auto' }, { t0: 0.1, t1: 0.15, kind: 'toTarget', gap: 1.0 }], stream: [{ t0: 0, t1: 0.15, kind: 'afterimage', col: FI2 }], events: [{ t: 0.15, fx: 'clawArcs', tilt: 0.9, col: FI }, { t: 0.32, fx: 'fireRing', r: 2.0 }] });
     set(K.special, { anim: 'fuDive', motion: [{ t0: 0, t1: 0.22, kind: 'fwd', d: 0.6 }, { t0: 0.3, t1: 0.55, kind: 'leap', h: 1.3, d: 0, toTarget: true }], events: [{ t: 0.22, fx: 'crescent', y: 0.7, tilt: 0, r: 2.0, arc: 5.8, col: FI, sweep: 2.8 }, { t: 0.55, fx: 'fireRing', r: 2.2 }] });
-    // EX and the rest: she calls, Hu Wei comes down on the target (the hit lands where it lands)
-    set(K.ex, { anim: 'fuCall', motion: [{ t0: 0.2, t1: 0.4, kind: 'back', d: 0.6 }], events: [{ t: 0, fx: 'huwei', dur: 0.78, big: 1.6, popcorn: true }] }); K.ex.hits[0].at = 'target';
-    set(K.chain, { anim: 'fuPounce', motion: [{ t0: 0, t1: 0.6, kind: 'leap', h: 2.0, d: 0, toTarget: true }], events: [{ t: 0.05, fx: 'huwei', dur: 0.8, big: 1.8, popcorn: true }, { t: 0.6, fx: 'fireRing', r: 2.8 }, { t: 0.6, fx: 'whiteFlash' }] });
-    set(K.ult, { anim: 'fuUlt', motion: [{ t0: 0, t1: 0.35, kind: 'toTarget', gap: 2.0 }, { t0: 0.9, t1: 1.4, kind: 'leap', h: 2.4, d: 0, toTarget: true }],
-      events: [{ t: 0.15, fx: 'huwei', dur: 0.8, big: 1.6, popcorn: true }, { t: 0.75, fx: 'fireRing', r: 3.4 }, { t: 0.75, fx: 'huwei', dur: 0.95, big: 3.0, popcorn: true }, { t: 1.4, fx: 'fireRing', r: 4.6 }, { t: 1.4, fx: 'whiteFlash' }] });
+    // Mountain-Descending Savage Tiger (EX): she somersaults up over the target as Hu Wei, blazing, slams into it (the hit lands where it lands)
+    set(K.ex, { anim: 'fuFlip', motion: [{ t0: 0, t1: 0.55, kind: 'leap', h: 2.0, d: 0, toTarget: true }], events: [{ t: 0, fx: 'huwei', dur: 0.78, big: 1.6, popcorn: true }] }); K.ex.hits[0].at = 'target';
+    // Tiger Cauldron Collapse: she swings Hu Wei round by its tail and brings it down
+    set(K.chain, { anim: 'fuSwing', motion: [{ t0: 0, t1: 0.25, kind: 'toTarget', gap: 1.6 }], events: [{ t: 0, fx: 'huwei', mode: 'flail', dur: 0.86, big: 1.8, popcorn: true }, { t: 0.6, fx: 'fireRing', r: 2.8 }, { t: 0.6, fx: 'whiteFlash' }] });
+    // Raging Tiger Explosion: a swing of Hu Wei, then she leaps and it falls on the target like a burning meteor
+    set(K.ult, { anim: 'fuUlt', motion: [{ t0: 0, t1: 0.3, kind: 'toTarget', gap: 1.8 }, { t0: 0.9, t1: 1.4, kind: 'leap', h: 2.4, d: 0, toTarget: true }],
+      events: [{ t: 0, fx: 'huwei', mode: 'flail', dur: 1.07, big: 1.6, popcorn: true }, { t: 0.75, fx: 'fireRing', r: 3.4 }, { t: 0.8, fx: 'huwei', mode: 'meteor', dur: 0.86, big: 3.0, popcorn: true }, { t: 1.4, fx: 'fireRing', r: 4.6 }, { t: 1.4, fx: 'whiteFlash' }] });
     set(K.followup, { anim: 'fuClawR', motion: [{ t0: 0, t1: 0.25, kind: 'toTarget', gap: 1.0 }], events: [{ t: 0.25, fx: 'clawArcs', tilt: -0.9, col: FI }, { t: 0.2, fx: 'huwei', dur: 0.72, big: 1.3, popcorn: true }] }); K.followup.hits[1].at = 'target';
     set(K.quick, { anim: 'fuClawL', motion: [{ t0: 0, t1: 0.25, kind: 'toTarget', gap: 1.0 }], stream: [{ t0: 0, t1: 0.25, kind: 'fireTrail' }], events: [{ t: 0.25, fx: 'clawArcs', tilt: 0.9, col: FI }] });
   };
 
   // ------------------------------------------------------ Orphie & Magus
-  ACT.orExSweep = (b, t, th, d) => t < 0.85 ? ACT.orPoint(b, t) : ACT.orSweep(b, t - 0.85, 0.1, d - 0.85);
-  ACT.orUlt = (b, t) => t < 1.8 ? ACT.orLeap(b, t) : ACT.orBrace(b, t);
+  // (Magus is her tail: `tail` gives its pose per move, anim.js; the lasers come from its jaw, the 'muzzle' socket)
+  ACT.orKneel = (b, t) => add(b, { legL: [-1.45, 0, 0.1], legR: [0.9, 0, -0.1], hipsY: -0.42, torso: [0.2, 0.1, 0], armR: [-1.3, 0.2, -0.3], armL: [-0.6, 0, 0.5], head: [-0.1, 0, 0], roll: Math.sin(t * 40) * 0.01 });
+  ACT.orCrouch = (b, t, th, d) => stage(b, { torso: [0.2, 0.5, 0], hipsY: -0.15, legL: [-0.5, 0, 0.3], legR: [0.4, 0, -0.3] }, { torso: [0.5, -0.4, 0], hipsY: -0.35, legL: [-1.1, 0, 0.45], legR: [0.9, 0, -0.45], armL: [-0.8, 0, 1.0], armR: [0.4, 0, -0.9] }, t, th, d);
+  ACT.orSpin = (b, t) => add(b, { armL: [-1.3, 0, 1.2], armR: [-1.3, 0, -1.2], legR: [-0.6, 0, 0], spin: t * 12, lift: 0.1 });
+  ACT.orLunge = (b, t, th, d) => stage(b, { torso: [0, 0.5, 0], legR: [0.4, 0, 0], armR: [-0.6, 0, -0.4] }, { torso: [0.25, -0.2, 0], legL: [-0.95, 0, 0], legR: [0.7, 0, 0], armR: [-1.6, 0, 0.05], armL: [-0.3, 0, 0.6], hipsY: -0.12 }, t, th, d);
+  ACT.orEx = (b, t, th, d) => t < 0.25 ? ACT.orLeap(b, t) : t < 0.8 ? add(ACT.orPoint(b, t), { tilt: -0.15, legL: [-1.1, 0, 0.2], legR: [-0.6, 0, -0.2] }) : ACT.orCrouch(b, t - 0.8, 0.15, d - 0.8);
+  ACT.orHeat = (b, t, th, d) => t < 2.25 ? ACT.orKneel(b, t) : ACT.orCrouch(b, t - 2.25, 0.1, d - 2.25);
+  ACT.orChain = (b, t, th, d) => t < 0.55 ? ACT.orCrouch(b, t, 0.35, 0.55) : t < 0.95 ? ACT.orPoint(b, t) : ACT.orLeap(b, t);
+  ACT.orUlt = (b, t, th, d) => t < 0.75 ? ACT.orSpin(b, t) : t < 1.75 ? ACT.orPoint(b, t) : ACT.orKneel(b, t);
+  ACT.orFollow = (b, t, th, d) => t < 0.45 ? ACT.orCrouch(b, t, 0.25, 0.45) : ACT.orPoint(b, t);
   CH.orphie = () => {
     const K = DATA.AGENTS.orphie.kit;
     const set = (def, o) => { Object.assign(def, o); if (o.motion) delete def.move; };
     const LZ = (t0, t1, o) => Object.assign({ t0, t1, kind: 'magusLaser', len: 4.4 }, o || {});
-    // she kicks; on her command Magus fires lasers and swings its fire blade (magus: it comes up beside her)
-    set(K.basic[0], { anim: 'orKick', motion: [{ t0: 0.02, t1: 0.14, kind: 'fwd', d: 0.5 }], events: [{ t: 0.14, fx: 'crescent', y: 0.6, tilt: 0.2, r: 1.8, col: 0xffb070 }] });
-    set(K.basic[1], { anim: 'orPoint', magus: true, stream: [LZ(0.08, 0.32)] });
-    set(K.basic[2], { anim: 'spinKick', motion: [{ t0: 0.02, t1: 0.17, kind: 'fwd', d: 0.5 }], events: [{ t: 0.17, fx: 'crescent', y: 0.6, tilt: 0, r: 1.8, arc: 5.6, col: 0xffb070, sweep: 2.6 }] });
-    set(K.basic[3], { anim: 'orPoint', magus: true, stream: [LZ(0.08, 0.34)] });
-    set(K.basic[4], { anim: 'orSweep', magus: true, events: [{ t: 0.22, fx: 'magusBlade', r: 2.8, arc: 3.0 }] });
-    set(K.basic[5], { anim: 'orSweep', magus: true, motion: [{ t0: 0.05, t1: 0.3, kind: 'back', d: 0.6 }], events: [{ t: 0.36, fx: 'magusBlade', r: 3.2, arc: 3.0, big: true }] });
-    // Heat Charge: she braces, Magus pours out one long laser that grows hotter, ending in Fiery Eruption
-    set(K.heatCharge, { anim: 'orBrace', magus: true, track: 2.3, stream: [LZ(0.3, 2.25, { len: 10, grow: true })], events: [{ t: 2.35, fx: 'magusBlast', len: 11 }, { t: 2.35, fx: 'whiteFlash' }] });
-    set(K.dash, { anim: 'orKick', motion: [{ t0: 0, t1: 0.26, kind: 'toTarget', gap: 1.0 }], stream: [{ t0: 0, t1: 0.26, kind: 'fireTrail' }] });
+    // High-Pressure Flamethrower: a kick as the tail whips across her front, lasers from over her shoulder, a spin
+    // kick with the tail coiled, a lunge and more lasers, the fire blade swept round, then she drops low and Magus
+    // drives the blade along the ground ahead
+    set(K.basic[0], { anim: 'orKick', tail: 'whip', motion: [{ t0: 0.02, t1: 0.14, kind: 'fwd', d: 0.5 }], events: [{ t: 0.14, fx: 'tailSlash', r: 2.2 }] });
+    set(K.basic[1], { anim: 'orPoint', tail: 'aim', stream: [LZ(0.08, 0.32)] });
+    set(K.basic[2], { anim: 'spinKick', tail: 'ring', motion: [{ t0: 0.02, t1: 0.17, kind: 'fwd', d: 0.5 }], events: [{ t: 0.17, fx: 'tailSlash', r: 2.0, arc: 5.6 }] });
+    set(K.basic[3], { anim: 'orLunge', tail: 'aim', motion: [{ t0: 0.02, t1: 0.12, kind: 'fwd', d: 0.4 }], stream: [LZ(0.08, 0.34)] });
+    set(K.basic[4], { anim: 'orSweep', tail: 'whip', events: [{ t: 0.22, fx: 'tailSlash', r: 2.8, arc: 3.0 }] });
+    set(K.basic[5], { anim: 'orCrouch', tail: 'low', motion: [{ t0: 0.05, t1: 0.3, kind: 'fwd', d: 0.5 }], events: [{ t: 0.36, fx: 'bladeThrust', len: 3.4 }] });
+    // Heat Charge: down on one knee, Magus arches over her shoulder like a cannon and pours out one long laser that
+    // grows hotter; Fiery Eruption: the tail sweeps a great slash of fire
+    set(K.heatCharge, { anim: 'orHeat', tail: [[0, 'cannon'], [2.2, 'whip', 2.35]], track: 2.3, stream: [LZ(0.3, 2.2, { len: 10, grow: true })], events: [{ t: 2.35, fx: 'tailSlash', r: 3.6, arc: 3.4, big: true }, { t: 2.35, fx: 'magusBlast', len: 11 }, { t: 2.35, fx: 'whiteFlash' }] });
+    set(K.dash, { anim: 'orKick', tail: 'low', motion: [{ t0: 0, t1: 0.26, kind: 'toTarget', gap: 1.0 }], stream: [{ t0: 0, t1: 0.26, kind: 'fireTrail' }], events: [{ t: 0.26, fx: 'bladeThrust', len: 2.2 }] });
     sync(K.dash, [0.26]);
-    set(K.counter, { anim: 'orSweep', magus: true, motion: [{ t0: 0, t1: 0.12, kind: 'side', d: 1.3, side: 'auto' }], stream: [{ t0: 0, t1: 0.15, kind: 'afterimage', col: 0xffa070 }], events: [{ t: 0.36, fx: 'magusBlade', r: 2.8, arc: 3.0 }] });
-    set(K.special, { anim: 'orPoint', magus: true, motion: [{ t0: 0.02, t1: 0.2, kind: 'fwd', d: 0.5 }], stream: [LZ(0.15, 0.25, { len: 3 })], events: [{ t: 0.5, fx: 'magusBlade', r: 2.8, arc: 2.2, big: true }] });
-    // Watch Your Step: a sweeping laser, then the fire blade
-    set(K.ex, { anim: 'orExSweep', magus: true, stream: [LZ(0.25, 0.8, { len: 8, sweep: 0.6 })], events: [{ t: 0.95, fx: 'magusBlade', r: 3.4, arc: 3.0, big: true }, { t: 0.95, fx: 'fireRing', r: 2.6 }] });
-    // Overheated Barrel: up she goes, a ring of fire, a laser straight down the line
-    set(K.chain, { anim: 'orLeap', magus: true, motion: [{ t0: 0, t1: 0.3, kind: 'rise', h: 1.5 }, { t0: 1.0, t1: 1.25, kind: 'fall' }], stream: [{ t0: 0.25, t1: 0.45, kind: 'flameRing', r: 2.8 }, LZ(0.6, 0.95, { len: 9, down: true })], events: [{ t: 0.35, fx: 'magusBlade', r: 2.8, arc: 6.2 }, { t: 0.9, fx: 'magusBlast', len: 9 }] });
-    // Dance With Fire: Magus coils round her, sweeps the field with lasers, then one great beam
-    set(K.ult, { anim: 'orUlt', magus: true, track: 1.85, motion: [{ t0: 0, t1: 0.35, kind: 'rise', h: 1.2 }, { t0: 1.95, t1: 2.15, kind: 'fall' }], stream: [{ t0: 0.3, t1: 0.55, kind: 'flameRing', r: 3.0 }, LZ(0.95, 1.7, { len: 11, sweep: 0.5 })], events: [{ t: 0.45, fx: 'magusBlade', r: 3.0, arc: 6.2 }, { t: 1.9, fx: 'magusBlast', len: 12 }, { t: 1.9, fx: 'whiteFlash' }] });
-    set(K.followup, { anim: 'orPoint', magus: true, motion: [{ t0: 0, t1: 0.25, kind: 'toTarget', gap: 2.0 }], stream: [LZ(0.2, 0.5, { len: 5 })], events: [{ t: 0.75, fx: 'magusBlast', len: 6 }] });
-    set(K.quick, { anim: 'orSweep', magus: true, motion: [{ t0: 0, t1: 0.25, kind: 'toTarget', gap: 1.4 }], stream: [{ t0: 0, t1: 0.25, kind: 'fireTrail' }], events: [{ t: 0.4, fx: 'magusBlade', r: 2.6, arc: 3.0 }] });
+    set(K.counter, { anim: 'orCrouch', tail: [[0, 'whip', 0.36]], motion: [{ t0: 0, t1: 0.12, kind: 'side', d: 1.3, side: 'auto' }], stream: [{ t0: 0, t1: 0.15, kind: 'afterimage', col: 0xffa070 }], events: [{ t: 0.36, fx: 'tailSlash', r: 2.8, arc: 3.0 }] });
+    set(K.special, { anim: 'orLunge', tail: [[0, 'aim'], [0.32, 'whip', 0.5]], motion: [{ t0: 0.02, t1: 0.2, kind: 'fwd', d: 0.5 }], stream: [LZ(0.15, 0.25, { len: 3 })], events: [{ t: 0.5, fx: 'tailSlash', r: 2.8, arc: 2.6, big: true }] });
+    // Watch Your Step: she springs up and Magus sweeps a laser across the field from the air; she lands low and the
+    // fire blade comes round in a burst of flame
+    set(K.ex, { anim: 'orEx', tail: [[0, 'aim'], [0.8, 'whip', 0.95]], motion: [{ t0: 0, t1: 0.25, kind: 'rise', h: 1.0 }, { t0: 0.75, t1: 0.9, kind: 'fall' }], stream: [LZ(0.25, 0.8, { len: 8, sweep: 0.6 })], events: [{ t: 0.95, fx: 'tailSlash', r: 3.4, arc: 3.2, big: true }, { t: 0.95, fx: 'fireRing', r: 2.6 }] });
+    // Overheated Barrel: in low, the tail whips a long arc of fire, then a laser straight down the line as she hops back
+    set(K.chain, { anim: 'orChain', tail: [[0, 'whip', 0.35], [0.55, 'aim']], motion: [{ t0: 0, t1: 0.25, kind: 'toTarget', gap: 1.4 }, { t0: 0.95, t1: 1.2, kind: 'back', d: 1.4 }], stream: [{ t0: 0.25, t1: 0.45, kind: 'flameRing', r: 2.8 }, LZ(0.6, 0.95, { len: 9 })], events: [{ t: 0.35, fx: 'tailSlash', r: 3.0, arc: 4.5, big: true }, { t: 0.9, fx: 'magusBlast', len: 9 }] });
+    // Dance with Fire: she spins with the tail coiled round her in fire, Magus sweeps the field with lasers, then she
+    // kneels for one great beam
+    set(K.ult, { anim: 'orUlt', tail: [[0, 'ring'], [0.75, 'aim'], [1.7, 'cannon']], track: 1.85, stream: [{ t0: 0.2, t1: 0.6, kind: 'flameRing', r: 3.0 }, LZ(0.95, 1.65, { len: 11, sweep: 0.5 })], events: [{ t: 0.45, fx: 'tailSlash', r: 3.0, arc: 6.2 }, { t: 1.9, fx: 'magusBlast', len: 12 }, { t: 1.9, fx: 'whiteFlash' }] });
+    // Boiling Pierce: in low, the tail drives forward, then lasers
+    set(K.followup, { anim: 'orFollow', tail: [[0, 'low'], [0.45, 'aim']], motion: [{ t0: 0, t1: 0.25, kind: 'toTarget', gap: 1.6 }], stream: [LZ(0.45, 0.7, { len: 5 })], events: [{ t: 0.25, fx: 'bladeThrust', len: 2.6 }, { t: 0.75, fx: 'magusBlast', len: 6 }] });
+    set(K.quick, { anim: 'orSweep', tail: 'whip', motion: [{ t0: 0, t1: 0.25, kind: 'toTarget', gap: 1.4 }], stream: [{ t0: 0, t1: 0.25, kind: 'fireTrail' }], events: [{ t: 0.2, fx: 'tailSlash', r: 2.4 }, { t: 0.4, fx: 'tailSlash', r: 2.6, arc: 3.0 }] });
+    set(K.assist, { anim: 'orCrouch', tail: 'whip' });   // Blazing Gunblade: the tail swings out to meet the blow
   };
 
   // ----------------------------------------------------------- Remielle
+  // (her wings are her weapons: `wings` gives their pose per move, anim.js; the slashes are theirs)
   ACT.rmChain = (b, t, th, d) => t < 0.35 ? ACT.rmLunge(b, t, 0.3, 0.35) : ACT.rmLeap(b, t - 0.35, 0.6, d - 0.35);
   ACT.rmUlt = (b, t, th, d) => t < 1.25 ? ACT.rmDance(b, t) : ACT.rmLeap(b, t - 1.25, 0.35, d - 1.25);
   ACT.rmFleet = (b, t, th, d) => t < 0.5 ? ACT.rmDance(b, t) : ACT.rmLeap(b, t - 0.45, 0.35, d - 0.45);
+  ACT.rmGlide = (b, t) => add(b, { armL: [0.3, 0, 0.9], armR: [0.3, 0, -0.9], torso: [0.45, 0, 0], legL: [0.2, 0, 0], legR: [0.5, 0, 0], lift: 0.25 + Math.sin(t * 6) * 0.05, tilt: 0.15 });
+  ACT.rmRainbow = (b, t, th, d) => t < th - 0.2 ? ACT.rmGlide(b, t) : ACT.rmSing(b, t - (th - 0.35), 0.35, d - th + 0.35);
   CH.remielle = () => {
     const K = DATA.AGENTS.remielle.kit;
     const set = (def, o) => { Object.assign(def, o); if (o.motion) delete def.move; };
     const PK = 0xff9ae6;   // 'flux': the colour of the attribute her light has taken on (moves.js events)
-    // Leap: a slash on a little hop, a lunge, a pirouette, a leap that brings the light down
-    set(K.basic[0], { anim: 'rmSlash', motion: [{ t0: 0.02, t1: 0.18, kind: 'leap', h: 0.4, d: 0.8 }], stream: [{ t0: 0, t1: 0.3, kind: 'feathers' }], events: [{ t: 0.18, fx: 'crescent', y: 1.05, tilt: -0.3, r: 2.3, col: 'flux' }] });
-    set(K.basic[1], { anim: 'rmLunge', motion: [{ t0: 0.02, t1: 0.16, kind: 'fwd', d: 0.7 }], events: [{ t: 0.16, fx: 'thrustLine', col: 'flux', len: 3.2 }] });
-    set(K.basic[2], { anim: 'rmPirouette', motion: [{ t0: 0.02, t1: 0.24, kind: 'fwd', d: 0.4 }], stream: [{ t0: 0.05, t1: 0.4, kind: 'feathers' }], events: [{ t: 0.24, fx: 'crescent', y: 0.95, tilt: 0, r: 2.3, arc: 6.0, col: 'flux', sweep: 2.8 }] });
-    set(K.basic[3], { anim: 'rmLeap', motion: [{ t0: 0, t1: 0.32, kind: 'leap', h: 1.3, d: 0, toTarget: true }], events: [{ t: 0.32, fx: 'lightFall', r: 2.2 }] });
-    // Rainbow's End / Fleeting Grace: she rises, gathers the light, and brings it down in a prism burst
-    set(K.rainbow, { anim: 'rmSing', motion: [{ t0: 0.1, t1: 0.6, kind: 'rise', h: 0.6 }, { t0: 0.8, t1: 1.0, kind: 'fall' }], stream: [{ t0: 0, t1: 0.7, kind: 'lumiGather' }, { t0: 0, t1: 0.9, kind: 'feathers' }], events: [{ t: 0.75, fx: 'lightFall', r: 3.6, big: true }, { t: 0.75, fx: 'prism', r: 3.6 }] });
-    set(K.fleeting, { anim: 'rmFleet', motion: [{ t0: 0.05, t1: 0.4, kind: 'rise', h: 1.0 }, { t0: 0.6, t1: 0.8, kind: 'toTarget', gap: 1.0 }, { t0: 0.6, t1: 0.8, kind: 'fall' }], stream: [{ t0: 0, t1: 0.8, kind: 'feathers' }, { t0: 0, t1: 0.4, kind: 'lumiGather' }], events: [{ t: 0.4, fx: 'prism', r: 3.4 }, { t: 0.8, fx: 'lightFall', r: 3.8, big: true }, { t: 0.8, fx: 'whiteFlash' }] });
-    set(K.dash, { anim: 'rmLunge', motion: [{ t0: 0, t1: 0.25, kind: 'toTarget', gap: 0.9 }], stream: [{ t0: 0, t1: 0.25, kind: 'lumiTrail' }], events: [{ t: 0.25, fx: 'thrustLine', col: 'flux', len: 3 }] });
-    set(K.counter, { anim: 'rmSlash', motion: [{ t0: 0, t1: 0.1, kind: 'side', d: 1.3, side: 'auto' }, { t0: 0.1, t1: 0.18, kind: 'toTarget', gap: 1.0 }], stream: [{ t0: 0, t1: 0.15, kind: 'afterimage', col: PK }], events: [{ t: 0.18, fx: 'crescent', y: 1.1, tilt: 0.9, r: 2.5, col: 'flux' }] });
-    set(K.special, { anim: 'rmPoint', stream: [{ t0: 0, t1: 0.3, kind: 'lumiGather' }] });
-    set(K.ex, { anim: 'rmSing', motion: [{ t0: 0.05, t1: 0.4, kind: 'fwd', d: 0.6 }], stream: [{ t0: 0, t1: 0.85, kind: 'feathers' }], events: [{ t: 0.4, fx: 'crescent', y: 1.2, tilt: 0.6, r: 2.4, col: 'flux' }, { t: 0.85, fx: 'lightFall', r: 3.6, big: true }, { t: 0.85, fx: 'prism', r: 3.6 }] });
-    // Flower & Feather Dance: wings open, she dances up in a ring of light that falls all around her
-    set(K.ffd, { anim: 'rmDance', stream: [{ t0: 0, t1: 1.1, kind: 'feathers' }, { t0: 0.1, t1: 1.0, kind: 'lumiRing', r: 3.6 }], events: [{ t: 0, fx: 'wingOpen' }, { t: 0.55, fx: 'prism', r: 3.6, self: true }, { t: 1.0, fx: 'lightFall', r: 4.2, big: true, self: true }, { t: 1.0, fx: 'whiteFlash' }] });
-    set(K.chain, { anim: 'rmChain', motion: [{ t0: 0, t1: 0.3, kind: 'toTarget', gap: 0.9 }, { t0: 0.35, t1: 0.95, kind: 'leap', h: 1.8, d: 0, toTarget: true }], stream: [{ t0: 0, t1: 0.3, kind: 'lumiTrail' }, { t0: 0.3, t1: 0.95, kind: 'feathers' }], events: [{ t: 0.3, fx: 'thrustLine', col: 'flux', len: 3 }, { t: 0.6, fx: 'lightFall', r: 3.0 }, { t: 0.95, fx: 'prism', r: 3.4 }, { t: 0.95, fx: 'lightFall', r: 3.4, big: true }] });
-    // Dazzling Curtain Call: she dances in the air while the light falls three times, then dives in for the bow
-    set(K.ult, { anim: 'rmUlt', motion: [{ t0: 0.1, t1: 0.5, kind: 'rise', h: 2.0 }, { t0: 1.3, t1: 1.6, kind: 'toTarget', gap: 1.0 }, { t0: 1.3, t1: 1.6, kind: 'fall' }], stream: [{ t0: 0, t1: 1.3, kind: 'feathers' }, { t0: 0.3, t1: 1.3, kind: 'lumiRing', r: 3 }],
-      events: [{ t: 0, fx: 'wingOpen' }].concat([0.7, 0.9, 1.1].map(t => ({ t, fx: 'lightFall', r: 3.6 }))).concat([{ t: 1.6, fx: 'lightFall', r: 5, big: true }, { t: 1.6, fx: 'prism', r: 5 }, { t: 1.6, fx: 'whiteFlash' }]) });
-    set(K.followup, { anim: 'rmSlash', motion: [{ t0: 0, t1: 0.25, kind: 'toTarget', gap: 1.0 }], stream: [{ t0: 0, t1: 0.25, kind: 'lumiTrail' }], events: [{ t: 0.25, fx: 'crescent', y: 1.05, tilt: -0.3, r: 2.5, col: 'flux' }, { t: 0.45, fx: 'crescent', y: 1.1, tilt: 0.8, r: 2.5, col: 'flux' }, { t: 0.7, fx: 'lightFall', r: 2.6 }] });
-    set(K.quick, { anim: 'rmLunge', motion: [{ t0: 0, t1: 0.25, kind: 'toTarget', gap: 1.0 }], stream: [{ t0: 0, t1: 0.25, kind: 'lumiTrail' }], events: [{ t: 0.25, fx: 'crescent', y: 1.1, tilt: 0.4, r: 2.5, col: 'flux' }] });
+    // Leap: she glides in and the wings slash, a double cut from both wings, a pirouette with the wings spread, then a
+    // leap that brings them down with the light
+    set(K.basic[0], { anim: 'rmSlash', wings: 'sweep', motion: [{ t0: 0.02, t1: 0.18, kind: 'leap', h: 0.4, d: 0.8 }], stream: [{ t0: 0, t1: 0.3, kind: 'feathers' }], events: [{ t: 0.18, fx: 'wingSlash', r: 2.6 }] });
+    set(K.basic[1], { anim: 'rmLunge', wings: 'sweep', motion: [{ t0: 0.02, t1: 0.16, kind: 'fwd', d: 0.7 }], events: [{ t: 0.16, fx: 'wingSlash', r: 2.4, cross: true }] });
+    set(K.basic[2], { anim: 'rmPirouette', wings: 'spread', motion: [{ t0: 0.02, t1: 0.24, kind: 'fwd', d: 0.4 }], stream: [{ t0: 0.05, t1: 0.4, kind: 'feathers' }], events: [{ t: 0.24, fx: 'crescent', y: 1.2, tilt: 0, r: 2.6, arc: 6.0, col: 'flux', sweep: 2.8 }] });
+    set(K.basic[3], { anim: 'rmLeap', wings: [[0, 'spread'], [0.2, 'sweep', 0.32]], motion: [{ t0: 0, t1: 0.32, kind: 'leap', h: 1.3, d: 0, toTarget: true }], events: [{ t: 0.32, fx: 'wingSlash', r: 2.6 }, { t: 0.32, fx: 'lightFall', r: 2.2 }] });
+    // Rainbow's End / Fleeting Grace: she glides round the target on her wings, slicing, then rises and the light comes down
+    set(K.rainbow, { anim: 'rmRainbow', wings: [[0, 'beat'], [0.6, 'sweep', 0.75]], track: 0.75, motion: [{ t0: 0.05, t1: 0.55, kind: 'orbit', ang: 2.4, gap: 1.4, side: 'auto' }, { t0: 0.05, t1: 0.5, kind: 'rise', h: 0.6 }, { t0: 0.8, t1: 1.0, kind: 'fall' }], stream: [{ t0: 0, t1: 0.6, kind: 'lumiTrail' }, { t0: 0, t1: 0.9, kind: 'feathers' }], events: [{ t: 0.75, fx: 'wingSlash', r: 3.0 }, { t: 0.75, fx: 'lightFall', r: 3.6, big: true }, { t: 0.75, fx: 'prism', r: 3.6 }] });
+    set(K.fleeting, { anim: 'rmFleet', wings: [[0, 'beat'], [0.65, 'sweep', 0.8]], motion: [{ t0: 0.05, t1: 0.4, kind: 'rise', h: 1.0 }, { t0: 0.6, t1: 0.8, kind: 'toTarget', gap: 1.0 }, { t0: 0.6, t1: 0.8, kind: 'fall' }], stream: [{ t0: 0, t1: 0.8, kind: 'feathers' }, { t0: 0, t1: 0.4, kind: 'lumiGather' }], events: [{ t: 0.4, fx: 'prism', r: 3.4 }, { t: 0.8, fx: 'wingSlash', r: 3.2, cross: true }, { t: 0.8, fx: 'lightFall', r: 3.8, big: true }, { t: 0.8, fx: 'whiteFlash' }] });
+    set(K.dash, { anim: 'rmGlide', wings: 'spread', motion: [{ t0: 0, t1: 0.25, kind: 'toTarget', gap: 0.9 }], stream: [{ t0: 0, t1: 0.25, kind: 'lumiTrail' }], events: [{ t: 0.25, fx: 'wingSlash', r: 2.4 }] });
+    set(K.counter, { anim: 'rmSlash', wings: 'sweep', motion: [{ t0: 0, t1: 0.1, kind: 'side', d: 1.3, side: 'auto' }, { t0: 0.1, t1: 0.18, kind: 'toTarget', gap: 1.0 }], stream: [{ t0: 0, t1: 0.15, kind: 'afterimage', col: PK }], events: [{ t: 0.18, fx: 'wingSlash', r: 2.6 }] });
+    set(K.special, { anim: 'rmPoint', wings: 'spread', stream: [{ t0: 0, t1: 0.3, kind: 'lumiGather' }] });   // a lance of light flies from her right wing
+    set(K.ex, { anim: 'rmSing', wings: [[0, 'spread'], [0.3, 'sweep', 0.4], [0.6, 'spread']], motion: [{ t0: 0.05, t1: 0.4, kind: 'fwd', d: 0.6 }], stream: [{ t0: 0, t1: 0.85, kind: 'feathers' }], events: [{ t: 0.4, fx: 'wingSlash', r: 2.6, cross: true }, { t: 0.85, fx: 'lightFall', r: 3.6, big: true }, { t: 0.85, fx: 'prism', r: 3.6 }] });
+    // Flower & Feather Dance: the wings open, she dances up in a ring of light that falls all around her
+    set(K.ffd, { anim: 'rmDance', wings: [[0, 'spread'], [0.2, 'beat'], [0.9, 'spread']], stream: [{ t0: 0, t1: 1.1, kind: 'feathers' }, { t0: 0.1, t1: 1.0, kind: 'lumiRing', r: 3.6 }], events: [{ t: 0, fx: 'wingOpen' }, { t: 0.55, fx: 'prism', r: 3.6, self: true }, { t: 1.0, fx: 'lightFall', r: 4.2, big: true, self: true }, { t: 1.0, fx: 'whiteFlash' }] });
+    set(K.chain, { anim: 'rmChain', wings: [[0, 'sweep', 0.3], [0.35, 'beat'], [0.85, 'cross']], motion: [{ t0: 0, t1: 0.3, kind: 'toTarget', gap: 0.9 }, { t0: 0.35, t1: 0.95, kind: 'leap', h: 1.8, d: 0, toTarget: true }], stream: [{ t0: 0, t1: 0.3, kind: 'lumiTrail' }, { t0: 0.3, t1: 0.95, kind: 'feathers' }], events: [{ t: 0.3, fx: 'wingSlash', r: 2.6 }, { t: 0.6, fx: 'lightFall', r: 3.0 }, { t: 0.95, fx: 'prism', r: 3.4 }, { t: 0.95, fx: 'lightFall', r: 3.4, big: true }] });
+    // Dazzling Curtain Call: the wings open wide, she dances in the air while the light falls three times, then folds
+    // them forward and dives in for the bow
+    set(K.ult, { anim: 'rmUlt', wings: [[0, 'spread'], [0.3, 'beat'], [1.3, 'cross']], motion: [{ t0: 0.1, t1: 0.5, kind: 'rise', h: 2.0 }, { t0: 1.3, t1: 1.6, kind: 'toTarget', gap: 1.0 }, { t0: 1.3, t1: 1.6, kind: 'fall' }], stream: [{ t0: 0, t1: 1.3, kind: 'feathers' }, { t0: 0.3, t1: 1.3, kind: 'lumiRing', r: 3 }],
+      events: [{ t: 0, fx: 'wingOpen' }].concat([0.7, 0.9, 1.1].map(t => ({ t, fx: 'lightFall', r: 3.6 }))).concat([{ t: 1.6, fx: 'wingSlash', r: 3.4, cross: true }, { t: 1.6, fx: 'lightFall', r: 5, big: true }, { t: 1.6, fx: 'prism', r: 5 }, { t: 1.6, fx: 'whiteFlash' }]) });
+    set(K.followup, { anim: 'rmSlash', wings: [[0, 'sweep', 0.25], [0.35, 'sweep', 0.45]], motion: [{ t0: 0, t1: 0.25, kind: 'toTarget', gap: 1.0 }], stream: [{ t0: 0, t1: 0.25, kind: 'lumiTrail' }], events: [{ t: 0.25, fx: 'wingSlash', r: 2.6 }, { t: 0.45, fx: 'wingSlash', r: 2.6, cross: true }, { t: 0.7, fx: 'lightFall', r: 2.6 }] });
+    set(K.quick, { anim: 'rmLunge', wings: 'sweep', motion: [{ t0: 0, t1: 0.25, kind: 'toTarget', gap: 1.0 }], stream: [{ t0: 0, t1: 0.25, kind: 'lumiTrail' }], events: [{ t: 0.25, fx: 'wingSlash', r: 2.6 }] });
+    set(K.assist, { anim: 'guard', wings: 'cross' });   // Fleeting Light: the wings fold forward to meet the blow
   };
   for (const k in CH) CH[k]();
 
@@ -620,9 +653,9 @@
     }
     if (Math.random() < 0.15) FX.ring(a.x, a.z, 0.4, s.r || 2.4, 0x5ec8ff, 0.25, { a: 0.5 });
   };
+  const muzzle = (a, o) => BT.sock(a, a.model.sockets && a.model.sockets.muzzle ? 'muzzle' : 'chest', o);
   S.magusLaser = (a, A, s) => {
-    const m = companionOf(a, 'magus'), o = new THREE.Vector3();
-    if (m && m.obj.visible) BT.sock(m, 'weapon', o); else BT.sock(a, 'chest', o);
+    const o = new THREE.Vector3(); muzzle(a, o);
     const k = clamp((A.t - s.t0) / Math.max(0.05, s.t1 - s.t0), 0, 1);
     const dir = A.dir + (s.sweep ? Math.sin(k * PI * 2) * s.sweep : 0), len = s.len || 4.5;
     const end = new THREE.Vector3(o.x + Math.sin(dir) * len, s.down ? 0.3 : 0.95, o.z + Math.cos(dir) * len);
@@ -645,16 +678,33 @@
     for (let i = -1; i <= 1; i++) FX.slash(a.x + fx * 0.3 + sx * i * 0.16, 1.0 + i * 0.1 + (a.airY || 0), a.z + fz * 0.3 + sz * i * 0.16, 1.7, dir, e.col || 0xffa030, { tilt: e.tilt || 0, arc: 1.9, width: 0.12, life: 0.24, sweep: 1 });
     FX.burst(a.x + fx * 1.1, 1.0, a.z + fz * 1.1, 10, { col: FLAME, speed: 4, size: 0.12, life: 0.3, g: -1 });
   };
-  E.huwei = (a, A, e, tgt) => { const c = companionOf(a, 'huwei'); if (c && tgt && BT.huweiSlam) BT.huweiSlam(c, tgt, { dur: e.dur, big: e.big, popcorn: e.popcorn }); };
-  E.magusBlade = (a, A, e) => {
+  E.huwei = (a, A, e, tgt) => { const c = companionOf(a, 'huwei'); if (c && tgt && BT.huweiSlam) BT.huweiSlam(c, tgt, { dur: e.dur, big: e.big, popcorn: e.popcorn, mode: e.mode }); };
+  // Magus's fire blade swept round her (a red arc at tail height, flame along it)
+  E.tailSlash = E.magusBlade = (a, A, e) => {
     const dir = A.dir, fx = Math.sin(dir), fz = Math.cos(dir), y = 1.0 + (a.airY || 0) * 0.6;
     FX.slash(a.x + fx * 0.3, y, a.z + fz * 0.3, e.r || 2.6, dir, 0xff4a1a, { tilt: rnd(-0.3, 0.3), arc: e.arc || 2.6, width: e.big ? 0.7 : 0.5, life: 0.3, sweep: 1.2 });
     FX.slash(a.x + fx * 0.3, y, a.z + fz * 0.3, (e.r || 2.6) * 0.82, dir, 0xffe080, { tilt: 0, arc: (e.arc || 2.6) * 0.9, width: 0.22, life: 0.25, sweep: 1.2 });
     FX.named('flame', { fromX: a.x, fromZ: a.z, yaw: dir, r: e.r || 2.6 });
     if (e.big) BT.B.cam.shake = Math.max(BT.B.cam.shake, 0.18);
   };
+  // the fire blade driven along the ground ahead (the tail stretched out low)
+  E.bladeThrust = (a, A, e) => {
+    const len = e.len || 3, fx = Math.sin(A.dir), fz = Math.cos(A.dir);
+    FX.beam(new THREE.Vector3(a.x + fx * 0.6, 0.35, a.z + fz * 0.6), new THREE.Vector3(a.x + fx * len, 0.3, a.z + fz * len), 0xff4a1a, 0.3, 0.2);
+    FX.named('fireLine', { fromX: a.x, fromZ: a.z, yaw: A.dir, len }); FX.named('flameRing', { x: a.x + fx * len, z: a.z + fz * len, r: 1.6 });
+    BT.B.cam.shake = Math.max(BT.B.cam.shake, 0.16);
+  };
+  // both wings (or one) slash in arcs of light round her
+  E.wingSlash = (a, A, e) => {
+    const dir = A.dir, fx = Math.sin(dir), fz = Math.cos(dir), c = fluxHex(a), y = 1.25 + (a.airY || 0), r = e.r || 2.6;
+    for (const s of e.cross ? [-1, 1] : [1]) {
+      FX.slash(a.x + fx * 0.2, y, a.z + fz * 0.2, r, dir, c, { tilt: (e.cross ? 0.45 : -0.15) * s, arc: 3.2, width: 0.55, life: 0.3, sweep: 1.4 * s });
+      FX.slash(a.x + fx * 0.2, y + 0.1, a.z + fz * 0.2, r * 0.85, dir, 0xffffff, { tilt: (e.cross ? 0.45 : -0.15) * s, arc: 3.0, width: 0.2, life: 0.22, sweep: 1.4 * s });
+    }
+    for (let i = 0; i < 10; i++) { const an = dir + rnd(-1.4, 1.4); FX.p({ x: a.x + Math.sin(an) * r * 0.8, y: y + rnd(-0.3, 0.3), z: a.z + Math.cos(an) * r * 0.8, vx: Math.sin(an) * 2, vy: rnd(-0.2, 0.6), vz: Math.cos(an) * 2, drag: 2, life: 0.7, size: 0.12, size1: 0.05, col: U.pick([0xffffff, 0xffe0f8, 0xd8c8ff]), g: 0.5 }); }
+  };
   E.magusBlast = (a, A, e) => {
-    const m = companionOf(a, 'magus'), o = new THREE.Vector3(); if (m && m.obj.visible) BT.sock(m, 'weapon', o); else BT.sock(a, 'chest', o);
+    const o = new THREE.Vector3(); muzzle(a, o);
     const len = e.len || 8, end = new THREE.Vector3(o.x + Math.sin(A.dir) * len, 0.9, o.z + Math.cos(A.dir) * len);
     FX.beam(o.clone(), end, 0xff3a10, 0.75, 0.35); FX.beam(o.clone(), end, 0xfff6d0, 0.28, 0.3);
     FX.named('fireLine', { fromX: a.x, fromZ: a.z, yaw: A.dir, len }); FX.named('explode', { x: end.x, z: end.z, r: 2 });

@@ -270,8 +270,7 @@
       for (const e of preview.ents) { e.anim.t += dt; ANIM.apply(e, dt, t); }
       preview.comps.forEach((c, i) => {
         const P = c.R.parts;
-        if (c.m === 'huwei') { c.R.root.position.set(c.base.x + 0.75, 0.15 + Math.abs(Math.sin(t * 3.2)) * 0.2, c.base.z + 0.45); if (P.head) P.head.rotation.x = -Math.abs(Math.sin(t * 3.2)) * 0.25; return; }
-        if (c.m === 'magus') { c.R.root.position.set(c.base.x + 0.85, 1.9 + Math.sin(t * 1.8) * 0.12, c.base.z - 0.35); if (P.tail) P.tail.rotation.y = Math.sin(t * 2) * 0.35; if (P.armL) P.armL.rotation.z = 0.2 + Math.sin(t * 3) * 0.3; if (P.armR) P.armR.rotation.z = -0.2 - Math.sin(t * 3) * 0.3; return; }
+        if (c.m === 'huwei') { c.R.root.position.set(c.base.x + 0.75, 0.28 + Math.abs(Math.sin(t * 3.2)) * 0.1, c.base.z + 0.45); if (P.head) P.head.rotation.x = -Math.abs(Math.sin(t * 3.2)) * 0.25; return; }
         c.R.root.position.set(c.base.x + 0.9 + Math.sin(t * 0.8) * 0.4, 2.4 + Math.sin(t * 2) * 0.15, c.base.z - 0.3); const f = Math.sin(t * 8) * 0.55; P.armL.rotation.z = 0.15 + f; P.armR.rotation.z = -0.15 - f;
       });
       if (preview.built.anim) preview.built.anim(t, dt);

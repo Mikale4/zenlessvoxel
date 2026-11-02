@@ -1,8 +1,8 @@
 /* ============================================================================
    models-agents2.js -- the second wave of playable Agents, matched to their
    official character art (as models-agents.js): Qingyi, Ju Fufu, Orphie &
-   Magus, Remielle Dan; and the companions that fight beside two of them,
-   Hu Wei (Ju Fufu's tiger cauldron) and Magus (Orphie's mechanical serpent).
+   Magus (Magus is Orphie's own mechanical tail, part of her model), Remielle
+   Dan; and Hu Wei, the tiger cauldron that rolls along beside Ju Fufu.
    Standard humanoid rig (models-base.js); the model faces +Z, +X is its left.
    ========================================================================== */
 (function () {
@@ -75,7 +75,9 @@
               g.set(0, 0, z, ring ? TEAL : BLACK);
               if (ring) { g.set(1, 0, z, GREY); g.set(-1, 0, z, GREY); g.set(0, 1, z, GREY); g.set(0, -1, z, GREY); }
             }
-            g.box(-1, -1, 13, 1, 1, 14, BLACK2); g.set(0, 0, 15, TEALG); g.box(-1, -1, -9, 1, 1, -8, BLACK2); g.set(0, 0, -10, TEALG);
+            g.box(-1, -1, -9, 1, 1, -8, BLACK2); g.set(0, 0, -10, TEALG);
+            g.box(-2, -1, 11, 2, 2, 15, GREY); g.box(-2, -1, 13, 2, 2, 13, BLACK2);   // the heavy block head at the business end
+            g.set(0, 3, 13, TEALG); g.set(-3, 0, 13, TEALG); g.set(3, 0, 13, TEALG); g.set(0, 0, 16, TEALG);
           }
         },
       },
@@ -142,19 +144,26 @@
   }
 
   /* ------------------------------------------------------ Orphie & Magus --
-     Orphie, captain of the Obol Squad: bright orange hair, long and loose with
-     orange tails, pointed ears, yellow-green eyes; a black beret with a silver
-     badge over grey horn-like headphones. A charcoal combat jacket with grey
-     panels and a yellow-lined hood, a harness with a silver ring, a row of
-     silver cartridges on the left shoulder, a blue patch; black gloves with
-     yellow fingers, a red cuff on the right wrist; black tights and boots.
-     (Magus, her serpent, is its own model below.) */
+     Orphie Magnusson of the Obol Squad: bright orange hair, long and loose,
+     pointed ears, yellow-green eyes, curled dark metal horns under a black
+     beret with a silver badge. A charcoal combat jacket with grey panels and a
+     yellow-lined hood, a harness with a silver ring, a row of silver
+     cartridges on the left shoulder, a blue patch; black gloves with yellow
+     fingers, a red cuff on the right wrist; black tights and boots.
+     MAGUS is her tail: a long charcoal mechanical tail, crimson underneath,
+     growing from her lower back and ending in a red mechanical dragon's head
+     with a glowing lens, a fire-breathing jaw and a blade slung under it. It
+     thinks and talks for itself, and it is the Obol Squad's captain. Five
+     parts, mg1 (at her back) -> mg2 -> mg3 -> mg4 -> mgHead, each running back
+     along -Z from its joint; anim.js curls, aims and swings it. */
   {
     const HAIR = 0xff5a1a, HAIR2 = 0xd8400e, HAIRHI = 0xff9a4a, SKIN = 0xf8dccb, EYE = 0xc8c43a;
     const JACK = 0x2e2f36, JACK2 = 0x46484f, YEL = 0xf2c230, BLACK = 0x16161a, SILVER = 0xc8ccd4, BLUE = 0x3a5a8a, RED = 0xc8202a, GREY = 0x8a8c94;
+    const MDARK = 0x26272d, MPLATE = 0x3c3e46, MRED = 0xa81a22, MRED2 = 0x7a141a;
     MODELS.orphie = H.humanoid({
       scale: 0.07, height: 29, width: 20,
-      sockets: { weapon: ['armR', [0, -8, 2]], off: ['armL', [0, -8, 2]], head: ['head', [0, 4, 0]], chest: ['torso', [0, 4, 2]] },
+      // weapon / muzzle: Magus's jaw, where the fire blade and the lasers come from
+      sockets: { weapon: ['mgHead', [0, -1, -8]], muzzle: ['mgHead', [0, 0, -8]], off: ['armL', [0, -8, 2]], head: ['head', [0, 4, 0]], chest: ['torso', [0, 4, 2]] },
       hips(g) {
         g.box(-3, -2, -2, 3, 0, 1, JACK); g.box(-4, -4, -3, 4, -3, 2, JACK);        // the jacket's long hem
         g.box(-4, -5, -3, 4, -5, 2, (x) => (x & 1) ? JACK2 : JACK); g.cut(-3, -5, -2, 3, -3, 1);
@@ -178,8 +187,10 @@
         for (const s of [-1, 1]) { g.set(s * 5, 2, 1, SKIN); g.set(s * 6, 3, 0, SKIN); g.set(s * 7, 4, -1, SKIN); }   // pointed ears
         g.box(-4, 7, -4, 4, 8, 3, BLACK); g.box(-3, 9, -3, 4, 9, 2, BLACK); g.box(-4, 7, 4, 3, 7, 5, BLACK);   // the black beret, tilted
         g.set(2, 8, 4, SILVER); g.set(3, 8, 4, G(0xdfe6ff));
-        for (const s of [-1, 1]) {                                                  // grey horn-like headphones
-          g.box(s * 5, 4, -2, s * 6, 7, 0, GREY); g.set(s * 6, 8, -1, GREY); g.set(s * 6, 9, -2, GREY); g.set(s * 5, 10, -3, 0x5a5c64);
+        for (const s of [-1, 1]) {                                                  // curled dark metal horns, back and down like a ram's
+          const HORN = [[5, 6, 0], [6, 7, -1], [6, 7, -2], [7, 6, -3], [7, 5, -3], [7, 4, -2], [7, 3, -1], [6, 2, -1]];
+          HORN.forEach(([x, y, z], i) => { g.box(s * x, y, z - 1, s * (x - (i < 3 ? 1 : 0)), y, z, i === 4 ? GREY : 0x3a3c44); });
+          g.set(s * 6, 2, 0, 0x5a5c64);
         }
       },
       armL(g) { H.arm(g, { sleeve: JACK, sleeveTo: 6, skin: SKIN, glove: BLACK, gloveLen: 2 }); g.box(-1, 0, -1, 1, 0, 1, BLUE); g.set(0, -7, 2, YEL); },
@@ -197,8 +208,33 @@
             g.set(-3, -16, -4, HAIRHI); g.set(3, -16, -4, HAIRHI);
           }
         },
+        // Magus: the tail, segment by segment (charcoal plates on top, crimson underneath)
+        mg1: { parent: 'hips', at: [0, -2, -2], rot: [-0.55, 0, 0], draw: seg(2, 6) },
+        mg2: { parent: 'mg1', at: [0, 0, -6], rot: [0.6, 0, 0], draw: seg(2, 6) },
+        mg3: { parent: 'mg2', at: [0, 0, -6], rot: [0.85, 0, 0], draw: seg(1, 6) },
+        mg4: { parent: 'mg3', at: [0, 0, -6], rot: [0.6, 0, 0], draw: seg(1, 5) },
+        mgHead: { parent: 'mg4', at: [0, 0, -5], rot: [0.85, 0, 0], draw(g) {
+          // the red mechanical dragon's head, snout toward -Z: a tapering wedge, a glowing lens, a jaw, a crest, the blade under it
+          for (let z = 0; z >= -8; z--) {
+            const d = -z, w = d < 3 ? 2 : d < 6 ? 1 : 0, top = d < 2 ? 2 : d < 5 ? 1 : d < 7 ? 0 : -1;
+            g.box(-w, -1, z, w, top, z, (x, y) => y === top && d > 1 && d < 6 && x === 0 ? MRED2 : MRED);
+            if (d > 0) { const j = Math.max(w - (d > 5 ? 0 : 1), 0); g.box(-j, -2, z, j, -2, z, d > 6 ? SILVER : GREY); }
+          }
+          g.set(0, -1, -8, BLACK); g.set(0, -2, -8, SILVER);                        // the mouth
+          for (const s of [-1, 1]) { g.set(s * 2, 1, -3, G(0xffb03a)); g.set(s * 2, 0, -4, G(0xffb03a)); }   // the lens, both sides
+          g.box(0, 3, -1, 0, 4, 2, BLACK); g.set(0, 5, 2, BLACK); g.set(0, 3, -3, BLACK);                   // the black crest fin
+          for (let z = -1; z >= -9; z--) g.set(0, -3, z, z < -5 ? SILVER : GREY); g.set(0, -4, -8, SILVER); g.set(0, -4, -9, SILVER);   // the blade
+        } },
       },
     });
+    function seg(r, len) {   // one tail segment: a chunky charcoal box running back along -Z
+      return g => {
+        for (let z = 0; z >= -len; z--) {
+          g.box(-r, -r, z, r, r, z, (x, y) => y === -r ? (z & 1 ? MRED : MRED2) : (y === r && (z & 1)) ? MPLATE : MDARK);
+          if (z % 2 === 0) g.set(0, r + 1, z, MPLATE);                              // a ridge of plates along the top
+        }
+      };
+    }
   }
 
   /* ------------------------------------------------------- Remielle Dan --
@@ -206,14 +242,33 @@
      soft waves, a silver four-pointed star clip and a thin silver band;
      rose-pink eyes. A white dress with lavender layers, a laced corset front
      and a purple ribbon at the throat, puffed white sleeves; a short layered
-     skirt; white thigh-highs; a grey pauldron fringed with lavender feathers;
-     great grey-white feathered wings tipped in lilac. A slender blade of light. */
+     skirt; white thigh-highs; a grey pauldron fringed with lavender feathers.
+     Her wings are her weapons: two great white mechanical wings, each topped
+     by a hooded head with a rose-pink lens, hung with long blade-feathers
+     tipped in lilac that reach to her knees. Separate parts (wingL, wingR) so
+     anim.js can fold, spread, beat and sweep them. */
   {
     const HAIR = 0xf2868a, HAIR2 = 0xd86a72, HAIRHI = 0xffb6aa, SKIN = 0xfae2d8, EYE = 0xe0508a;
     const WHITE = 0xf6f4fa, WHITE2 = 0xdcd8e8, LAV = 0xc4b2ec, LAV2 = 0xa490d8, PURPLE = 0x6a50b8, SILVER = 0xd6d8e2, GREY = 0x8a8c9a, FEATH = 0xe2e2ea, FEATH2 = 0xb6b8c6;
+    // one wing (s = 1: her left, +X): the arm rising from her back to a hooded head with a pink lens,
+    // then a fan of long blade-feathers hanging down and out
+    function wing(s) {
+      return g => {
+        g.line(0, 0, 0, s * 3, 4, -1, WHITE2, 0.7);                                   // the wing's arm
+        g.box(s * 2, 3, -2, s * 5, 7, 0, (x, y, z) => y === 7 || z === -2 ? WHITE2 : WHITE);   // the hood
+        g.box(s * 3, 4, 1, s * 5, 6, 1, WHITE); g.set(s * 4, 5, 2, G(0xff6aa8)); g.set(s * 5, 5, 1, G(0xff9ac8));   // its face, the lens
+        g.set(s * 3, 8, -1, WHITE2); g.set(s * 4, 8, -2, LAV);
+        for (let i = 0; i < 6; i++) {                                                 // the blade-feathers
+          const x0 = s * (2 + i * 0.6), y0 = 3 - i * 0.6, x1 = s * (4 + i * 1.3), y1 = -9 - i * 0.9 + (i > 3 ? (i - 3) * 2.5 : 0), z = -1.5 - i * 0.35;
+          g.line(x0, y0, z, x1, y1, z, i % 2 ? FEATH2 : FEATH, 0.6);
+          g.line(x1, y1, z, x1 + s * 0.6, y1 - 2, z, i > 2 ? LAV : LAV2, 0.45);
+          if (i % 2 === 0) g.line(x0, y0, z - 0.6, (x0 + x1) / 2, (y0 + y1) / 2 - 1, z - 0.6, WHITE, 0.5);
+        }
+      };
+    }
     MODELS.remielle = H.humanoid({
       scale: 0.07, height: 28, width: 30,
-      sockets: { weapon: ['blade', [0, 0, 15]], off: ['armL', [0, -8, 2]], head: ['head', [0, 4, 0]], chest: ['torso', [0, 4, 2]] },
+      sockets: { weapon: ['wingR', [-9, -12, -2]], off: ['wingL', [9, -12, -2]], muzzle: ['wingR', [-4, 5, 2]], head: ['head', [0, 4, 0]], chest: ['torso', [0, 4, 2]] },
       hips(g) {
         g.box(-3, -1, -2, 3, 0, 1, WHITE);
         g.box(-4, -3, -3, 4, -2, 2, WHITE); g.box(-5, -4, -4, 5, -4, 3, (x, y, z) => ((x + z) & 1) ? LAV : LAV2);   // short layered skirt
@@ -253,33 +308,22 @@
       legL(g) { H.leg(g, { pant: SKIN, boot: WHITE, bootH: 7, sole: LAV2 }); g.box(-1, -2, -1, 1, -2, 1, LAV); g.set(0, -9, 2, PURPLE); },
       legR(g) { H.leg(g, { pant: SKIN, boot: WHITE, bootH: 7, sole: LAV2 }); g.box(-1, -2, -1, 1, -2, 1, LAV); g.set(0, -9, 2, PURPLE); },
       extra: {
-        wings: {  // great feathered wings, grey-white, lilac at the tips
-          parent: 'torso', at: [0, 5, -3], draw(g) {
-            for (const s of [-1, 1]) for (let i = 0; i < 6; i++) {
-              const y = 3 - i * 1.6, len = 8 + i * 1.2 - (i > 3 ? (i - 3) * 2 : 0);
-              g.line(s * 1, 0, -1, s * len, y, -2 - i * 0.3, i % 2 ? FEATH2 : FEATH, 0.55);
-              g.set(s * len, y, -2 - i * 0.3, i > 2 ? LAV : 0xf0f0f6); g.set(s * (len + 1), y - 0.5, -2 - i * 0.3, i > 2 ? LAV2 : FEATH);
-            }
-          }
-        },
-        blade: {  // a slender blade of light
-          parent: 'armR', at: [0, -7, 1], draw(g) {
-            g.box(-1, 0, -1, 1, 0, 1, SILVER); g.set(0, 0, -2, LAV2);
-            for (let z = 1; z <= 15; z++) g.set(0, 0, z, z > 13 ? G(0xffd8f8) : G(z & 1 ? 0xffe6fa : 0xf0d8ff));
-          }
-        },
+        wingL: { parent: 'torso', at: [2, 5, -3], draw: wing(1) },
+        wingR: { parent: 'torso', at: [-2, 5, -3], draw: wing(-1) },
       },
     });
   }
 
-  /* ======================= COMPANIONS ======================= */
+  /* ======================= COMPANION ======================= */
 
   /* Hu Wei: Ju Fufu's tiger cauldron. A round iron pot with a scowling tiger's
-     face, yellow eyes and fangs, gold spikes around its waist, a lid with a
-     handle, and a rope she swings it by. Float rig: body (the pot) -> head (the
-     lid), armL / armR (the gold spike crowns), tail (the rope). */
+     face (its brow-mark glows when it attacks), yellow eyes and fangs, gold
+     spikes around its waist, a lid with a handle, and a long golden tiger's
+     tail, striped black, that she swings it by. It rolls along the ground
+     beside her. Rig: body (the pot) -> head (the lid), armL / armR (the gold
+     spike crowns), tail. */
   {
-    const IRON = 0x6a6c76, IRON2 = 0x50525a, DARK = 0x2a2a30, GOLD = 0xd9a838, WHITE = 0xf2f2ea, ROPE = 0xc8a86a;
+    const IRON = 0x6a6c76, IRON2 = 0x50525a, DARK = 0x2a2a30, GOLD = 0xd9a838, WHITE = 0xf2f2ea, ROPE = 0xf0b030;
     MODELS.huwei = {
       kind: 'float', scale: 0.075, height: 9, width: 14, companion: true,
       sockets: { head: ['head', [0, 1, 0]], chest: ['body', [0, 0, 4]], weapon: ['body', [0, -1, 5]] },
@@ -295,44 +339,11 @@
         head: { parent: 'body', at: [0, 3, 0], draw(g) { g.ell(0, 0, 0, 3, 1, 3, IRON2); g.box(-1, 1, 0, 1, 2, 0, DARK); g.set(0, 3, 0, GOLD); } },
         armL: { parent: 'body', at: [4, 0, 0], draw(g) { g.line(0, 0, 0, 2, 0, 1, GOLD); g.line(0, 0, 0, 2, 1, -1, GOLD); g.set(2, 0, 1, G(0xffe08a)); } },
         armR: { parent: 'body', at: [-4, 0, 0], draw(g) { g.line(0, 0, 0, -2, 0, 1, GOLD); g.line(0, 0, 0, -2, 1, -1, GOLD); g.set(-2, 0, 1, G(0xffe08a)); } },
-        tail: { parent: 'body', at: [0, 2, -4], draw(g) { for (let i = 0; i < 7; i++) g.set(Math.round(Math.sin(i * 0.9) * 1.2), -Math.floor(i / 2), -i, ROPE); } },
+        tail: { parent: 'body', at: [0, 0, -4], draw(g) {   // the striped golden tail, curling up at the tip
+          for (let i = 0; i < 14; i++) { const y = i < 8 ? -i * 0.25 : -2 + (i - 8) * 0.9, z = -i * 0.9 + (i > 9 ? (i - 9) * 0.6 : 0); g.ell(Math.sin(i * 0.5) * 0.8, y, z, 0.8, 0.8, 0.8, i % 3 === 1 ? DARK : i > 11 ? 0xfff0c0 : ROPE); }
+        } },
       },
     };
   }
 
-  /* Magus: Orphie's mechanical serpent. A crimson dragon head with a grey jaw,
-     a glowing eye-lens and a black crest, a blade slung under its jaw, on a
-     long black segmented body with a red belly line that trails and coils. It
-     breathes the fire and fires the lasers. Float rig: body (the neck) -> head,
-     tail (the long body), armL / armR (the crest fins). */
-  {
-    const RED = 0xc8202a, RED2 = 0x8a1a1e, GREY = 0x5a5c66, BLACK = 0x1e1e24, BLACK2 = 0x2e2f36, SILVER = 0xd0d4dc;
-    MODELS.magus = {
-      kind: 'float', scale: 0.07, height: 10, width: 16, companion: true,
-      sockets: { head: ['head', [0, 1, 4]], chest: ['body', [0, 0, 1]], weapon: ['head', [0, 0, 7]] },
-      parts: {
-        body: { parent: null, at: [0, 0, 0], draw(g) { g.ell(0, 0, 0, 1.6, 1.6, 2.2, BLACK2); g.box(-1, -2, -1, 1, -2, 1, RED2); } },
-        head: { parent: 'body', at: [0, 1, 2], draw(g) {
-          for (let z = 0; z <= 8; z++) {                                                  // a wedge that tapers to the snout
-            const w = z < 3 ? 2 : z < 6 ? 1 : 0, top = z < 2 ? 2 : z < 5 ? 1 : z < 7 ? 0 : -1;
-            g.box(-w, -1, z, w, top, z, (x, y) => y === top && z > 1 && z < 6 && x === 0 ? RED2 : RED);
-            if (z > 0) g.box(-Math.max(w - (z > 5 ? 0 : 1), 0), -2, z, Math.max(w - (z > 5 ? 0 : 1), 0), -2, z, z > 6 ? SILVER : GREY);   // lower jaw
-          }
-          g.set(0, -1, 8, BLACK); g.set(0, -2, 8, SILVER);                                  // the mouth
-          g.set(-2, 1, 3, G(0xffb03a)); g.set(2, 1, 3, G(0xffb03a)); g.set(-2, 0, 4, G(0xffb03a)); g.set(2, 0, 4, G(0xffb03a));   // eye-lenses
-          for (const s of [-1, 1]) { g.line(s * 1, 2, 1, s * 2, 4, -2, BLACK); g.set(s * 2, 5, -3, GREY); }   // two swept-back horns
-          for (let z = 1; z <= 6; z++) g.set(0, -3, z, z > 4 ? SILVER : GREY); g.set(0, -4, 6, SILVER);   // the blade under the jaw
-        } },
-        armL: { parent: 'body', at: [1, 1, 0], draw(g) { g.line(0, 0, 0, 3, 3, -2, BLACK); g.set(3, 3, -2, GREY); } },
-        armR: { parent: 'body', at: [-1, 1, 0], draw(g) { g.line(0, 0, 0, -3, 3, -2, BLACK); g.set(-3, 3, -2, GREY); } },
-        tail: { parent: 'body', at: [0, 0, -2], draw(g) {   // the long segmented body, trailing down and curling
-          for (let i = 0; i < 22; i++) {
-            const a = i * 0.32, x = Math.sin(a) * (1 + i * 0.12), y = -i * 0.7, z = -Math.cos(a) * 1.5 - i * 0.15;
-            g.ell(x, y, z, 1.1, 1.1, 1.1, i % 3 === 0 ? GREY : BLACK);
-            g.set(x, y - 1, z + 1, RED2);
-          }
-        } },
-      },
-    };
-  }
 })();

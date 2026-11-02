@@ -193,6 +193,71 @@
     return r;
   }
 
+  /* ------------------------------------- Magus, and Remielle's wings --
+     Orphie's tail (Magus) is a chain mg1 -> mg2 -> mg3 -> mg4 -> mgHead off her
+     lower back, each part running back along -Z. A tail pose gives [pitch,
+     yaw] per part (pitch up is positive; yaw swings it round her, pi points it
+     straight ahead). A move names its mode with `tail` (or a list of
+     [time, mode] to change part way), the same way `anim` names the body pose:
+       rest    the S-curl behind her, the head up at her back
+       aim     arched over her shoulder, the head level and forward: lasers
+       cannon  the same, lower and braced: Heat Charge
+       low     out past her right side along the ground ahead: the fire blade's thrust
+       whip    a sweep across her front, right to left, passing ahead at the hit
+       ring    coiled round her, spinning
+     Remielle's wings (wingL / wingR) take [pitch, yaw, roll] for the left one
+     (mirrored for the right) from `wings`: rest, spread, beat (flight), sweep
+     (back, then forward across her front at the hit), cross, fold. */
+  const TAIL_PARTS = ['mg1', 'mg2', 'mg3', 'mg4', 'mgHead'];
+  const swing = (t, th) => U.ease(clamp((t - (th - 0.12)) / 0.22, 0, 1));
+  const TAIL = {
+    rest: tt => [[-0.5, 0.3 + Math.sin(tt * 1.3) * 0.12], [0.6, Math.sin(tt * 1.1 + 1) * 0.1], [0.85, 0.05], [0.6, 0], [0.85, 0]],
+    run: tt => [[-0.25, Math.sin(tt * 7) * 0.2], [0.2, -Math.sin(tt * 7) * 0.15], [0.3, 0], [0.4, 0], [0.55, 0]],
+    aim: () => [[1.2, 0.35], [0.35, 0], [0.35, 0], [0.55, 0], [0.8, 0]],
+    cannon: tt => [[1.0, 0.3], [0.35, 0], [0.38, 0], [0.62, 0], [0.82 + Math.sin(tt * 40) * 0.02, 0]],
+    low: () => [[-0.15, 2.75], [0.05, 0.1], [0.05, 0.08], [0.05, 0.05], [-0.15, 0]],
+    whip: (tt, t, th) => { const k = swing(t, th); return [[0.1, lerp(1.1, 5.1, k)], [0.05, 0.35 * (1 - k)], [0.05, 0.3 * (1 - k)], [0.05, 0.2], [-0.05, 0]]; },
+    ring: tt => [[0.15, tt * 11], [0.05, 0.7], [0.05, 0.7], [0.05, 0.6], [0, 0.5]],
+    limp: () => [[-0.9, 0.2], [0.15, 0], [0.1, 0], [0.1, 0], [0.2, 0]],
+  };
+  // the mode a move gives the tail (or wings) now, and the time its swing lands ([time, mode, strike] entries)
+  function modeOf(ent, key, idle) {
+    const A = ent.anim;
+    if (A.state === 'act' && A.act && A.act[key]) {
+      const m = A.act[key]; if (typeof m === 'string') return [m, A.th];
+      let cur = m[0]; for (const e of m) if (A.t >= e[0]) cur = e; return [cur[1], cur[2] != null ? cur[2] : A.th];
+    }
+    return [idle[A.state] || idle.other, A.th];
+  }
+  function driveTail(ent, dt, t) {
+    const P = ent.rig.parts, A = ent.anim, [mode, th] = modeOf(ent, 'tail', { run: 'run', down: 'limp', dead: 'limp', stun: 'limp', other: 'rest' });
+    const pose = (TAIL[mode] || TAIL.rest)(t + ent.seed, A.t, th, A.dur);
+    const k = 1 - Math.exp(-(mode === 'whip' || mode === 'ring' ? 30 : 10) * dt);
+    TAIL_PARTS.forEach((n, i) => {
+      const p = P[n]; if (!p) return;
+      if (p.rotation.order !== 'YXZ') p.rotation.order = 'YXZ';     // yaw is the heading, pitch is up and down from it
+      p.rotation.x += (pose[i][0] - p.rotation.x) * k;
+      p.rotation.y += U.wrap(pose[i][1] - p.rotation.y) * k;
+    });
+  }
+  const WING = {
+    rest: tt => [0.1, 0.25, 0.15 + Math.sin(tt * 1.6) * 0.05],
+    run: () => [0.35, 0.55, 0.05],
+    spread: tt => [0, -0.25, 0.95 + Math.sin(tt * 3) * 0.05],
+    beat: tt => [0.05, -0.1, 0.55 + Math.sin(tt * 10) * 0.45],
+    sweep: (tt, t, th) => t < th - 0.12 ? [0.2, 0.9, 0.75] : t < th + 0.15 ? [-0.1, -1.35, 0.45] : [0.05, -0.6, 0.6],
+    cross: () => [-0.15, -1.5, 0.35],
+    fold: () => [0.25, 0.45, -0.05],
+  };
+  function driveWings(ent, dt, t) {
+    const P = ent.rig.parts, A = ent.anim, [mode, th] = modeOf(ent, 'wings', { run: 'run', hit: 'fold', stun: 'fold', down: 'fold', dead: 'fold', dodge: 'spread', other: 'rest' });
+    const [x, y, z] = (WING[mode] || WING.rest)(t + ent.seed, A.t, th, A.dur), k = 1 - Math.exp(-(mode === 'sweep' ? 26 : 9) * dt);
+    for (const [n, s] of [['wingL', 1], ['wingR', -1]]) {
+      const p = P[n]; if (!p) continue;
+      p.rotation.x += (x - p.rotation.x) * k; p.rotation.y += (s * y - p.rotation.y) * k; p.rotation.z += (s * z - p.rotation.z) * k;
+    }
+  }
+
   /* apply a pose to the rig, easing every part toward it */
   function apply(ent, dt, t) {
     const R = ent.rig, parts = R.parts, rest = R.rest, A = ent.anim;
@@ -222,6 +287,8 @@
         p.rotation.x += (tx - p.rotation.x) * (1 - Math.exp(-6 * dt));
         p.rotation.z += (rest[n].rz + Math.sin(t * 2.3 + ent.seed) * 0.08 - p.rotation.z) * (1 - Math.exp(-6 * dt));
       }
+      if (parts.mg1) driveTail(ent, dt, t);
+      if (parts.wingL) driveWings(ent, dt, t);
     }
     if (ent.kind !== 'humanoid' && parts.body) parts.body.position.y += (rest.body.py + pose.hipsY - parts.body.position.y) * k;
     // whole-body offsets live on ent.body (an inner group): lift, tilt, roll, spin
@@ -233,5 +300,5 @@
     B.rotation.y = pose.spin || 0;
   }
 
-  window.ANIM = { apply, READY, ACT: H_ACT, QUAD: Q_ACT, stage, add, mix, P };
+  window.ANIM = { apply, READY, ACT: H_ACT, QUAD: Q_ACT, stage, add, mix, P, TAIL, WING };
 })();

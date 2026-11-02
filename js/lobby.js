@@ -345,7 +345,7 @@
     qingyi: { x: 5.6, z: 0.6, face: -0.55, pose: { armR: [-0.15, 0, -0.1], armL: [-0.35, 0, 0.25], torso: [0, 0, 0], head: [0, 0.3, 0] } },
     // Ju Fufu bouncing on her toes, Hu Wei beside her
     jufufu: { x: -9.6, z: 0.7, face: 0.6, pose: { armL: [-1.2, -0.3, 0.5], armR: [-2.5, 0, -0.5], head: [0, 0, 0.15], torso: [0.05, 0, 0] }, bounce: true },
-    // Orphie at the end of the street, arms folded, Magus coiled in the air
+    // Orphie at the end of the street, arms folded, Magus (her tail) curled behind her
     orphie: { x: 13.2, z: 0.4, face: -0.9, pose: { armL: [-1.35, -0.75, 0.25], armR: [-1.35, 0.75, -0.25], torso: [-0.05, 0, 0], head: [0.05, 0.25, 0], legR: [0.15, 0, -0.1] } },
     // Remielle in the middle of the street, one hand raised to the dusk light
     remielle: { x: -2.3, z: 1.7, face: 0.25, pose: { armL: [-2.6, 0, 0.6], armR: [-0.35, 0, -0.35], head: [-0.25, 0, 0.1], torso: [-0.05, 0.1, 0.04], legR: [-0.2, 0, 0] } },
@@ -357,7 +357,7 @@
     yixuan: ['Breathe, Proxy. The Hollow rewards a still mind. When you are ready, I will follow your lead.', 'My bird likes this street. Too many noodles, it says. I disagree.'],
     qingyi: ['Proxy. Criminal Investigation Special Response Team, on patrol. Report anything suspicious. Or anything with noodles.', 'My sensors read this street as eighty-seven percent pleasant. The other thirteen percent is Caesar\'s bike.'],
     jufufu: ['Hey, hey, Proxy! Hu Wei says you smell like popcorn. That\'s the nicest thing it says about anyone!', 'Yunkui Summit\'s little tiger, ready to go! If the Hollow gets rowdy, Hu Wei and I\'ll just sit on it.'],
-    orphie: ['Obol Squad, captain speaking. Give me a target and Magus will handle the rest.', 'Magus, don\'t growl at the Bangboo. ...It likes you, Proxy. That was it being friendly.'],
+    orphie: ['Orphie, Obol Squad. And this is Magus, our captain. Yes, the tail. She heard that, by the way.', 'Magus says you check out, Proxy. Give us a target and she\'ll handle the rest. I\'ll handle the aiming.'],
     remielle: ['A Proxy! The Covenant of Dayat sends its greetings. My light takes the colour of whoever stands beside me. Shall we find out yours?', 'Stay a moment... dusk on Sixth Street makes the loveliest colours.'],
     wise: ['Don\'t forget, the tapes on the bottom shelf are due back Thursday.', 'The HDD\'s running hot today. Lots of Agents, lots of Hollows. Good for business.', 'If the shop\'s quiet, that just means business is good... in the Hollow.'],
     belle: ['Did you rewind the tapes? You never rewind the tapes.', 'Eous has been polishing the HDD all morning. I think it\'s nervous.', 'Eight Agents on Sixth Street today. Somebody\'s going to need a Proxy.'],
@@ -407,8 +407,8 @@
     S.eous = ent('eous', S.me.x + 0.9, S.me.z + 0.8, 0); S.eous.walk = 0;
     S.npcs = Object.keys(SPOTS).map(id => { const sp = SPOTS[id], e = ent(id, sp.x, sp.z, sp.face); e.pose = sp.pose; e.sit = sp.sit; e.bounce = sp.bounce; return e; });
     S.bird = ent('inkbird', -17.25, -2.8, 0); S.bird.kind = 'float';
-    // Ju Fufu's Hu Wei and Orphie's Magus keep them company
-    S.pets = [['huwei', SPOTS.jufufu.x - 0.85, SPOTS.jufufu.z - 0.45, 0.6], ['magus', SPOTS.orphie.x + 0.7, SPOTS.orphie.z - 0.5, -0.9]].filter(p => MODELS[p[0]]).map(([id, x, z, f]) => { const e = ent(id, x, z, f); e.kind = 'float'; e.bx = x; e.bz = z; return e; });
+    // Ju Fufu's Hu Wei sits beside her
+    S.pets = [['huwei', SPOTS.jufufu.x - 0.85, SPOTS.jufufu.z - 0.45, 0.6]].filter(p => MODELS[p[0]]).map(([id, x, z, f]) => { const e = ent(id, x, z, f); e.kind = 'float'; e.bx = x; e.bz = z; return e; });
     for (const e of [S.me, S.sib, S.eous, ...S.npcs, S.bird, ...S.pets]) { scene.add(e.obj); place(e); }
     if (opts.chooser) {               // the choice of sibling: both side by side in the shop, the camera close
       S.me.x = -0.85; S.me.z = -6.3; S.sib.x = 0.85; S.sib.z = -6.3; S.me.face = S.sib.face = 0; S.sib.pose = null;
@@ -602,13 +602,13 @@
     b.obj.position.set(b.x, 2.4 + Math.sin(t * 2) * 0.15, b.z); b.obj.rotation.y = b.face;
     const f = Math.sin(t * 8) * 0.55; if (R.armL) R.armL.rotation.z = 0.15 + f; if (R.armR) R.armR.rotation.z = -0.15 - f;
   }
-  /* Hu Wei hops on the spot; Magus hangs in the air, its tail swaying */
+  /* Hu Wei rocks on the spot, its lid rattling */
   function pets() {
     const t = S.t;
     for (const p of S.pets) {
       const R = p.rig.parts;
-      if (p.id === 'huwei') { p.obj.position.set(p.bx, Math.abs(Math.sin(t * 3.2)) * 0.22 + 0.15, p.bz); p.obj.rotation.y = p.face + Math.sin(t * 0.7) * 0.3; if (R.head) R.head.rotation.x = -Math.abs(Math.sin(t * 3.2)) * 0.25; }
-      else { p.obj.position.set(p.bx, 1.9 + Math.sin(t * 1.8) * 0.12, p.bz); p.obj.rotation.y = p.face + Math.sin(t * 0.5) * 0.25; if (R.tail) { R.tail.rotation.y = Math.sin(t * 2) * 0.35; R.tail.rotation.x = 0.15 + Math.sin(t * 1.4) * 0.12; } if (R.armL) R.armL.rotation.z = 0.2 + Math.sin(t * 3) * 0.3; if (R.armR) R.armR.rotation.z = -0.2 - Math.sin(t * 3) * 0.3; }
+      p.obj.position.set(p.bx, 0.28 + Math.abs(Math.sin(t * 3.2)) * 0.1, p.bz); p.obj.rotation.y = p.face + Math.sin(t * 0.7) * 0.3;
+      if (R.head) R.head.rotation.x = -Math.abs(Math.sin(t * 3.2)) * 0.25; if (R.tail) R.tail.rotation.y = Math.sin(t * 2.2) * 0.4;
     }
   }
   /* steam over Chop's pots, a flicker on the HDD screens */
