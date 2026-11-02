@@ -1,6 +1,6 @@
 // Proxy Clash, fast-forwarded headless with your side on AUTO.
 //   node tools/clash-test.js squad=caesar,aria rival=vesper rsquad=burnice,yixuan arena=stage grep=Rival
-//   node tools/clash-test.js batch=6 mode=all3 rival=patch,vesper,mirage     (calibration: win rate and length per rival)
+//   node tools/clash-test.js batch=6 mode=all3 rival=patch,vesper,mirage     (calibration: win rate and length per rival; pool=a,b,c narrows the squads drawn)
 //   modes: duel tag2 all2 tag3 all3 (size= alone means Tag Team at that size)
 const path = require('path');
 const { chromium } = require('playwright');
@@ -44,7 +44,7 @@ const args = Object.fromEntries(process.argv.slice(2).map(a => a.split('=')));
     GAME.toMenu();
     return r;
   }, o);
-  const AG = ['caesar', 'burnice', 'aria', 'yixuan'], pick = n => AG.slice().sort(() => Math.random() - 0.5).slice(0, n);
+  const AG = (args.pool || 'caesar,burnice,aria,yixuan,qingyi,jufufu,orphie,remielle').split(','), pick = n => AG.slice().sort(() => Math.random() - 0.5).slice(0, n);   // pool= to narrow it
   if (args.batch) {
     const MODES = { duel: 1, tag2: 2, all2: 2, tag3: 3, all3: 3 };
     const mode = args.mode || ({ 1: 'duel', 2: 'tag2', 3: 'tag3' })[args.size || 3], rivals = (args.rival || 'patch,vesper,mirage').split(','), n = +args.batch, size = MODES[mode];

@@ -139,7 +139,7 @@
     // main panel
     const M = E.main;
     if (ag) {
-      if (M.img.dataset.id !== ag.modelId) { M.img.src = portrait(ag.modelId || ag.id); M.img.dataset.id = ag.modelId; M.name.textContent = ag.def.name; M.spec.textContent = B.allOut ? `LEAD · ${ag.def.spec}` : `${ag.def.spec} · ${D.ATTR[ag.def.attr].name}`; }
+      if (M.img.dataset.id !== ag.modelId) { M.img.src = portrait(ag.modelId || ag.id); M.img.dataset.id = ag.modelId; M.name.textContent = ag.def.name; M.spec.textContent = B.allOut ? `LEAD · ${ag.def.spec}` : `${ag.def.spec} · ${D.ATTR[ag.def.attr].name}${ag.flux ? ` (${D.ATTR[ag.flux].name})` : ''}`; }
       if (B.rival) { M.dz.style.width = pct(ag.daze || 0, ag.dazeMax || 1); M.dzBar.className = 'bar daze' + (ag.stun > 0 ? ' stun' : ''); }
       M.hp.style.width = pct(ag.hp, ag.hpMax); M.hpn.textContent = '';
       M.hpn.append(el('span', null, `HP ${U.fmt(Math.max(0, ag.hp))} / ${U.fmt(ag.hpMax)}`), el('span', null, B.aegis && B.aegis.hp > 0 && B.aegis.until > B.t ? `AEGIS ${U.fmt(B.aegis.hp)}` : ''));
@@ -157,6 +157,17 @@
       if (ag.id === 'aria') { r.push(`FANDOM ${B.fandom.length}/6`); if (ag.delusion > B.t) r.push(`DELUSION ${Math.ceil(ag.delusion - B.t)}s`); if (ag.cheer) r.push(`CHEERING ×${ag.cheer}`); if (ag.noIce) r.push('NO ICE READY'); }
       if (ag.id === 'yixuan') { r.push(`TECHNIQUE ${Math.floor(ag.tp)}/120`); if (ag.auric) r.push('AURIC INK POINT'); if (ag.meditation > B.t) r.push(`MEDITATION ${Math.ceil(ag.meditation - B.t)}s`); }
       if (ag.id === 'caesar' && ag.impactUp > B.t) r.push('STANCE SWITCH');
+      if (ag.id === 'qingyi') r.push(`VOLTAGE ${Math.floor(ag.voltage)}%${ag.voltage >= 75 ? ' · FLASH CONNECT' : ''}`);
+      if (ag.id === 'jufufu') r.push(`MIGHT ${Math.floor(ag.might)}/200${ag.might >= 100 ? ' · READY' : ''}`, `MOMENTUM ${ag.momentum}`);
+      if (ag.id === 'orphie') r.push(`BOTTLED HEAT ${Math.floor(ag.bheat)}${ag.bheat >= 100 ? ' · HEAT CHARGE' : ''}`);
+      if (ag.id === 'remielle') { r.push(`RADIANCE ${Math.floor(ag.radiance)}/120`, `VOIDFLARE ${'◆'.repeat(ag.flares) || '—'}`); if (ag.reflect > B.t) r.push('LUMINOUS REFLECTION'); }
+      // squad-wide: Tiger's Roar, Zeroed In, Phase Flow, Hu Wei's Might from the bench
+      if (B.roar > B.t) r.push(`TIGER'S ROAR ${Math.ceil(B.roar - B.t)}s`);
+      if (B.zeroIn > B.t) r.push(`ZEROED IN ${Math.ceil(B.zeroIn - B.t)}s`);
+      for (const o of B.squad) if (o !== ag && o.alive) {
+        if (o.pflow) r.push('PHASE FLOW +10% DMG'); else if (o.ffdReady) r.push('REMIELLE: FLOWER & FEATHER DANCE READY');
+        if (o.id === 'jufufu' && o.might >= 100) r.push('HU WEI: 100 MIGHT');
+      }
       r.push(`DODGE ${ag.dodgeCharges > 0 ? '●'.repeat(ag.dodgeCharges) : '…'}`);
       if (ag.stun > 0) r.unshift(`STUNNED ${ag.stun.toFixed(1)}s${B.allOut ? '' : ' · SWAP!'}`);
       for (const t of r) M.res.append(el('span', null, t));
@@ -183,7 +194,7 @@
       tgt.hpLag += (tgt.hp - tgt.hpLag) * 0.12; if (tgt.hpLag < tgt.hp) tgt.hpLag = tgt.hp;
       en.hp.style.width = pct(tgt.hp, tgt.hpMax); en.lag.style.width = pct(tgt.hpLag, tgt.hpMax);
       en.daze.style.width = pct(tgt.daze, tgt.dazeMax); en.dazeBar.className = 'bar daze' + (tgt.stun > 0 ? ' stun' : '');
-      en.stunx.textContent = tgt.stun > 0 ? `STUNNED · DMG ×${(R.stunMult + (tgt.rank === 'boss' ? 0.25 * tgt.chainsUsed : 0)).toFixed(2)} · ${tgt.chainsLeft} chain${tgt.chainsLeft === 1 ? '' : 's'} left` : '';
+      en.stunx.textContent = tgt.stun > 0 ? `STUNNED · DMG ×${BT.stunMult(tgt).toFixed(2)} · ${tgt.chainsLeft} chain${tgt.chainsLeft === 1 ? '' : 's'} left` : '';
       en.anoms.innerHTML = '';
       for (const type in tgt.bu) {
         const v = tgt.bu[type]; if (v <= 0) continue;
@@ -194,6 +205,8 @@
       const chip = (t, c) => en.chips.append(el('span', { class: 'chip', style: { color: c } }, t));
       if (tgt.anom) { const A = D.ANOMALY[tgt.anom.type]; chip(`${A.name.toUpperCase()} ${Math.ceil(tgt.anom.t)}s`, A.color); }
       if (tgt.scorched) chip('SCORCHED', '#ff8a3a');
+      if (tgt.subj) chip(`SUBJUGATION ×${tgt.subj}`, '#5ec8ff');
+      if (tgt.lumi > 0) chip(`LUMIFLUX ×${tgt.lumi}`, '#ff9ae6');
       if (tgt.flinch > 0) chip('FLINCH', '#f4d35e');
       if (tgt.vuln > B.t) chip('VULNERABLE +25% DMG', '#ff5a5a');
       if (tgt.enhanced) chip('ETHER ENHANCED', '#c8ff3a');

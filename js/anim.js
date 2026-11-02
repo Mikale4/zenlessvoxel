@@ -19,6 +19,14 @@
     martial: { armL: [-1.1, -0.3, 0.35], armR: [-0.55, 0.2, -0.2], torso: [0.1, 0.35, 0], head: [0, -0.3, 0], legL: [-0.4, 0, 0.12], legR: [0.35, 0, -0.12], hipsY: -0.08 },
     brute: { armL: [-0.35, 0, 0.2], armR: [-0.5, 0, -0.2], torso: [0.12, 0, 0], head: [-0.05, 0, 0], legL: [-0.1, 0, 0.08], legR: [0.1, 0, -0.08], hipsY: -0.03 },
     gun: { armL: [-1.2, 0.3, 0.3], armR: [-1.35, 0, -0.05], torso: [0.05, -0.2, 0], head: [0, 0.2, 0], legL: [-0.15, 0, 0.05], legR: [0.2, 0, -0.05], hipsY: -0.02 },
+    // Qingyi: the staff low and forward in her right hand, the left one guarding
+    staff: { armL: [-0.75, -0.3, 0.3], armR: [-0.3, 0.35, -0.15], torso: [0.08, 0.3, 0], head: [0, -0.25, 0], legL: [-0.35, 0, 0.1], legR: [0.25, 0, -0.08], hipsY: -0.05 },
+    // Ju Fufu: a little tiger's crouch, claws up
+    tiger: { armL: [-1.25, -0.25, 0.45], armR: [-1.25, 0.25, -0.45], torso: [0.28, 0, 0], head: [-0.2, 0, 0], legL: [-0.5, 0, 0.18], legR: [0.4, 0, -0.18], hipsY: -0.1 },
+    // Orphie: a soldier's ready stance, the right hand free to point Magus at a target
+    soldier: { armL: [-0.55, 0.35, 0.2], armR: [-0.45, 0, -0.18], torso: [0.06, 0.18, 0], head: [0, -0.15, 0], legL: [-0.22, 0, 0.07], legR: [0.2, 0, -0.07], hipsY: -0.03 },
+    // Remielle: a dancer's poise, the light rapier low and the free hand out
+    dancer: { armL: [-0.25, 0, 0.6], armR: [-0.5, 0.1, -0.35], torso: [-0.03, 0.12, 0.03], head: [0.05, -0.12, 0.06], legL: [0.05, 0, 0.06], legR: [-0.18, 0, -0.04], hipsY: 0 },
     // enemies
     boxer: { armL: [-1.85, -0.35, 0.25], armR: [-1.6, 0.35, -0.25], torso: [0.18, 0.25, 0], head: [0.12, -0.2, 0], legL: [-0.35, 0, 0.1], legR: [0.35, 0, -0.1], hipsY: -0.07 },
     blade: { armL: [-0.3, 0, 0.3], armR: [-0.85, 0.1, -0.25], torso: [0.1, 0.2, 0], head: [0, -0.15, 0], legL: [-0.3, 0, 0.08], legR: [0.25, 0, -0.08], hipsY: -0.05 },
@@ -139,7 +147,7 @@
     if (A.state === 'getup') { const k = clamp(A.t / 0.45, 0, 1); return mix(add(base, { tilt: -1.45, lift: 0.18 }), base, U.easeOut(k)); }
     if (A.state === 'stun') return add(base, { torso: [0.55, 0, Math.sin(t * 2) * 0.12], head: [0.4, 0, Math.sin(t * 3) * 0.25], armL: [0.3, 0, 0.1], armR: [0.3, 0, -0.1], hipsY: -0.1, legL: [-0.3, 0, 0], legR: [0.3, 0, 0] });
     if (A.state === 'dead') return add(base, { tilt: -1.5, lift: 0.18, armL: [-2.8, 0, 0.9], armR: [-2.8, 0, -0.9] });
-    if (A.state === 'guard') return H_ACT[ent.stance === 'martial' ? 'guardPalm' : 'guard'](base);
+    if (A.state === 'guard') return H_ACT[ent.stance === 'martial' || ent.stance === 'tiger' ? 'guardPalm' : 'guard'](base);
     if (A.state === 'win') return add(base, { armR: [-2.9 + Math.sin(t * 4) * 0.1, 0, -0.3], armL: [-0.2, 0, 0.5], head: [-0.2, 0, 0], torso: [-0.1, 0, 0] });
     if (A.state === 'pose') return add(base, ent.posePreset || {});
     return base;

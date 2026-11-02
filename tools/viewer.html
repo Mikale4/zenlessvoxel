@@ -18,12 +18,13 @@
 <script>window.MODELS = window.MODELS || {}; window.ARENAS = window.ARENAS || {};</script>
 <script src="../js/models-base.js"></script>
 <script src="../js/models-agents.js" onerror="void 0"></script>
+<script src="../js/models-agents2.js" onerror="void 0"></script>
 <script src="../js/models-enemies.js" onerror="void 0"></script>
 <script src="../js/models-proxies.js" onerror="void 0"></script>
 <script src="../js/arenas.js" onerror="void 0"></script>
 <script>
 /* Dev viewer (not part of the game).
-   ?model=id[,id2,...]  line models up side by side      &yaw=0.5  &pose=walk|attack|tpose  &zoom=1
+   ?model=id[,id2,...]  line models up side by side      &yaw=0.5  &pose=walk|attack|tpose  &zoom=1  &fy=1.7 (floater height)
    ?arena=id            show a battleground from the battle camera   &cam=wide|close|side
    Sets window.__ready = true once the first frame is drawn (for screenshots). */
 const Q = new URLSearchParams(location.search);
@@ -93,7 +94,7 @@ if (arenaId) {
   for (const id of ids) {
     const D = MODELS[id]; if (!D) continue;
     const R = VX.rig(id, D); const w = (D.width || 14) * D.scale;
-    R.root.position.set(x + w / 2, D.kind === 'float' ? 1.7 : 0, 0); R.root.rotation.y = yaw; scene.add(R.root); // floaters fly
+    R.root.position.set(x + w / 2, D.kind === 'float' ? parseFloat(Q.get('fy') || '1.7') : 0, 0); R.root.rotation.y = yaw; scene.add(R.root); // floaters fly
     rigs.push(R); x += w + 0.6; maxH = Math.max(maxH, R.height);
     const P = R.parts;
     if (pose === 'walk') { if (P.legL) P.legL.rotation.x = -0.6; if (P.legR) P.legR.rotation.x = 0.6; if (P.armL) P.armL.rotation.x = 0.6; if (P.armR) P.armR.rotation.x = -0.6;

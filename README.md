@@ -10,8 +10,10 @@ Or locally: open `index.html` in a browser (no server or install needed).
 
 ## What's in it so far
 
-- **Four Agents**, with kits, skill names and core passives from the official game:
-  **Caesar King** (Defense · Physical), **Burnice White** (Anomaly · Fire), **Aria** (Anomaly · Ether), **Yixuan** (Rupture · Auric Ink, with her ink bird).
+- **Eight Agents**, with kits, skill names and core passives from the official game:
+  **Caesar King** (Defense · Physical), **Burnice White** (Anomaly · Fire), **Aria** (Anomaly · Ether), **Yixuan** (Rupture · Auric Ink, with her ink bird),
+  **Qingyi** (Stun · Electric), **Ju Fufu** (Stun · Fire, with Hu Wei, her tiger cauldron), **Orphie & Magus** (Attack · Fire, with Magus, her
+  mechanical serpent) and **Remielle Dan** (Anomaly · Lumiflux).
 - **Three battlegrounds:** **Blazewood** (the Sons of Calydon's Outer Ring camp, with explosive fuel barrels),
   **Yunkui Summit** (mountain temple, miasma pools), and a **Hollow Concert Stage** (the Angels of Delusion's venue, falling stage lights).
 - **Twelve real enemies**, three encounters per battleground (Patrol, Elite, Notorious boss):
@@ -32,7 +34,9 @@ Home is **Sixth Street at dusk**, in voxels, to walk around in. **Random Play** 
 comes away) has the **Hollow Deep Dive System** in the back room (into battle), the **shop computer** (Battle Lab), the
 **tutorial tapes** (How to Play) and the **notice board** by the door (your records: dives, clears, best rank on every
 battleground). Your sibling is behind the counter, **Eous** waddles after you, and the Agents are out on the street:
-Caesar by her bike, Burnice at Chop's Noodles, Aria at Bardic Needle, Yixuan meditating on a bench under her bird. Talk
+Caesar by her bike, Burnice at Chop's Noodles, Aria at Bardic Needle, Yixuan meditating on a bench under her bird,
+Qingyi on patrol by the notice board, Ju Fufu bouncing on her toes beside Hu Wei, Orphie at the end of the street with
+Magus coiled in the air, and Remielle in the middle of it all, one hand raised to the dusk. Talk
 to one to read her file and take her into the Hollow. Walk with **WASD / arrows** (Shift runs), **E** uses what has a
 sign over it; or click / tap where to go (a sign: go and use it), or drag to steer on a phone. The dock at the bottom
 goes straight to every place. Out front, two **arcade cabinets** run **Proxy Clash**.
@@ -57,7 +61,9 @@ the same.
 
 Their Agents fight with **the same kits as yours**: basic combos and their cancels, Specials, EX Specials and the
 follow-ups the kits chain, each Agent's core move (Burnice's Mixed Flame Blend and her hop back, Aria's Perfect Pitch,
-Caesar's Dead End), dodges, Perfect Dodges and Dodge Counters, Perfect Blocks (Caesar, Yixuan), Ultimates. Their Proxy
+Caesar's Dead End, Qingyi's Enchanted Moonlit Blossoms, Ju Fufu's spin, Orphie's Heat Charge, Remielle's Rainbow's End),
+their companions (a rival Hu Wei jumps on your Agents, a rival Magus fires Corrosive Flash from the bench), dodges,
+Perfect Dodges and Dodge Counters, Perfect Blocks (Caesar, Yixuan), Ultimates. Their Proxy
 rotates the squad, pulls a hurt Agent out, and spends **Assist Points**: a teammate can step in, **parry one of your
 heavy hits** and follow up. You command yours exactly as in the Hollow.
 
@@ -143,11 +149,19 @@ steps it down on its own.
 - **Perfect Assists** cost Assist Points (start with 6; each Chain Attack or Ultimate gives one back).
 - A dodge just before a hit is a **Perfect Dodge** → slow motion → **Dodge Counter**.
 - Each Agent fills her own **Decibels** (part spills to the squad): UPROAR 1,000 · BLASTING 2,000 · MAXIMUM 3,000.
-- **Anomalies**: Physical → Assault (+Flinch), Fire → Burn, Ether → Corruption, Auric Ink → its own Corruption.
-  A second, different anomaly triggers **Disorder**.
+- **Anomalies**: Physical → Assault (+Flinch), Fire → Burn, Ether → Corruption, Auric Ink → its own Corruption,
+  Electric → Shock. A second, different anomaly triggers **Disorder**. Lumiflux (Remielle) takes on the attribute of the
+  next Agent in the squad.
 - Agent cores: Caesar's Perfect Block, guard stance, Retaliation and **Radiant Aegis**; Burnice's **Heat / Nitro-Fuel**,
   **Scorched** and **Afterburn**; Aria's **Fandom Power**, **Perfect Pitch** and **Abloom**, **Moment of Delusion**;
-  Yixuan's **Sheer DMG**, **Adrenaline**, **Technique Points**, **Auric Array** and **Endless Talisman Suppression**.
+  Yixuan's **Sheer DMG**, **Adrenaline**, **Technique Points**, **Auric Array** and **Endless Talisman Suppression**;
+  Qingyi's **Flash Connect Voltage**, **Enchanted Moonlit Blossoms** and **Subjugation** (a Stunned enemy takes more DMG);
+  Ju Fufu's **Hu Wei** (it attacks on its own, on or off the field), **Might** and **Momentum**, **Suppressing Tiger
+  Cauldron** (Hu Wei answers a teammate's Chain Attack) and **Tiger's Roar**, **Aura of Authority**; Orphie's **Magus**,
+  **Bottled Heat**, **Heat Charge**, **Zeroed In** (+ATK for the squad), **Corrosive Flash** from the bench, **Forged in
+  Flames**; Remielle's **Attribute Flux**, **Lumiflux Buildup**, **Refringe** (a teammate's Anomaly on it hits harder and
+  stores a **Voidflare**), **Luminize**, **Floating Radiance**, **Phase Flow** off the field and **Flower & Feather Dance**
+  on her way back, **Invitation to Bloom**.
 
 ## How it's built
 
@@ -156,7 +170,7 @@ Plain JavaScript and three.js (r128, vendored in `lib/`), no build step. Every m
 | File | What it does |
 |---|---|
 | `js/voxel.js` | Voxel grid, mesher (ambient occlusion), rigs |
-| `js/models-*.js` | Agents, companions, enemies, and the Proxies (Wise, Belle) and Eous, matched to official art |
+| `js/models-*.js` | Agents (`models-agents.js`, `models-agents2.js`), companions (the ink bird, Hu Wei, Magus), enemies, and the Proxies (Wise, Belle) and Eous, matched to official art |
 | `js/auth.js` | Proxy accounts: register / sign in (salted SHA-256 in this browser), per-account saves and records |
 | `js/lobby.js` | Sixth Street: the walkable home screen, its places, people and signs |
 | `js/arenas.js` | The three battlegrounds |

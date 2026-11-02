@@ -178,7 +178,7 @@
 
   /* ------------------------------------------------- composed effects --
      Named hit effects, chosen by a skill hit's `fx` and its attribute. */
-  const ATTR_COL = { physical: [0xfff2c0, 0xf4d35e, 0xffffff], fire: [0xffd060, 0xff8a2a, 0xff4a1a], ether: [0xff9af0, 0xe45cff, 0xa040ff], auric: [0xfff0a0, 0xffcf4a, 0x1a1a1a], ice: [0xe0ffff, 0x8fe4ff], electric: [0xd0f0ff, 0x5ec8ff] };
+  const ATTR_COL = { physical: [0xfff2c0, 0xf4d35e, 0xffffff], fire: [0xffd060, 0xff8a2a, 0xff4a1a], ether: [0xff9af0, 0xe45cff, 0xa040ff], auric: [0xfff0a0, 0xffcf4a, 0x1a1a1a], ice: [0xe0ffff, 0x8fe4ff], electric: [0xd0f0ff, 0x5ec8ff], lumiflux: [0xffe0f8, 0xff9ae6, 0xb8a4e8] };
   FX.colors = a => ATTR_COL[a] || ATTR_COL.physical;
   FX.hitSpark = (x, y, z, attr, heavy, crit) => {
     const cols = FX.colors(attr);
@@ -206,6 +206,24 @@
       case 'notes': for (let i = 0; i < 16; i++) { const a = i / 16 * 6.28; FX.p({ x, y: 1.1, z, vx: Math.cos(a) * 5, vz: Math.sin(a) * 5, vy: 0.5, life: 0.45, size: 0.18, col: U.pick([0xff9af0, 0xe45cff, 0x7ff4ff]), drag: 2 }); } break;
       case 'sound': FX.ring(x, z, 0.3, r || 2, 0xe45cff, 0.35, { y: 0.9 }); FX.ring(x, z, 0.3, (r || 2) * 0.7, 0x7ff4ff, 0.3, { y: 1.2 }); FX.glow(x, 1, z, 1.6, 0xe45cff, 0.25); break;
       case 'heart': FX.burst(x, 1.2, z, 34, { col: [0xff9ad0, 0xff5ab0, 0xffffff, 0x7ff4ff], speed: 6, size: 0.16, life: 0.6, g: 2 }); FX.glow(x, 1, z, 2.6, 0xff5ab0, 0.3, { size1: 4.5 }); FX.ring(x, z, 0.4, r || 3, 0xff5ab0, 0.45); break;
+      // Qingyi: a lightning strike from the sky
+      case 'bolt': {
+        const top = new THREE.Vector3(x + rnd(-0.6, 0.6), 7, z + rnd(-0.6, 0.6)); let p = top;
+        for (let i = 1; i <= 6; i++) { const k = i / 6, q = new THREE.Vector3(U.lerp(top.x, x, k) + (i < 6 ? rnd(-0.5, 0.5) : 0), 7 - k * 6.8, U.lerp(top.z, z, k) + (i < 6 ? rnd(-0.5, 0.5) : 0)); FX.beam(p, q, i % 2 ? 0xd0f0ff : 0x5ec8ff, 0.15, 0.22); p = q; }
+        FX.glow(x, 0.6, z, 2.6, 0x5ec8ff, 0.3, { size1: 4 }); FX.ring(x, z, 0.3, r || 2.2, 0x9ad8ff, 0.3);
+        FX.burst(x, 0.4, z, 24, { col: [0xffffff, 0xd0f0ff, 0x5ec8ff], speed: 7, size: 0.08, life: 0.35, g: 2 });
+        break;
+      }
+      // Hu Wei: popcorn everywhere
+      case 'popcorn': FX.burst(x, 0.9, z, 36, { col: [0xfff6d8, 0xffe9a0, 0xffffff, 0xffc040], glow: false, speed: 5, size: 0.13, life: 0.9, g: 9, up: 4 }); FX.burst(x, 0.8, z, 20, { col: [0xffe080, 0xff9a30], speed: 4, size: 0.18, size1: 0.05, life: 0.4, g: -1 }); break;
+      // Remielle: a burst of light, and a prism of rainbow rings
+      case 'lightBurst': FX.burst(x, y, z, 30, { col: [0xffffff, 0xffe0f8, 0xff9ae6, cols[1]], speed: 6, size: 0.12, life: 0.45, g: 1 }); FX.glow(x, y, z, 2.2, 0xff9ae6, 0.25, { size1: 3.6 }); FX.ring(x, z, 0.3, r || 2, 0xffe0f8, 0.35); break;
+      case 'prism': {
+        const R0 = r || 3;
+        [0xff7aa8, 0xffd04a, 0x8affc8, 0x7ac8ff, 0xc89aff].forEach((c, i) => FX.ring(x, z, 0.3, R0 * (0.55 + i * 0.12), c, 0.55, { y: 0.06 + i * 0.012, a: 0.65 }));
+        FX.glow(x, 1, z, R0, 0xffe0f8, 0.3, { size1: R0 * 1.6 }); FX.burst(x, 0.6, z, 40, { col: [0xffffff, 0xff9ae6, 0xb8a4e8, cols[1]], speed: 6, size: 0.12, life: 0.6, g: 2, up: 1 });
+        break;
+      }
       default: if (FX.extra[name]) FX.extra[name](o); break;
     }
   };

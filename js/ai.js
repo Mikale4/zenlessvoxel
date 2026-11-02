@@ -198,6 +198,17 @@
         if ((a.cds.charged || 0) <= B.t && (near >= 2 || a.cheer > 0 || (tgt.anom && Math.random() < 0.45))) return { def: K.charged, kind: 'charged' };
       }
       if (id === 'caesar' && B.assist >= 4 && (a.cds.deadEnd || 0) <= B.t && BT.enemiesIn('circle', a.x, a.z, 3.6, 0).length >= 2 && Math.random() < 0.25) return { def: K.deadEnd, kind: 'core' };
+      // Qingyi: Flash Connect turns her next Basic Attack into Enchanted Moonlit Blossoms
+      if (id === 'qingyi' && a.voltage >= 75) return { def: K.moonlit, kind: 'core' };
+      // Ju Fufu: spend Momentum on the spin
+      if (id === 'jufufu' && a.momentum >= 3 && (a.cds.spin || 0) <= B.t && Math.random() < 0.5) return { def: K.spin, kind: 'core' };
+      // Orphie: with 100 Bottled Heat, hold Special for Heat Charge (best on a Stunned target)
+      if (id === 'orphie' && a.bheat >= 100 && (a.cds.heat || 0) <= B.t && (tgt.stun > 0 || Math.random() < 0.3)) return { def: K.heatCharge, kind: 'ex2' };
+      if (id === 'remielle') {
+        // no one to swap to (All-Out, or the last one standing): with full Radiance she dances where she stands
+        if (a.radiance >= 120 && (B.allOut || B.squad.filter(s => s.alive).length < 2)) return { def: K.ffd, kind: 'core' };
+        if ((a.cds.rainbow || 0) <= B.t && (a.flares > 0 || a.reflect > B.t || Math.random() < 0.12)) return { def: a.reflect > B.t ? K.fleeting : K.rainbow, kind: 'charged' };
+      }
       if (exOk && (a.energy >= a.def.energyMax * 0.85 || tgt.stun > 0 || Math.random() < 0.1)) return pickEx(a);
       if ((a.cds.special || 0) <= B.t && Math.random() < 0.3) return { def: K.special, kind: 'special' };
     }
@@ -224,6 +235,9 @@
     if (kind === 'special') a.cds.special = B.t + (def.cd || 3.5);
     if (kind === 'hold') a.cds.hold = B.t + 4;
     if (kind === 'charged') a.cds.charged = B.t + 2.5;
+    if (def === K.spin) a.cds.spin = B.t + 3;
+    if (def === K.heatCharge) a.cds.heat = B.t + 8;
+    if (def === K.rainbow || def === K.fleeting) a.cds.rainbow = B.t + 4;
     if (!['basic', 'dash', 'hold', 'core'].includes(kind) || def === K.hold) {
       if (['ex', 'ex2', 'followup', 'chain', 'quick', 'counter', 'auric', 'eruption', 'special'].includes(kind) || def === K.hold) BT.log(`${a.def.short}: ${def.name}`, kind === 'ex' || kind === 'ex2' ? 'ex' : 'skill');
       if (kind === 'ex' || kind === 'ex2') BT.callout(def.name.replace(/^EX Special Attack: /, ''), 'skill', a.def.short + ' · EX');
@@ -514,6 +528,9 @@
       if (a.id === 'aria' && v.anom) s += 0.8;
       if (a.id === 'caesar' && !(B.aegis && B.aegis.hp > 0)) s += 0.7;
       if (a.id === 'yixuan') s += 0.4;
+      if (a.id === 'qingyi' && !v.subj) s += 0.5;
+      if (a.id === 'remielle' && a.flares > 0) s += 0.6;
+      if (a.id === 'orphie') s += 0.3;
       if (s > bv) { bv = s; best = i; }
     });
     return best;
@@ -553,11 +570,15 @@
         if (o && tgt.stun > 0 && !BT.assistThreat()) { BT.cmdUlt(o); return; }
       }
     }
+    // Remielle: swap her out once her Radiance is full (Phase Flow), and back in for Flower & Feather Dance on a Stun
+    if (ag.id === 'remielle' && ag.radiance >= 120 && C.rot > B.t + 1.5) C.rot = B.t + rnd(0.6, 1.5);
+    { const rem = B.squad.find(s => s.alive && s !== ag && s.ffdReady), tgt = BT.pickTarget(ag);
+      if (rem && tgt && tgt.stun > 1.2 && B.swapCd <= 0 && !BT.assistThreat() && !(ag.act && ['ult', 'ult2', 'chain', 'assist'].includes(ag.act.kind))) { BT.cmdSwap(rem); return; } }
     // rotate so everyone gets the field
     if (B.t >= C.rot && !BT.assistThreat() && B.swapCd <= 0 && !(ag.act && ['ult', 'ult2', 'chain', 'ex', 'ex2', 'assist', 'followup'].includes(ag.act.kind))) {
       C.rot = B.t + rnd(9, 15);
-      const o = B.squad.filter(s => s.alive && s !== ag).sort((x, y) => y.energy - x.energy)[0];
-      if (o && (o.energy > ag.energy + 15 || Math.random() < 0.4)) BT.cmdSwap(o);
+      const o = B.squad.filter(s => s.alive && s !== ag && !s.pflow).sort((x, y) => y.energy - x.energy)[0];
+      if (o && (o.energy > ag.energy + 15 || Math.random() < 0.4 || (ag.id === 'remielle' && ag.radiance >= 120))) BT.cmdSwap(o);
     }
   };
   /* AUTO in an All-Out clash: assists for whoever is about to be hit, Quick Assists, Ultimates */

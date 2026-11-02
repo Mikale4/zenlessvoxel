@@ -98,7 +98,7 @@
   /* ----------------------------------------------------------- preview --
      Behind the menus: the chosen battleground with the squad lined up. */
   let preview = null;
-  function clearPreview() { if (!preview) return; for (const e of preview.ents) e.rig.dispose(); if (preview.ring) { preview.ring.geometry.dispose(); preview.ring.material.dispose(); } preview = null; }
+  function clearPreview() { if (!preview) return; for (const e of preview.ents) e.rig.dispose(); for (const c of preview.comps) { if (c.R.root.parent) c.R.root.parent.remove(c.R.root); c.R.dispose(); } if (preview.ring) { preview.ring.geometry.dispose(); preview.ring.material.dispose(); } preview = null; }
   const GAME = {
     mode: 'menu',
     /* the squad lined up on its battleground (a Proxy Clash: yours on the left, the rival's on the right, facing off) */
@@ -118,7 +118,7 @@
         ? squad.map((id, i) => mk(id, models[i], -1.0 - i * 1.2, 1.7 + i * 0.55, 0.7)).concat(rival.map((id, i) => mk(id, rmodels[i], 1.0 + i * 1.2, 1.7 + i * 0.55, -0.7)))
         : squad.map((id, i) => { const x = (i - (squad.length - 1) / 2) * 1.8; return mk(id, models[i], x, 2 + Math.abs(i - (squad.length - 1) / 2) * -0.6, -x * 0.08); });
       const comps = [];
-      ents.forEach(e => { if (e.id === 'yixuan') { const R = VX.rig('inkbird', MODELS.inkbird); scene.add(R.root); comps.push({ R, base: e.obj.position.clone() }); } });
+      ents.forEach(e => { const m = BT.COMPANION[e.id]; if (m && MODELS[m]) { const R = VX.rig(m, MODELS[m]); scene.add(R.root); R.root.rotation.y = e.obj.rotation.y; comps.push({ R, m, base: e.obj.position.clone() }); } });
       let ring = null;
       if (rival) {   // the rival side stands on a red ring
         ring = new THREE.Mesh(new THREE.RingGeometry(2.2, 2.35, 48, 1, 0, Math.PI * 2), new THREE.MeshBasicMaterial({ color: 0xff3a4a, transparent: true, opacity: 0.7, depthWrite: false, side: THREE.DoubleSide, toneMapped: false }));
@@ -268,7 +268,12 @@
     else if (preview) {
       preview.t += dt; const t = preview.t;
       for (const e of preview.ents) { e.anim.t += dt; ANIM.apply(e, dt, t); }
-      preview.comps.forEach((c, i) => { c.R.root.position.set(c.base.x + 0.9 + Math.sin(t * 0.8) * 0.4, 2.4 + Math.sin(t * 2) * 0.15, c.base.z - 0.3); const f = Math.sin(t * 8) * 0.55; c.R.parts.armL.rotation.z = 0.15 + f; c.R.parts.armR.rotation.z = -0.15 - f; });
+      preview.comps.forEach((c, i) => {
+        const P = c.R.parts;
+        if (c.m === 'huwei') { c.R.root.position.set(c.base.x + 0.75, 0.15 + Math.abs(Math.sin(t * 3.2)) * 0.2, c.base.z + 0.45); if (P.head) P.head.rotation.x = -Math.abs(Math.sin(t * 3.2)) * 0.25; return; }
+        if (c.m === 'magus') { c.R.root.position.set(c.base.x + 0.85, 1.9 + Math.sin(t * 1.8) * 0.12, c.base.z - 0.35); if (P.tail) P.tail.rotation.y = Math.sin(t * 2) * 0.35; if (P.armL) P.armL.rotation.z = 0.2 + Math.sin(t * 3) * 0.3; if (P.armR) P.armR.rotation.z = -0.2 - Math.sin(t * 3) * 0.3; return; }
+        c.R.root.position.set(c.base.x + 0.9 + Math.sin(t * 0.8) * 0.4, 2.4 + Math.sin(t * 2) * 0.15, c.base.z - 0.3); const f = Math.sin(t * 8) * 0.55; P.armL.rotation.z = 0.15 + f; P.armR.rotation.z = -0.15 - f;
+      });
       if (preview.built.anim) preview.built.anim(t, dt);
       const a = Math.sin(t * 0.12) * 0.35;
       camera.position.set(Math.sin(a) * 9.5, 3.4, 2 + Math.cos(a) * 9.5); camera.lookAt(0, 1.2, 1.2);

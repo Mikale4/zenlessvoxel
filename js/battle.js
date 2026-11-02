@@ -29,6 +29,7 @@
     let atk = a.st.atk;
     if (BT.B.aegis && BT.B.aegis.atkUntil > BT.B.t && a === active()) atk += 600;  // Radiant Aegis: the bearer's ATK
     if (BT.B.veil > BT.B.t) atk += 290;                                          // Ether Veil: Delusion Reprise
+    if (BT.B.zeroIn > BT.B.t) atk += 255;                                        // Orphie & Magus: Zeroed In
     return atk;
   };
   const active = () => BT.B && BT.B.squad[BT.B.active];
@@ -70,6 +71,7 @@
       slot, st: Object.assign({}, def.stats), hpMax: def.stats.hp, hp: def.stats.hp, baseHp: def.stats.hp, energy: def.resource === 'adrenaline' ? def.energyMax : 45, decibels: 600,
       dodgeCharges: R.dodgeCharges, dodgeCd: 0, combo: 0, lastBasic: -9, queue: [], gap: 0, counterUntil: 0, launchedUntil: 0,
       heat: 100, nitro: true, tp: 0, auric: 0, meditation: 0, delusion: 0, cheer: 0, noIce: false, ppBuff: 0, impactUp: 0, adrBoost: 0, auricAnomCd: 0, exCall: false,
+      voltage: 0, might: 0, momentum: 0, bheat: 100, radiance: 0, flares: 0, pflow: false, ffdReady: false, refr: 0, reflect: 0, huweiT: 2.5, corrT: 2, phaseT: 0,
     });
     if (def.id === 'aria') a.st.ap += 45;                              // Innate Stage Presence
     if (def.sheer) a.st.sheer = 0.3 * a.st.atk + 0.1 * a.hpMax;       // Grandmaster of Mysticism
@@ -98,6 +100,26 @@
   }
   // for clash.js: the rival Proxy's Agents are built from the same parts
   BT.makeEnt = makeEnt; BT.makeCompanion = makeCompanion; BT.disposeEnt = disposeEnt;
+  // the companions that come with an Agent: Yixuan's ink bird, Ju Fufu's Hu Wei, Orphie's Magus
+  const COMPANION = BT.COMPANION = { yixuan: 'inkbird', jufufu: 'huwei', orphie: 'magus' };
+  /* passives that depend on who else is in the squad */
+  function squadSetup(B) {
+    const S = B.squad;
+    S.forEach((a, i) => {
+      // Remielle's Attribute Flux: her light takes on the attribute of the next Agent in the squad
+      if (a.id === 'remielle') { const nx = S[(i + 1) % S.length]; a.flux = nx && nx !== a && nx.def.attr !== 'lumiflux' ? nx.def.attr : 'physical'; }
+      // Qingyi's Three Verses: with an Attack Agent or a teammate from her faction, more Daze, and ATK from Impact over 120
+      if (a.id === 'qingyi' && S.some(s => s !== a && (s.def.spec === 'Attack' || s.def.faction === a.def.faction))) { a.qyBoost = true; a.st.atk += Math.min(600, Math.max(0, a.st.impact - 120) * 6); }
+      // Orphie's Forged in Flames: with a Stun or Support Agent, Aftershocks under Zeroed In ignore 25% DEF
+      if (a.id === 'orphie' && S.some(s => s !== a && (s.def.spec === 'Stun' || s.def.spec === 'Support'))) a.orFIF = true;
+    });
+    // Remielle's Invitation to Bloom: the squad's ATK rises with each other Anomaly Agent
+    const rem = S.find(s => s.id === 'remielle');
+    if (rem) {
+      const n = S.filter(s => s !== rem && s.def.spec === 'Anomaly').length, k = [0, 0.06, 0.12, 0.4][n] || 0;
+      if (k) { const add = Math.round(rem.st.atk * k); for (const s of S) s.st.atk += add; B.bloomLog = `Invitation to Bloom: the squad gains +${add} ATK.`; }
+    }
+  }
 
   /* ------------------------------------------------------------- start -- */
   BT.init = (world, tuning) => { BT.world = world; BT.T = tuning; };
@@ -115,9 +137,11 @@
       eh: { swing: 0, out: 0, assist: 0, perfect: 0, dodged: 0, inv: 0, block: 0, hit: 0 },
       stats: { dmg: 0, perfect: 0, assists: 0, chains: 0, stuns: 0, anomalies: 0, disorders: 0, ults: 0, taken: 0, maxHit: 0 },
     };
-    B.companions = B.squad.filter(a => a.id === 'yixuan').map(a => makeCompanion(a, 'inkbird'));
+    B.companions = [];
+    for (const s of B.squad) if (COMPANION[s.id]) B.companions.push(makeCompanion(s, COMPANION[s.id]));
+    squadSetup(B);
     const a = active(); a.obj.visible = true; a.x = 0; a.z = 4.5; a.face = Math.PI;
-    for (const c of B.companions) if (c.owner === a) showCompanion(c, true);
+    for (const c of B.companions) if (c.owner === a || c.id === 'huwei') showCompanion(c, true);
     if (clash) {
       // Agent against Agent: both squads get the same deeper HP pool, so a fight lasts
       const hpK = (T.clashHp || 1) * CLASH.modeOf(opts.clash, B.squad.length).hp;
@@ -127,6 +151,8 @@
       CLASH.start(B);
     } else spawnWave(0);
     log(`${B.arena.name}: ${enc.name}`, 'sys');
+    if (B.bloomLog) log(B.bloomLog, 'skill');
+    const rem = B.squad.find(s => s.id === 'remielle'); if (rem) log(`Remielle's Lumiflux takes on ${D.ATTR[rem.flux].name} (Attribute Flux).`, 'skill');
     if (BT.hooks.start) BT.hooks.start(B);
     return B;
   };
@@ -215,21 +241,28 @@
   /* ----------------------------------------------------------- damage -- */
   const defMult = def => 794 / (794 + def);
   function resMult(v, attr) { const d = v.def; if (!d || !d.weak) return 1; const a = attr === 'auric' ? 'ether' : attr; return d.weak.includes(a) || d.weak.includes(attr) ? 1.2 : d.resist.includes(a) || d.resist.includes(attr) ? 0.8 : 1; }
-  function stunMult(v) { if (v.stun <= 0) return 1; return R.stunMult + (v.rank === 'boss' ? 0.25 * v.chainsUsed : 0); }
+  function stunMult(v) { if (!(v.stun > 0)) return 1; return R.stunMult + (v.rank === 'boss' ? 0.25 * v.chainsUsed : 0) + 0.04 * (v.subj || 0); }   // (+ Qingyi's Subjugation)
+  BT.stunMult = stunMult;
   BT.resMult = resMult;
   /* a direct hit from an Agent */
   function agentDamage(a, v, h, attr, A) {
     const T = BT.T, B = BT.B;
     const sheer = !!a.def.sheer, base = sheer ? (0.3 * atkOf(a) + 0.1 * (a.baseHp || a.hpMax)) : atkOf(a);
     let dmg = base * h.mult / 100;
-    let cr = a.st.cr, cd = a.st.cd + (a.meditation > B.t ? 0.4 : 0);
+    let cr = a.st.cr, cd = a.st.cd + (a.meditation > B.t ? 0.4 : 0) + (B.roar > B.t ? B.roarCd : 0);
     const crit = Math.random() < cr; if (crit) dmg *= 1 + cd;
     let bonus = 1;
     if (h.stunBonus && v.stun > 0) bonus += h.stunBonus;
     if (A && A.def.delusionBoost) bonus += 0.5;
     if (a.id === 'yixuan' && A && ['auric', 'eruption', 'ex', 'ex2', 'exAlt', 'followup', 'chain', 'ult', 'ult2'].includes(A.kind)) bonus += 0.4; // core: skill DMG +
     if (v.vuln > B.t) bonus += 0.25;                                         // Battle Spirit
-    dmg *= bonus * (sheer ? 1 : defMult(v.def_)) * resMult(v, attr) * stunMult(v) * T.agentDmg;
+    if (A && A.data && A.data.vOver) bonus += A.data.vOver * 0.01;          // Qingyi: Voltage over 75%
+    if (A && A.data && A.data.mom) bonus += 0.05 * A.data.mom;               // Ju Fufu: Momentum spent on the spin
+    if (A && A.def.aftershock && a.id === 'orphie') bonus += 0.25;           // Orphie: Aftershock DMG
+    if (A && B.roar > B.t) bonus += A.kind === 'chain' ? 0.117 : (A.kind === 'ult' || A.kind === 'ult2') ? 0.233 : 0;   // Tiger's Roar
+    if (B.squad.some(s => s.pflow)) bonus += 0.1;                            // Remielle's Phase Flow
+    const defK = A && A.def.aftershock && a.orFIF && B.zeroIn > B.t ? 0.75 : 1;   // Forged in Flames
+    dmg *= bonus * (sheer ? 1 : defMult(v.def_ * defK)) * resMult(v, attr) * stunMult(v) * T.agentDmg;
     return { dmg: Math.max(1, Math.round(dmg)), crit };
   }
   /* anomaly-type damage (ticks, bursts, Disorder, Afterburn, Abloom): scales with AP */
@@ -315,6 +348,9 @@
     ag.x = v.x + Math.sin(ang(v, ag) || 0) * (v.rad + 1.2); ag.z = v.z + Math.cos(ang(v, ag) || 0) * (v.rad + 1.2); ag.face = ang(ag, v);
     const A = startAct(ag, ag.def.kit.chain, { tgt: v, kind: 'chain' }); B.chainLast = A;
     onSkillStart(ag, ag.def.kit.chain, A);
+    // Ju Fufu: with 100 Might, Hu Wei answers a teammate's Chain Attack with Suppressing Tiger Cauldron
+    const fu = B.squad.find(s => s.id === 'jufufu' && s.alive);
+    if (fu && fu !== ag && fu.might >= 100 && !(B.suppressCd > B.t)) { fu.might -= 100; B.suppressCd = B.t + 8; suppress(fu, v); }
     gainAssist(R.assistGain); B.stats.chains++; gainDecibels(ag, 300);
     log(`${ag.def.short}: ${ag.def.kit.chain.name}`, 'chain'); callout(ag.def.kit.chain.name.replace('Chain Attack: ', ''), 'skill', ag.def.short);
     shot({ x: v.x, z: v.z, zoom: 0.72, dur: 0.9, pri: 3, yaw: rnd(-0.4, 0.4) });
@@ -349,6 +385,42 @@
     if (type === 'assault') { v.flinch = A.flinch; interrupt(v, 0.8, true); }
     else if (resMult(v, A.attr) > 1 || v.poise < 2) interrupt(v, 0.5, true);
     if (type === 'auric' && a.id === 'yixuan' && a.auricAnomCd <= B.t) { a.auricAnomCd = B.t + 10; gainEnergy(a, 10, true); }
+    // Remielle: a teammate's Anomaly on an enemy carrying Lumiflux Buildup Refringes
+    const rem = B.squad.find(s => s.id === 'remielle' && s.alive);
+    if (rem && a !== rem && v.lumi > 0 && v.alive) refringe(rem, v, A);
+  }
+  function refringe(rem, v, An) {
+    const B = BT.B, k = v.lumi; v.lumi = 0;
+    const dmg = anomalyDamage(rem, v, 100 * k, An.attr);
+    callout('REFRINGE', 'abloom', v.def.name); log(`Refringe on ${v.def.name} (Lumiflux ×${k}): ${U.fmt(dmg)}. Remielle stores a Voidflare.`, 'anomaly');
+    hurtEnemy(v, dmg, { attr: An.attr, src: rem, big: true, cls: 'abloom', color: '#ff9ae6' });
+    FX.named('prism', { x: v.x, z: v.z, r: 2.4, attr: An.attr }); gainDecibels(rem, 80);
+    rem.flares = Math.min(3, rem.flares + 1); rem.refr++;
+    if (rem.pflow && rem.refr >= 3) endPhaseFlow(rem, 'three Refringes');
+  }
+  function luminize(a, v, k) {
+    if (!(a.flares > 0) || !v.alive) return;
+    const attr = a.flux || 'physical', n = a.flares, dmg = anomalyDamage(a, v, 55 * k * n, attr);
+    a.flares = 0;
+    callout('LUMINIZE', 'abloom', `${n} Voidflare${n > 1 ? 's' : ''}`); log(`Remielle: Luminize on ${v.def.name} (${n} Voidflare${n > 1 ? 's' : ''}): ${U.fmt(dmg)}`, 'anomaly');
+    hurtEnemy(v, dmg, { attr, src: a, big: true, cls: 'abloom', color: '#ff9ae6' });
+    FX.named('prism', { x: v.x, z: v.z, r: 2.6, attr }); gainDecibels(a, 80);
+  }
+  function gainVoltage(a, n) {
+    const was = a.voltage; a.voltage = Math.min(100, a.voltage + n);
+    if (was < 75 && a.voltage >= 75) log('Qingyi: Flash Connect! Her next Basic Attack is Enchanted Moonlit Blossoms.', 'skill');
+  }
+  /* Remielle off the field: Phase Flow */
+  function startPhaseFlow(r) { r.pflow = true; r.phaseT = 0.6; r.refr = 0; log('Remielle enters Phase Flow: her light keeps falling on the target, and the squad deals +10% DMG.', 'skill'); callout('PHASE FLOW', 'skill', 'Remielle · off the field'); }
+  function endPhaseFlow(r, why) { if (!r.pflow) return; r.pflow = false; r.ffdReady = true; log(`Remielle's Phase Flow ends (${why}): her next swap-in is Flower & Feather Dance.`, 'skill'); }
+  function phaseFlow(r, dt) {
+    const B = BT.B, K = r.def.kit.phase, on = active();
+    r.phaseT -= dt; if (r.phaseT > 0) return;
+    r.phaseT = K.every;
+    const v = on && on.alive ? BT.pickTarget(on) : null; if (!v) return;
+    if (window.CHOREO) CHOREO.events.lightFall(r, { dir: 0 }, { r: 1.8 }, v);
+    applyHit(r, v, { mult: K.mult, daze: K.daze, bu: K.bu, lumi: 1, shape: 'circle', r: 1.6 }, { kind: 'phase', def: { name: K.name, hits: [] }, data: {}, dir: 0, t: 0 }, r.flux || 'physical');
+    r.radiance -= K.drain; if (r.radiance <= 0) { r.radiance = 0; endPhaseFlow(r, 'Floating Radiance spent'); }
   }
   function disorder(a, v, old) {
     const B = BT.B, A = D.ANOMALY[old.type];
@@ -395,7 +467,7 @@
   BT.agentHit = (a, h, A) => {
     const B = BT.B, T = BT.T;
     const tgt = A.tgt && A.tgt.alive ? A.tgt : BT.pickTarget(a);
-    const attr = h.attr || a.def.attr, cols = FX.colors(attr), dir = A.dir;
+    const attr = h.attr || a.flux || a.def.attr, cols = FX.colors(attr), dir = A.dir;   // (Remielle: the attribute her Lumiflux took on)
     const shape = h.shape || 'arc', reach = (A.def.reach || 1.6);
     if (shape === 'proj') { spawnProj(a, h, A, tgt, attr); SFX.play(attr === 'fire' ? 'fire' : 'ether'); return; }
     let cx = a.x, cz = a.z, r = h.r || reach + 0.7;
@@ -423,13 +495,17 @@
     const p = new THREE.Vector3(); sockWorld(v, 'chest', p);
     FX.hitSpark(p.x, p.y, p.z, attr, h.heavy, res.crit);
     if (!v.alive) { gainDecibels(a, 40); return; }
-    addDaze(a, v, a.st.impact * (h.daze || 0) / 100 * guard);
+    let dzK = 1;
+    if (a.qyBoost && (A.kind === 'basic' || A.kind === 'core')) dzK *= 1.2;   // Qingyi: Three Verses
+    if (A.data && A.data.vOver) dzK *= 1 + A.data.vOver * 0.01;
+    addDaze(a, v, a.st.impact * (h.daze || 0) / 100 * guard * dzK);
     let buMul = 1;
     if (a.id === 'burnice' && ['hold', 'ex', 'ex2'].includes(A.kind) && squadHas(s => s.id !== 'burnice' && (s.def.spec === 'Anomaly' || s.def.faction === 'Sons of Calydon'))) buMul *= 1.65; // Fire Kindling
     if (a.id === 'aria' && A.kind === 'charged') buMul *= 1 + 0.1 * (A.data.ppBuff || 0);
     if (a.delusion > B.t && attr === 'ether') buMul *= 1.3;
     addBuildup(a, v, attr, h.bu || 0, buMul);
     anomalyOnHit(v);
+    if (v.alive) kitOnHit(a, v, h, A, attr);
     // energy and decibels by skill type
     const en = { basic: 1.0, dash: 1.2, special: 2, counter: 5, quick: 4, followup: 5, hold: 0.8, charged: 2, core: 1.5 }[A.kind] || 0;
     if (a.def.resource !== 'adrenaline') gainEnergy(a, en); else if (A.kind === 'counter') gainEnergy(a, 3, true);
@@ -456,6 +532,30 @@
     if (h.heavy) maybeChain(a, v, A);
   }
   BT.applyHit = applyHit;
+  /* the new Agents' kit mechanics on a landed hit */
+  function kitOnHit(a, v, h, A, attr) {
+    const B = BT.B, kit = a.def.kit;
+    // Qingyi: Flash Connect Voltage; the finish of Enchanted Moonlit Blossoms leaves Subjugation
+    if (a.id === 'qingyi') {
+      if (h.rush && A.data.rushHit !== h) { A.data.rushHit = h; A.data.rushN = (A.data.rushN || 0) + 1; }
+      if (h.finisher && !A.data.subjDone) {
+        A.data.subjDone = true;
+        v.subj = Math.min(20, (v.subj || 0) + (5 + (A.data.rushN || 0)) * (v.rank === 'boss' || v.rival ? 1 : 2));
+        log(`${v.def.name}: Subjugation ×${v.subj} (Stun DMG ×${(R.stunMult + 0.04 * v.subj).toFixed(2)} while Stunned).`, 'skill');
+      } else if (A.def !== kit.moonlit && attr === 'electric') gainVoltage(a, (h.daze || 0) * 0.1);
+    }
+    // Remielle: Lumiflux Buildup; Luminize from her stored Voidflares; Flower & Feather Dance stretches a Stun
+    if (a.id === 'remielle') {
+      if (h.lumi) { v.lumi = Math.min(3, (v.lumi || 0) + h.lumi); v.lumiT = B.t + 20; }
+      if (A.def.luminize && h.heavy && !A.data.lumDone) { A.data.lumDone = true; luminize(a, v, A.def.luminize); if (!v.alive) return; }
+      if (A.def.stunExtend && v.stun > 0 && !A.data.extDone) { A.data.extDone = true; v.stun += A.def.stunExtend; log(`${v.def.name}'s Stun lasts ${A.def.stunExtend} s longer.`, 'skill'); }
+    }
+    // Orphie & Magus: the fire blade restores Bottled Heat; the Heat Charge laser puts the squad in Zeroed In
+    if (a.id === 'orphie') {
+      if (A.kind === 'basic' && h.heavy && !A.data.bhDone) { A.data.bhDone = true; a.bheat = Math.min(125, a.bheat + 10); }
+      if (A.def.zeroIn && !A.data.ziDone) { A.data.ziDone = true; if (!(B.zeroIn > B.t)) log('Orphie & Magus: Zeroed In! The squad gains +255 ATK (12 s).', 'skill'); B.zeroIn = B.t + 12; }
+    }
+  }
   function react(v, h, a) {
     const B = BT.B;
     const kb = (h.kb || 0.15) * (v.rank === 'minion' ? 1 : v.rank === 'elite' ? 0.35 : 0);
@@ -524,7 +624,7 @@
           p.x = tx; p.z = tz; FX.kill(p.fx);
           const r = p.h.r || 0;
           const victims = r > 0 ? enemiesIn('circle', p.x, p.z, r, 0) : (p.tgt && p.tgt.alive ? [p.tgt] : []);
-          if (p.h.fx === 'fireball') FX.named('explode', { x: p.x, z: p.z, r: r || 1.2, attr: 'fire' }); else FX.named('sound', { x: p.x, z: p.z, r: r || 1.2 });
+          if (p.h.fx === 'fireball') FX.named('explode', { x: p.x, z: p.z, r: r || 1.2, attr: 'fire' }); else if (p.h.fx === 'lightLance') FX.named('lightBurst', { x: p.x, z: p.z, y: 1, r: r || 1.2, attr: p.attr }); else FX.named('sound', { x: p.x, z: p.z, r: r || 1.2 });
           for (const v of victims) applyHit(p.src, v, p.h, p.A, p.attr);
           barrelCheck(p.x, p.z, r || 0.8, p.attr, p.h.heavy, p.src);
           B.projs.splice(i, 1); continue;
@@ -575,8 +675,31 @@
     }
     if (A.kind === 'ult' || A.kind === 'ult2') {
       for (const s of B.squad) if (s !== a && s.id === 'yixuan' && squadHas(x => ['Stun', 'Support', 'Defense'].includes(x.def.spec))) s.adrBoost = B.t + 10; // Auric Ink Undercurrent
+      // Ju Fufu's Aura of Authority: an Attack or Rupture Agent's Ultimate gives her 300 Decibels
+      if (['Attack', 'Rupture'].includes(a.def.spec)) for (const s of B.squad) if (s !== a && s.id === 'jufufu' && s.alive) s.decibels = Math.min(R.decibelMax, s.decibels + 300);
     }
     if (def.noIce) a.noIce = true;
+    if (a.id === 'qingyi') {
+      if (def === a.def.kit.moonlit) { A.data.vOver = Math.max(0, a.voltage - 75); a.voltage = 0; log(`Qingyi: ${def.name}${A.data.vOver > 0 ? ` (+${Math.round(A.data.vOver)}% from Voltage)` : ''}`, 'skill'); callout('MOONLIT BLOSSOMS', 'skill', 'Qingyi · Flash Connect'); }
+      if (def.voltage) gainVoltage(a, def.voltage);
+    }
+    if (a.id === 'jufufu') {
+      if (def.might) a.might = Math.min(200, a.might + def.might);
+      if (def.momentum) a.momentum = Math.min(15, a.momentum + def.momentum);
+      if (def.spin) { A.data.mom = Math.min(6, a.momentum); a.momentum -= A.data.mom; a.might = Math.min(200, a.might + 10 * A.data.mom); log(`Ju Fufu: ${def.name} (${A.data.mom} Momentum)`, 'skill'); }
+    }
+    if (a.id === 'orphie') {
+      if (def.bheat) a.bheat = Math.min(125, a.bheat + def.bheat);
+      if (def.bheatCost) a.bheat = Math.max(0, a.bheat - def.bheatCost);
+    }
+    if (a.id === 'remielle') {
+      const K = a.def.kit;
+      if (def.radiance) a.radiance = Math.min(120, a.radiance + def.radiance);
+      if (def === K.rainbow || def === K.fleeting) log(`Remielle: ${def.name}${a.flares ? ` (${a.flares} Voidflare${a.flares > 1 ? 's' : ''})` : ''}`, 'skill');
+      if (def === K.fleeting) a.reflect = 0;
+      if (def.reflection) a.reflect = B.t + 12;
+      if (def === K.ffd) { a.ffdReady = false; a.refr = 0; a.energy = Math.max(a.energy, 60); if (B.allOut || alive(B.squad).length < 2) a.radiance = 0; log(`Remielle: ${def.name}!`, 'skill'); callout('FLOWER & FEATHER DANCE', 'skill', 'Remielle'); }
+    }
   }
   BT.onSkillStart = onSkillStart;
   function absorbFandom(a, A) {
@@ -607,7 +730,19 @@
   BT.battleSpirit = battleSpirit;
 
   /* -------------------------------------------------- swapping, assists -- */
-  function showCompanion(c, on) { c.obj.visible = on; if (on) { c.x = c.owner.x + 1; c.z = c.owner.z; c.y = 2.4; } }
+  function showCompanion(c, on) {
+    if (c.id === 'huwei') on = c.owner.alive;              // Hu Wei stays on the field whoever is fighting
+    if (c.id === 'magus' && !on && c.burst) return;         // (Magus finishes a Corrosive Flash)
+    if (on && !c.obj.visible) { const o = anchorOf(c.owner); c.x = o.x + 1; c.z = o.z; c.y = c.id === 'huwei' ? 1.1 : 2.4; }
+    c.obj.visible = on;
+  }
+  /* where a companion fights: by its Agent on the field, else by whoever is fighting for her side */
+  function anchorOf(o) {
+    const B = BT.B;
+    if (o.rival) { if (!o.benched) return o; const RV = B.rival; return (RV && (RV.allOut ? RV.squad.find(r => r.alive && !r.benched) : RV.squad[RV.active])) || o; }
+    if (B.allOut || o === active()) return o;
+    return active() || o;
+  }
   function swapIn(ag, why, tgt) {
     const B = BT.B, out = active(), idx = B.squad.indexOf(ag);
     if (out === ag) return;
@@ -617,8 +752,14 @@
       FX.burst(out.x, 1, out.z, 14, { col: [0xffffff, D.ATTR[out.def.attr].hex], speed: 3, size: 0.1, life: 0.35, g: -2 });
       for (const c of B.companions) if (c.owner === out) showCompanion(c, false);
       ag.x = out.x; ag.z = out.z; ag.face = out.face;
+      if (out.id === 'remielle' && out.alive && out.radiance >= 120 && !out.pflow) startPhaseFlow(out);
     }
     B.active = idx; ag.obj.visible = true; ag.state = 'idle'; ag.anim.state = 'idle'; ag.act = null; ag.swapInv = B.t + 0.35; ag.queue.length = 0;
+    // Remielle back from Phase Flow: she comes in with Flower & Feather Dance
+    if (ag.id === 'remielle') {
+      if (ag.pflow) endPhaseFlow(ag, 'she is back on the field');
+      if (ag.ffdReady && (why === 'swap' || why === 'forced')) { ag.ffdReady = false; ag.queue.unshift({ def: ag.def.kit.ffd, kind: 'core', tgt: tgt || null, delay: 0.05 }); }
+    }
     if (tgt) ag.face = ang(ag, tgt);
     for (const c of B.companions) if (c.owner === ag) showCompanion(c, true);
     FX.glow(ag.x, 1.1, ag.z, 2.4, D.ATTR[ag.def.attr].hex, 0.3, { size1: 3 }); SFX.play('swap');
@@ -1016,6 +1157,7 @@
       if (a.def.resource === 'adrenaline') gainEnergy(a, (on ? 2.2 : 1.0) * dt + (a.adrBoost > B.t ? 2 * dt : 0), true);
       else gainEnergy(a, a.st.er * (on ? 1 : 0.45) * dt);
       if (a.id === 'burnice' && !a.nitro && a.heat >= 50) a.nitro = true;
+      if (a.pflow && B.phase === 'fight') phaseFlow(a, dt);
     }
     // the Radiant Aegis
     if (B.aegis && B.aegis.until <= B.t && B.aegis.hp > 0) { B.aegis.hp = 0; B.aegis.atkUntil = B.t + 5; }
@@ -1033,9 +1175,10 @@
       if (!v.alive) { v.stT += dt; v.airY = Math.max(0, v.airY - dt * 4); if (v.stT > 1.4 && v.obj.visible) { v.obj.visible = false; FX.burst(v.x, 0.8, v.z, 20, { col: [0x9a9aa8, 0xffffff, 0x5a5a66], speed: 3, size: 0.12, life: 0.5, g: -1 }); } continue; }
       tickAnomaly(v, dt);
       if (v.flinch > 0) v.flinch -= dt;
+      if (v.lumi && v.lumiT <= B.t) v.lumi = 0;
       if (v.stun > 0) {
-        v.stun -= dt; v.daze = v.dazeMax * Math.max(0, v.stun / v.stunMax);
-        if (v.stun <= 0) { v.stun = 0; v.daze = 0; v.state = 'idle'; v.anim.state = 'idle'; v.chainsLeft = 0; log(`${v.def.name} recovers from Stun.`, 'sys'); if (B.chain && B.chain.tgt === v) closeChain(); }
+        v.stun -= dt; v.daze = v.dazeMax * clamp(v.stun / v.stunMax, 0, 1);
+        if (v.stun <= 0) { v.stun = 0; v.daze = 0; v.subj = 0; v.state = 'idle'; v.anim.state = 'idle'; v.chainsLeft = 0; log(`${v.def.name} recovers from Stun.`, 'sys'); if (B.chain && B.chain.tgt === v) closeChain(); }
       }
       // boss adds and phases
       if (v.rank === 'boss' && !B.addsDone && B.enc.adds && v.hp / v.hpMax <= B.enc.adds.at) {
@@ -1082,26 +1225,176 @@
   BT.finish = finish;
   BT.retreat = () => { const B = BT.B; if (!B || B.result) return; B.result = 'retreat'; B.phase = 'end'; if (BT.hooks.finish) BT.hooks.finish(B); };
 
-  /* companions: Yixuan's ink bird flies at her shoulder and swoops in on her wing strikes */
+  /* companions: Yixuan's ink bird at her shoulder (it swoops in on her wing strikes); Hu Wei, Ju Fufu's
+     cauldron, which stays on the field whoever is fighting and drops on the target every few seconds;
+     Magus, Orphie's serpent, which comes up beside her to fire, and from the bench flashes in to fire
+     Corrosive Flash at whatever her side is hitting. A rival's companions do the same for the rival. */
   function stepCompanions(dt, rdt) {
     const B = BT.B;
     for (const c of B.companions) {
-      const o = c.owner; if (!c.obj.visible) continue;
-      const A = o.act, dive = c.dive && B.real - c.dive.t0 < c.dive.dur && c.dive.tgt.alive ? c.dive : null, wingMove = !!dive || (A && /wings|ultYixuan|auric|array/.test(A.def.anim || ''));
-      let tx, tz, ty;
-      if (dive) { const k = (B.real - dive.t0) / dive.dur, s = Math.sin(k * Math.PI); tx = U.lerp(o.x, dive.tgt.x, s); tz = U.lerp(o.z, dive.tgt.z, s); ty = 2.4 - s * 1.5; if (!dive.hit && k > 0.45) { dive.hit = true; FX.named('ink', { x: dive.tgt.x, z: dive.tgt.z, y: 1, r: 1.4 }); FX.glow(dive.tgt.x, 1, dive.tgt.z, 1.8, 0xffcf4a, 0.25); } }
-      else if (wingMove && A.tgt && A.tgt.alive) { const k = Math.sin(Math.min(1, A.t / A.dur) * Math.PI); tx = U.lerp(o.x, A.tgt.x, k * 0.9); tz = U.lerp(o.z, A.tgt.z, k * 0.9); ty = 2.4 + k * 1.2; }
-      else { tx = o.x - Math.sin(o.face) * 0.6 + Math.cos(o.face) * 0.9; tz = o.z - Math.cos(o.face) * 0.6 - Math.sin(o.face) * 0.9; ty = 2.35; }
-      const k = 1 - Math.exp(-(dive ? 16 : wingMove ? 9 : 4) * Math.max(dt, rdt * 0.2));
-      const px = c.x, pz = c.z; c.x += (tx - c.x) * k; c.z += (tz - c.z) * k; c.y += (ty - c.y) * k;
-      const sp = Math.hypot(c.x - px, c.z - pz) / Math.max(1e-4, rdt);
-      if (sp > 0.3) c.face = turn(c.face, Math.atan2(c.x - px, c.z - pz), 1 - Math.exp(-6 * rdt)); else c.face = turn(c.face, o.face, 1 - Math.exp(-3 * rdt));
-      c.flap += rdt * (wingMove ? 16 : 8);
-      const P = c.rig.parts, f = Math.sin(c.flap) * (wingMove ? 0.9 : 0.55);
-      if (P.armL) P.armL.rotation.z = 0.15 + f; if (P.armR) P.armR.rotation.z = -0.15 - f;
-      if (P.tail) P.tail.rotation.x = 0.2 + Math.sin(c.flap * 0.5) * 0.15;
-      c.obj.position.set(c.x, c.y + Math.sin(B.real * 2.4) * 0.12, c.z); c.obj.rotation.y = c.face;
-      if (wingMove && Math.random() < 0.5) FX.p({ x: c.x, y: c.y, z: c.z, life: 0.4, size: 0.12, col: Math.random() < 0.5 ? 0x141418 : 0xffcf4a, vy: -0.5 });
+      if (!c.owner.alive) { c.obj.visible = false; c.slam = null; c.burst = null; continue; }
+      if (c.id === 'huwei') stepHuwei(c, dt, rdt);
+      else if (c.id === 'magus') stepMagus(c, dt, rdt);
+      else if (c.obj.visible) stepBird(c, dt, rdt);
     }
+  }
+  function stepBird(c, dt, rdt) {
+    const B = BT.B, o = c.owner;
+    const A = o.act, dive = c.dive && B.real - c.dive.t0 < c.dive.dur && c.dive.tgt.alive ? c.dive : null, wingMove = !!dive || (A && /wings|ultYixuan|auric|array/.test(A.def.anim || ''));
+    let tx, tz, ty;
+    if (dive) { const k = (B.real - dive.t0) / dive.dur, s = Math.sin(k * Math.PI); tx = U.lerp(o.x, dive.tgt.x, s); tz = U.lerp(o.z, dive.tgt.z, s); ty = 2.4 - s * 1.5; if (!dive.hit && k > 0.45) { dive.hit = true; FX.named('ink', { x: dive.tgt.x, z: dive.tgt.z, y: 1, r: 1.4 }); FX.glow(dive.tgt.x, 1, dive.tgt.z, 1.8, 0xffcf4a, 0.25); } }
+    else if (wingMove && A.tgt && A.tgt.alive) { const k = Math.sin(Math.min(1, A.t / A.dur) * Math.PI); tx = U.lerp(o.x, A.tgt.x, k * 0.9); tz = U.lerp(o.z, A.tgt.z, k * 0.9); ty = 2.4 + k * 1.2; }
+    else { tx = o.x - Math.sin(o.face) * 0.6 + Math.cos(o.face) * 0.9; tz = o.z - Math.cos(o.face) * 0.6 - Math.sin(o.face) * 0.9; ty = 2.35; }
+    const k = 1 - Math.exp(-(dive ? 16 : wingMove ? 9 : 4) * Math.max(dt, rdt * 0.2));
+    const px = c.x, pz = c.z; c.x += (tx - c.x) * k; c.z += (tz - c.z) * k; c.y += (ty - c.y) * k;
+    const sp = Math.hypot(c.x - px, c.z - pz) / Math.max(1e-4, rdt);
+    if (sp > 0.3) c.face = turn(c.face, Math.atan2(c.x - px, c.z - pz), 1 - Math.exp(-6 * rdt)); else c.face = turn(c.face, o.face, 1 - Math.exp(-3 * rdt));
+    c.flap += rdt * (wingMove ? 16 : 8);
+    const P = c.rig.parts, f = Math.sin(c.flap) * (wingMove ? 0.9 : 0.55);
+    if (P.armL) P.armL.rotation.z = 0.15 + f; if (P.armR) P.armR.rotation.z = -0.15 - f;
+    if (P.tail) P.tail.rotation.x = 0.2 + Math.sin(c.flap * 0.5) * 0.15;
+    c.obj.position.set(c.x, c.y + Math.sin(B.real * 2.4) * 0.12, c.z); c.obj.rotation.y = c.face;
+    if (wingMove && Math.random() < 0.5) FX.p({ x: c.x, y: c.y, z: c.z, life: 0.4, size: 0.12, col: Math.random() < 0.5 ? 0x141418 : 0xffcf4a, vy: -0.5 });
+  }
+  /* whom a companion attacks: the target of whoever leads its side */
+  function sideTarget(o, an) {
+    if (!o.rival) return BT.pickTarget(an);
+    const F = fielded().filter(x => x.obj.visible);
+    if (an.tgt && F.includes(an.tgt)) return an.tgt;
+    return F.sort((x, y) => dist(x, an) - dist(y, an))[0] || null;
+  }
+  /* Hu Wei jumps onto a target (choreography, its own attack, Suppressing Tiger Cauldron) */
+  function huweiSlam(c, v, o) {
+    const B = BT.B; if (!c.owner.alive || !v) return;
+    if (c.slam && c.slam.strike && !c.slam.landed && !o.strike) return;   // (a jump that will hit is not cut short by a show one)
+    c.obj.visible = true;
+    c.slam = { t0: B.t, dur: o.dur || 0.8, tgt: v, x0: c.x, z0: c.z, big: o.big || 1, popcorn: o.popcorn, strike: o.strike || null, landed: false };
+  }
+  BT.huweiSlam = huweiSlam;
+  function slamLands(c, S) {
+    const B = BT.B, v = S.tgt, r = S.big * 1.3;
+    FX.named('explode', { x: v.x, z: v.z, r: r * 1.2 }); FX.named('quake', { x: v.x, z: v.z, r: r * 1.3 });
+    if (S.popcorn) FX.named('popcorn', { x: v.x, z: v.z, r });
+    B.cam.shake = Math.max(B.cam.shake, S.big > 1 ? 0.3 : 0.12); SFX.play(S.big > 1 ? 'boom' : 'heavy');
+    if (S.strike) companionStrike(c, S.strike, v);
+  }
+  /* a companion's hit: through the usual hit path for yours, through clash.js on your Agents for a rival's */
+  function companionStrike(c, St, v) {
+    const o = c.owner; if (!v || !v.alive) return;
+    if (o.rival) { if (window.CLASH && CLASH.companionHit) CLASH.companionHit(o, St.h, v); return; }
+    const A = { kind: St.kind || 'core', def: { name: St.name || '', hits: [] }, data: {}, dir: ang(c, v), t: 0 };
+    const r = St.h.r || 0, victims = r ? enemiesIn('circle', v.x, v.z, r, 0) : [];
+    if (!victims.includes(v)) victims.push(v);
+    for (const x of victims) applyHit(o, x, St.h, A, St.h.attr || o.flux || o.def.attr);
+    if (St.might) o.might = Math.min(200, o.might + St.might);
+    if (St.bheat) o.bheat = Math.min(125, o.bheat + St.bheat);
+    if (St.roar) tigersRoar(o);
+  }
+  function suppress(fu, v) {
+    const B = BT.B, K = fu.def.kit.suppress, c = B.companions.find(x => x.owner === fu && x.id === 'huwei');
+    log(`Hu Wei: ${K.name}!`, 'chain'); callout(K.name.replace('Chain Attack: ', ''), 'skill', 'Hu Wei · 100 Might');
+    const St = { h: { mult: K.mult, daze: K.daze, bu: K.bu, r: K.r, attr: 'fire' }, kind: 'chain', name: K.name, roar: true };
+    if (c) huweiSlam(c, v, { dur: 0.9, big: 2.2, popcorn: true, strike: St }); else companionStrike({ owner: fu, x: fu.x, z: fu.z }, St, v);
+  }
+  function tigersRoar(fu) {
+    const B = BT.B;
+    B.roarCd = 0.2 + Math.min(0.2, Math.max(0, fu.st.atk - 2800) * 0.0005);
+    if (!(B.roar > B.t)) { log(`Tiger's Roar: +${Math.round(B.roarCd * 100)}% CRIT DMG, Chain Attack DMG +11.7%, Ultimate DMG +23.3% for the squad (30 s).`, 'skill'); callout("TIGER'S ROAR", 'skill', 'the whole squad'); }
+    B.roar = B.t + 30;
+  }
+  function stepHuwei(c, dt, rdt) {
+    const B = BT.B, o = c.owner, an = anchorOf(o), K = o.def.kit.huwei;
+    c.obj.visible = true;
+    // its own attack every few seconds, on whatever its side is fighting
+    if (B.phase === 'fight' && dt > 0 && !c.slam && !B.result) {
+      o.huweiT -= dt;
+      if (o.huweiT <= 0) {
+        const v = sideTarget(o, an);
+        if (v && v.alive && dist(an, v) < 9) { o.huweiT = K.every; huweiSlam(c, v, { dur: 0.8, popcorn: Math.random() < 0.5, strike: { h: { mult: K.mult, daze: K.daze, bu: K.bu, attr: 'fire', r: 1.4 }, kind: 'huwei', name: K.name, might: K.might } }); }
+        else o.huweiT = 0.6;
+      }
+    }
+    const S = c.slam, P = c.rig.parts;
+    let scale = 1;
+    if (S) {
+      const k = (B.t - S.t0) / S.dur, v = S.tgt, top = 2.4 + S.big * 0.7;
+      if (k >= 1 || (!v.alive && !S.landed)) c.slam = null;
+      else {
+        if (k < 0.55) { const q = k / 0.55; c.x = U.lerp(S.x0, v.x, q); c.z = U.lerp(S.z0, v.z, q); c.y = 1.1 + Math.sin(q * Math.PI * 0.5) * top; }
+        else if (k < 0.7) { const q = (k - 0.55) / 0.15; c.x = v.x; c.z = v.z; c.y = 1.1 + top * (1 - q * q) - q * 0.9; }
+        else { c.x = v.x; c.z = v.z; c.y = 0.2 + (k - 0.7) * 2.4; }
+        if (k >= 0.7 && !S.landed) { S.landed = true; slamLands(c, S); }
+        scale = 1 + (S.big - 1) * (k < 0.7 ? Math.sin(Math.min(1, k / 0.55) * Math.PI / 2) : Math.max(0, 1 - (k - 0.7) / 0.3));
+        c.face = turn(c.face, ang(c, v), 1 - Math.exp(-10 * rdt));
+        if (P.head) P.head.rotation.x = k < 0.6 ? -0.5 : 0;          // the lid lifts as it comes down
+      }
+    }
+    if (!c.slam) {
+      // it hops along beside whoever is fighting
+      const tx = an.x - Math.sin(an.face) * 0.5 - Math.cos(an.face) * 1.0, tz = an.z - Math.cos(an.face) * 0.5 + Math.sin(an.face) * 1.0;
+      const k = 1 - Math.exp(-5 * Math.max(dt, rdt * 0.2));
+      const px = c.x, pz = c.z; c.x += (tx - c.x) * k; c.z += (tz - c.z) * k;
+      const moving = Math.hypot(c.x - px, c.z - pz) / Math.max(1e-4, rdt) > 0.6;
+      c.y += ((moving ? 0.25 + Math.abs(Math.sin(B.real * 9)) * 0.35 : 0.2) - c.y) * (1 - Math.exp(-12 * rdt));
+      const tg = sideTarget(o, an);
+      c.face = turn(c.face, tg ? ang(c, tg) : an.face, 1 - Math.exp(-5 * rdt));
+      if (P.head) P.head.rotation.x = Math.sin(B.real * 3) * 0.05;
+    }
+    c.flap += rdt * 5;
+    if (P.armL) P.armL.rotation.z = Math.sin(c.flap) * 0.15; if (P.armR) P.armR.rotation.z = -Math.sin(c.flap) * 0.15;
+    if (P.tail) P.tail.rotation.x = 0.2 + Math.sin(c.flap * 0.8) * 0.25;
+    c.obj.scale.setScalar(scale);
+    c.obj.position.set(c.x, c.y, c.z); c.obj.rotation.y = c.face;
+  }
+  function stepMagus(c, dt, rdt) {
+    const B = BT.B, o = c.owner, K = o.def.kit.corrosive;
+    const onF = o.rival ? !o.benched : onFieldA(o), myMove = onF && o.act && o.act.def.magus;
+    // Corrosive Flash: off the field (All-Out: between her own Magus moves), Magus fires on a teammate's target
+    if (B.phase === 'fight' && dt > 0 && !c.burst && !B.result) {
+      o.corrT -= dt;
+      const allOut = o.rival ? B.rival.allOut : B.allOut;
+      if (o.corrT <= 0 && (allOut ? !myMove : !onF)) {
+        const side = o.rival ? B.rival.squad.filter(r => r.alive && !r.benched) : fielded();
+        const sh = side.find(s => s !== o && s.act && s.act.def.hits && s.act.def.hits.length && s.act.tgt && s.act.tgt.alive);
+        if (sh) {
+          o.corrT = K.every; c.burst = { t0: B.t, dur: 1.25, an: sh, tgt: sh.act.tgt, n: 0 };
+          if (!c.obj.visible) { c.obj.visible = true; c.x = sh.x; c.z = sh.z; c.y = 3.4; }
+          if (!o.rival && !c.told) { c.told = true; log(`Magus: ${K.name}, from the bench (every ${K.every} s while another Agent attacks).`, 'skill'); }
+        } else o.corrT = 0.4;
+      }
+    }
+    let tx, ty, tz, rate = 5, face = null;
+    const Bu = c.burst;
+    if (Bu) {
+      const k = (B.t - Bu.t0) / Bu.dur, an = Bu.an, v = Bu.tgt;
+      if (k >= 1 || !v.alive) c.burst = null;
+      else {
+        tx = an.x + Math.cos(an.face) * 1.3; tz = an.z - Math.sin(an.face) * 1.3; ty = 2.3; rate = 10; face = ang(c, v);
+        const pulses = [0.3, 0.42, 0.54, 0.66];
+        while (Bu.n < 4 && k >= pulses[Bu.n]) { Bu.n++; magusPulse(c, v); companionStrike(c, { h: { mult: K.mult, daze: 15, bu: K.bu, attr: 'fire' }, kind: 'corrosive', name: K.name, bheat: Bu.n === 1 ? K.bheat : 0 }, v); if (!v.alive) break; }
+      }
+    }
+    if (!c.burst) {
+      if (!onF) { c.obj.visible = false; return; }
+      c.obj.visible = true;
+      if (myMove) { const f = o.act.dir; tx = o.x + Math.sin(f) * 0.6 + Math.cos(f) * 0.9; tz = o.z + Math.cos(f) * 0.6 - Math.sin(f) * 0.9; ty = 1.7 + (o.airY || 0); rate = 12; face = f; }
+      else { tx = o.x - Math.sin(o.face) * 0.7 + Math.cos(o.face) * 0.8; tz = o.z - Math.cos(o.face) * 0.7 - Math.sin(o.face) * 0.8; ty = 2.0 + (o.airY || 0); }
+    }
+    const k = 1 - Math.exp(-rate * Math.max(dt, rdt * 0.2));
+    const px = c.x, pz = c.z; c.x += (tx - c.x) * k; c.z += (tz - c.z) * k; c.y += (ty - c.y) * k;
+    if (face != null) c.face = turn(c.face, face, 1 - Math.exp(-12 * rdt));
+    else { const sp = Math.hypot(c.x - px, c.z - pz) / Math.max(1e-4, rdt); c.face = turn(c.face, sp > 0.3 ? Math.atan2(c.x - px, c.z - pz) : o.face, 1 - Math.exp(-5 * rdt)); }
+    // the long tail sways, the crest fins beat
+    c.flap += rdt * 6; const P = c.rig.parts;
+    if (P.tail) { P.tail.rotation.y = Math.sin(c.flap) * 0.35; P.tail.rotation.x = 0.15 + Math.sin(c.flap * 0.7) * 0.12; }
+    if (P.armL) P.armL.rotation.z = 0.2 + Math.sin(c.flap * 1.6) * 0.3; if (P.armR) P.armR.rotation.z = -0.2 - Math.sin(c.flap * 1.6) * 0.3;
+    if (P.head) P.head.rotation.x = face != null ? -0.1 : Math.sin(c.flap * 0.5) * 0.1;
+    c.obj.position.set(c.x, c.y + Math.sin(B.real * 2.2) * 0.1, c.z); c.obj.rotation.y = c.face;
+  }
+  function magusPulse(c, v) {
+    const o = new THREE.Vector3(); sockWorld(c, 'weapon', o);
+    const end = new THREE.Vector3(v.x, 0.9, v.z);
+    FX.beam(o.clone(), end, 0xff4a1a, 0.22, 0.12); FX.beam(o, end, 0xfff0c0, 0.08, 0.1);
+    FX.glow(v.x, 0.9, v.z, 1.2, 0xff7a2a, 0.15); SFX.play('fire');
   }
 })();

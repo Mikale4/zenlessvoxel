@@ -72,6 +72,7 @@
       bu: {}, buMul: {}, anom: null, corrCd: 0, scorched: false, afterburnCd: 0, flinch: 0, vuln: 0, atkCd: 0, phase: 1, recover: 0, hpLag: hp, dazeShown: 0, offBalance: 0,
       energy: A.resource === 'adrenaline' ? A.energyMax : 45, decibels: 300, dodgeCharges: R.dodgeCharges, dodgeCd: 0, combo: 0, lastBasic: -9, queue: [], gap: 0,
       counterUntil: 0, plans: [], benched: true, swapInv: 0, pick: null, strafe: Math.random() < 0.5 ? 1 : -1,
+      huweiT: 2.5, corrT: 2,     // (Hu Wei's and Magus's timers)
     });
     e.obj.visible = false;
     return e;
@@ -87,7 +88,9 @@
       assist: diff.assistStart, assistCd: 0, assistRegen: 22, swapT: rnd(diff.swap[0], diff.swap[1]), retreatT: 0, downT: 0, aegis: null, intro: false, escapeAt: null,
       stats: { perfect: 0, dodges: 0, assists: 0, blocks: 0, ults: 0, exs: 0, chains: 0, stuns: 0, escapes: 0 },
     };
-    for (const r of RV.squad) if (r.id === 'yixuan') B.companions.push(BT.makeCompanion(r, 'inkbird'));
+    for (const r of RV.squad) if (BT.COMPANION[r.id]) { const c = BT.makeCompanion(r, BT.COMPANION[r.id]); if (c.id === 'huwei') { c.obj.visible = true; c.x = 0; c.z = -3; c.y = 0.2; } B.companions.push(c); }
+    // a rival Remielle's light takes on the attribute of the next rival Agent (Attribute Flux)
+    RV.squad.forEach((r, i) => { if (r.id === 'remielle') { const nx = RV.squad[(i + 1) % RV.squad.length]; r.flux = nx !== r && nx.def.attr !== 'lumiflux' ? nx.def.attr : 'physical'; } });
     RV.rings = RV.squad.map(() => groundRing(0xff3a4a));
     if (RV.allOut) RV.lead = groundRing(0xf4d35e);                 // under the Agent you lead
     // your Agents get a Daze bar too: a rival can Stun them, and her teammates Chain Attack them
@@ -116,7 +119,7 @@
     else { r.x = RV.allOut ? (r.slot - (RV.squad.length - 1) / 2) * 2.6 : 0; r.z = -3.2; r.face = 0; r.airY = 5; r.spawnT = 0.45 + r.slot * 0.12; }
     if (ag && from) r.face = ang(r, ag);
     if (!B.enemies.includes(r)) B.enemies.push(r);
-    for (const c of B.companions) if (c.owner === r) { c.obj.visible = true; c.x = r.x + 1; c.z = r.z; c.y = 2.4; }
+    for (const c of B.companions) if (c.owner === r && !c.obj.visible) { c.obj.visible = true; c.x = r.x + 1; c.z = r.z; c.y = 2.4; }
     if (from) { FX.glow(r.x, 1.1, r.z, 2.4, D.ATTR[r.def.attr].hex, 0.3, { size1: 3 }); FX.ring(r.x, r.z, 0.3, 1.5, 0xff3a4a, 0.3); SFX.play('swap'); }
   }
   function leave(r) {
@@ -127,7 +130,7 @@
     B.enemies = B.enemies.filter(e => e !== r);
     B.threats = B.threats.filter(t => t.e !== r);
     if (B.focus === r) B.focus = null;
-    for (const c of B.companions) if (c.owner === r) c.obj.visible = false;
+    for (const c of B.companions) if (c.owner === r && c.id !== 'huwei' && !c.burst) c.obj.visible = false;   // (Hu Wei stays on the field)
     if (r.alive) FX.burst(r.x, 1, r.z, 14, { col: [0xffffff, 0xff3a4a, D.ATTR[r.def.attr].hex], speed: 3, size: 0.1, life: 0.35, g: -2 });
   }
   function swapTo(r, why) {
@@ -171,7 +174,7 @@
       if (r.dodge && B.t > r.dodge.until) { r.dodge = null; if (r.state === 'dodge') { r.state = 'idle'; r.anim.state = 'idle'; } }
       if (!r.act && r.airY > 0 && !(r.spawnT > 0)) r.airY = Math.max(0, r.airY - dt * 9);
       // a Stunned rival who was swapped out recovers on the bench (on the field, battle.js counts it)
-      if (r.benched && r.stun > 0) { r.stun -= dt; r.daze = r.dazeMax * Math.max(0, r.stun / r.stunMax); if (r.stun <= 0) { r.stun = 0; r.daze = 0; r.state = 'idle'; r.anim.state = 'idle'; r.chainsLeft = 0; } }
+      if (r.benched && r.stun > 0) { r.stun -= dt; r.daze = r.dazeMax * clamp(r.stun / r.stunMax, 0, 1); if (r.stun <= 0) { r.stun = 0; r.daze = 0; r.subj = 0; r.state = 'idle'; r.anim.state = 'idle'; r.chainsLeft = 0; } }
     }
     // your Stunned Agents (on the field or swapped out) come round
     for (const a of B.squad) if (a.stun > 0) {
@@ -331,6 +334,10 @@
       if (id === 'burnice' && K.hold && (e.cds.hold || 0) <= B.t && Math.random() < 0.45) return { def: K.hold, kind: 'hold' };
       if (id === 'aria' && K.charged && (e.cds.charged || 0) <= B.t && Math.random() < 0.35) return { def: K.charged, kind: 'charged' };
       if (id === 'caesar' && K.deadEnd && RV.assist >= 2 && (e.cds.deadEnd || 0) <= B.t && Math.random() < 0.15) return { def: K.deadEnd, kind: 'core' };
+      if (id === 'qingyi' && K.moonlit && (e.cds.moonlit || 0) <= B.t && Math.random() < 0.3) return { def: K.moonlit, kind: 'core' };
+      if (id === 'jufufu' && K.spin && (e.cds.spin || 0) <= B.t && Math.random() < 0.25) return { def: K.spin, kind: 'core' };
+      if (id === 'orphie' && K.heatCharge && (e.cds.heat || 0) <= B.t && Math.random() < 0.25) return { def: K.heatCharge, kind: 'ex2' };
+      if (id === 'remielle' && K.rainbow && (e.cds.rainbow || 0) <= B.t && Math.random() < 0.3) return { def: K.rainbow, kind: 'charged' };
       if (e.energy >= K.ex.cost && (e.energy >= e.def.agent.energyMax * 0.85 || ag.stun > 0 || Math.random() < 0.3)) return pickEx(e);
       if ((e.cds.special || 0) <= B.t && Math.random() < 0.35) return { def: K.special, kind: 'special' };
     }
@@ -358,6 +365,11 @@
     if (kind === 'special') e.cds.special = B.t + (def.cd || 3.5) * (1.6 - 0.5 * Dd.reflex);
     if (kind === 'hold') e.cds.hold = B.t + rnd(6, 9);
     if (kind === 'charged') e.cds.charged = B.t + rnd(5, 8);
+    // (your Agents earn these with Voltage, Momentum and Bottled Heat; a rival waits about as long)
+    if (def === K.moonlit) e.cds.moonlit = B.t + rnd(9, 12);
+    if (def === K.spin) e.cds.spin = B.t + rnd(10, 14);
+    if (def === K.heatCharge) e.cds.heat = B.t + rnd(20, 26);
+    if (def === K.rainbow) e.cds.rainbow = B.t + rnd(6, 9);
     if (def.aegis || (o && o.aegis)) aegis(e);
     if (kind === 'ult') {
       e.decibels -= R.decibelMax; RV.stats.ults++; RV.assist = Math.min(R.assistPointsMax, RV.assist + 1);
@@ -457,7 +469,7 @@
     const ag = A.tgt && A.tgt.type === 'agent' && A.tgt.alive && F.includes(A.tgt) ? A.tgt : (RV.allOut ? null : F[0]);
     if (!ag) { if (th) th.done = true; return; }
     const i = A.def.hits.indexOf(h), hh = th ? th.hh : scaled(e, h, A, i, A.def.hits.length - 1);
-    const attr = h.attr || e.def.attr, cols = FX.colors(attr), dir = A.dir;
+    const attr = h.attr || e.flux || e.def.attr, cols = FX.colors(attr), dir = A.dir;
     if (h.shape === 'proj') { BT.spawnEnemyProj(e, hh, th, ag); SFX.play(attr === 'fire' ? 'fire' : 'ether'); return; }
     const [cx, cz] = center(e, h, A, ag), r = h.r || (A.def.reach || 1.6) + 0.7, shape = h.shape || 'arc';
     // the look of it, as the same move looks in your Agents' hands
@@ -488,11 +500,23 @@
     if (th && !victims.includes(ag)) th.done = true;
   };
   CLASH.projHit = (p, ag) => {
-    FX.named(p.h.fx === 'fireball' ? 'explode' : 'sound', { x: p.x, z: p.z, r: p.h.fx === 'fireball' ? 1.3 : 1.0, attr: p.h.attr || p.e.def.attr });
+    FX.named(p.h.fx === 'fireball' ? 'explode' : p.h.fx === 'lightLance' ? 'lightBurst' : 'sound', { x: p.x, z: p.z, y: 1, r: p.h.fx === 'fireball' ? 1.3 : 1.0, attr: p.h.attr || p.e.flux || p.e.def.attr });
     const hp0 = ag.hp, wasStun = ag.stun > 0;
     BT.incoming(p.e, crit(p.e, p.h), p.threat && p.threat.target === ag ? p.threat : null, ag);
     if (p.threat && p.threat.target !== ag) p.threat.done = true;
     if (ag.hp < hp0) { landed(p.e, p.h.kind || 'basic'); if (!wasStun) dazeAgent(ag, p.e.st.impact * (p.h.daze || 0) / 100, p.e); else if (p.h.heavy) rivalChain(p.e, ag, null); }
+  };
+
+  /* a rival's companion lands a hit on one of your Agents (Hu Wei's jump, Magus's Corrosive Flash):
+     a light hit, never flashed; she can dodge it */
+  CLASH.companionHit = (o, h, ag) => {
+    if (!ag || !ag.alive || !ag.obj.visible) return;
+    const A = { kind: 'core', def: { hits: [h] }, dir: ang(o, ag), t: 0 };
+    const hh = Object.assign(scaled(o, h, A, 0, 1), { flash: null, launch: false, flinchOnly: true, heavy: false });
+    hh.mult *= 0.5;   // a companion fires on a timer with no breathers between: half the rival's Agent multiplier
+    const hp0 = ag.hp, wasStun = ag.stun > 0;
+    BT.incoming(o, crit(o, hh), null, ag);
+    if (ag.hp < hp0) { landed(o, 'core'); if (!wasStun) dazeAgent(ag, o.st.impact * (h.daze || 0) / 100, o); }
   };
 
   /* ----------------------------------------- Daze and Stun on your Agents --

@@ -49,6 +49,9 @@
     auric: { name: 'Auric Ink', color: '#ffcf4a', hex: 0xffcf4a, anomaly: 'auric' },
     ice: { name: 'Ice', color: '#8fe4ff', hex: 0x8fe4ff, anomaly: 'freeze' },
     electric: { name: 'Electric', color: '#5ec8ff', hex: 0x5ec8ff, anomaly: 'shock' },
+    // Remielle's: Lumiflux takes on the attribute of the next Agent in the squad (Attribute Flux), and its
+    // own buildup is not an anomaly but a charge a teammate's Anomaly sets off (Refringe)
+    lumiflux: { name: 'Lumiflux', color: '#ff9ae6', hex: 0xff9ae6, anomaly: null },
   };
 
   /* Attribute Anomalies. Assault interrupts with one heavy blow and leaves the
@@ -213,6 +216,148 @@
         assist: { name: 'Defensive Assist: Clear Sky Surge', type: 'defensive', anim: 'guardPalm', dur: 0.45, inv: [0, 0.45], daze: 440 },
         followup: { name: 'Assist Follow-Up: Celestial Cloud Blitz', anim: 'palmBoth', dur: 0.95, inv: [0, 0.9], move: [0, 0.3, 2.4], hits: [{ t: 0.3, mult: 220, daze: 120, bu: 140 }, { t: 0.55, mult: 260, daze: 145, bu: 160, heavy: true, kb: 1.2, fx: 'ink' }] },
         quick: { name: 'Quick Assist: Cloudstream Shadow', anim: 'palmBoth', dur: 0.7, inv: [0, 0.6], move: [0, 0.3, 3], hits: [{ t: 0.15, mult: 110, daze: 75, bu: 60 }, { t: 0.32, mult: 130, daze: 90, bu: 70, kb: 0.8, fx: 'ink' }] },
+      },
+    },
+
+    qingyi: {
+      id: 'qingyi', name: 'Qingyi', short: 'Qingyi', faction: 'Criminal Investigation Special Response Team', spec: 'Stun', attr: 'electric', rank: 'S',
+      color: '#2a8a6e', color2: '#1f3a6a', assist: 'defensive', stance: 'staff',
+      blurb: 'A PubSec android of the Criminal Investigation Special Response Team. A folding bo staff, an endless flurry: she builds Flash Connect Voltage, cashes it in for Enchanted Moonlit Blossoms, and leaves enemies Subjugated, taking far more DMG while Stunned.',
+      stats: { hp: 9000, atk: 2200, def: 730, impact: 150, ap: 93, am: 94, cr: 0.25, cd: 0.6, er: 1.2, speed: 4.8 },
+      ai: { range: 1.6, dodge: 0.75, reflex: 0.62, aggr: 1.0 },
+      energyMax: 120, resource: 'voltage',
+      core: [
+        ['Core Passive: Eternal Seasons', 'The Finishing Move of Basic Attack: Enchanted Moonlit Blossoms applies 5 stacks of Subjugation (+1 for each rush attack that landed; double on normal and elite enemies), up to 20. Each stack raises the target\'s Stun DMG Multiplier by 4%. The stacks reset when the target recovers from Stun.'],
+        ['Flash Connect', 'Her Electric hits build Flash Connect Voltage. At 75% she enters Flash Connect, and her next Basic Attack is Enchanted Moonlit Blossoms: five rush attacks and a finishing strike, with more DMG and Daze for every point of Voltage over 75. She is Anti-Interrupt during the rush (-40% DMG taken) and invulnerable during the finish. Her Chain Attack restores 25 Voltage, her Ultimate 50.'],
+        ['Additional Ability: Three Verses of Farewell at Yang Pass', 'With an Attack Agent or a member of her faction in the squad: Basic Attacks deal 20% more Daze. Every point of Impact over 120 gives her 6 ATK (up to 600).'],
+      ],
+      kit: {
+        basic: [
+          { name: 'Basic Attack: Penultimate Attack', anim: 'slashR', dur: 0.46, cancel: 0.32, reach: 1.9, range: 1.6, move: [0, 0.16, 0.5], hits: [{ t: 0.16, mult: 50, daze: 55, bu: 18, attr: 'physical', shape: 'arc', r: 2.4, arc: 150 }] },
+          { name: 'Basic Attack: Penultimate Attack', anim: 'thrust', dur: 0.46, cancel: 0.33, reach: 2.0, range: 1.6, move: [0, 0.15, 0.6], hits: [{ t: 0.15, mult: 55, daze: 58, bu: 20 }] },
+          { name: 'Basic Attack: Penultimate Attack', anim: 'spin', dur: 1.0, cancel: 0.85, reach: 2.0, range: 1.6, dr: 0.4, hits: [0.12, 0.27, 0.42, 0.57, 0.72].map(t => ({ t, mult: 26, daze: 32, bu: 14, shape: 'circle', at: 'front', r: 2.0 })) },
+          { name: 'Basic Attack: Penultimate Attack', anim: 'slamDown', dur: 0.8, cancel: 0.66, reach: 2.0, range: 1.6, move: [0.05, 0.3, 0.6], hits: [{ t: 0.36, mult: 155, daze: 170, bu: 50, heavy: true, shape: 'circle', at: 'front', r: 2.4, kb: 0.9, fx: 'shock' }] },
+        ],
+        moonlit: { name: 'Basic Attack: Enchanted Moonlit Blossoms', anim: 'thrust', dur: 1.75, cancel: 1.7, reach: 2.6, range: 1.8, dr: 0.4, inv: [1.15, 1.6], moonlit: true,
+          hits: [0.15, 0.35, 0.55, 0.75, 0.95].map(t => ({ t, mult: 60, daze: 75, bu: 26, rush: true, shape: 'line', r: 1.3, len: 3.4 })).concat([{ t: 1.35, mult: 330, daze: 430, bu: 90, heavy: true, finisher: true, shape: 'circle', at: 'front', r: 2.8, kb: 1.2, fx: 'shock' }]) },
+        dash: { name: 'Dash Attack: Breach', anim: 'slashR', dur: 0.6, cancel: 0.45, reach: 7, move: [0, 0.28, 4], hits: [{ t: 0.3, mult: 85, daze: 85, bu: 30, attr: 'physical' }] },
+        counter: { name: 'Dodge Counter: Lingering Sentiments', anim: 'slamDown', dur: 0.7, cancel: 0.55, inv: [0, 0.6], move: [0, 0.2, 1.4], hits: [{ t: 0.3, mult: 170, daze: 160, bu: 55, heavy: true, shape: 'circle', at: 'front', r: 2.2, kb: 0.9, fx: 'shock' }] },
+        special: { name: 'Special Attack: Sunlit Glory', anim: 'slamDown', dur: 0.8, cancel: 0.62, reach: 2.0, cd: 3.5, dr: 0.4, move: [0, 0.2, 0.6], hits: [{ t: 0.2, mult: 70, daze: 90, bu: 30 }, { t: 0.5, mult: 125, daze: 160, bu: 45, heavy: true, shape: 'circle', at: 'front', r: 2.2, kb: 0.8, fx: 'shock' }] },
+        ex: { name: 'EX Special Attack: Moonlit Begonia', anim: 'slamDown', dur: 1.25, cancel: 1.1, cost: 40, reach: 2.2, inv: [0, 1.15], move: [0, 0.3, 0.8], hits: [{ t: 0.25, mult: 130, daze: 150, bu: 50, kb: 0.4 }, { t: 0.55, mult: 120, daze: 140, bu: 45 }, { t: 1.0, mult: 310, daze: 330, bu: 90, heavy: true, shape: 'circle', at: 'front', r: 2.8, kb: 1.2, fx: 'shock' }] },
+        chain: { name: 'Chain Attack: Tranquil Serenade', anim: 'spin', dur: 1.3, inv: [0, 1.3], voltage: 25, hits: [0.3, 0.5, 0.7].map(t => ({ t, mult: 90, daze: 60, bu: 60, shape: 'circle', at: 'front', r: 3.0 })).concat([{ t: 1.0, mult: 380, daze: 200, bu: 150, heavy: true, shape: 'circle', at: 'front', r: 3.2, kb: 1.2, fx: 'shock' }]) },
+        ult: { name: 'Ultimate: Eight Sounds of Ganzhou', anim: 'spin', dur: 2.1, inv: [0, 2.1], voltage: 50, hits: [0.5, 0.65, 0.8, 0.95, 1.1, 1.25].map(t => ({ t, mult: 160, daze: 70, bu: 60, shape: 'circle', at: 'target', r: 3.4 })).concat([{ t: 1.7, mult: 1300, daze: 600, bu: 300, heavy: true, shape: 'circle', at: 'target', r: 4.5, kb: 1.8, fx: 'shock' }]) },
+        assist: { name: 'Defensive Assist: Graceful Embellishment', type: 'defensive', anim: 'guard', dur: 0.45, inv: [0, 0.45], daze: 460 },
+        followup: { name: 'Assist Follow-Up: Song of the Clear River', anim: 'thrust', dur: 1.0, inv: [0, 0.95], move: [0, 0.25, 2.2], hits: [{ t: 0.3, mult: 140, daze: 120, bu: 50 }, { t: 0.75, mult: 280, daze: 220, bu: 80, heavy: true, shape: 'circle', at: 'front', r: 2.8, kb: 1.0, fx: 'shock' }] },
+        quick: { name: 'Quick Assist: Wind Through the Pines', anim: 'slamDown', dur: 0.75, inv: [0, 0.65], move: [0, 0.3, 2.4], hits: [{ t: 0.35, mult: 200, daze: 180, bu: 60, kb: 0.8, shape: 'circle', at: 'front', r: 2.2, fx: 'shock' }] },
+      },
+    },
+
+    jufufu: {
+      id: 'jufufu', name: 'Ju Fufu', short: 'Fufu', faction: 'Yunkui Summit', spec: 'Stun', attr: 'fire', rank: 'S',
+      color: '#f2b530', color2: '#3a3a44', assist: 'defensive', stance: 'tiger',
+      blurb: 'The little tiger of Yunkui Summit, keeper of Suibian Temple, with clawed gauntlets and Hu Wei: a tiger-faced cauldron that fires flames and popcorn. Hu Wei fights on its own and builds Might; with enough, it answers your Chain Attacks and roars the squad up.',
+      stats: { hp: 9000, atk: 2900, def: 720, impact: 150, ap: 96, am: 93, cr: 0.4, cd: 0.6, er: 1.2, speed: 4.7 },
+      ai: { range: 1.5, dodge: 0.72, reflex: 0.6, aggr: 1.1 },
+      energyMax: 120, resource: 'might',
+      core: [
+        ['Core Passive: Fu-rocious Might', 'Hu Wei attacks on its own every few seconds, on or off the field, dealing Fire DMG and gaining 20 Might (max 200). When a Chain Attack is triggered and Hu Wei has 100 Might, and Ju Fufu is not the one on the field, Hu Wei unleashes Chain Attack: Suppressing Tiger Cauldron on the target: flames and popcorn, massive Fire DMG. The whole squad then gains Tiger\'s Roar for 30 s: +20% CRIT DMG (more if her ATK is over 2,800), Chain Attack DMG +11.7% and Ultimate DMG +23.3%.'],
+        ['Momentum', 'Assist Follow-Ups (1), EX Specials (3) and her Ultimate (6) give Momentum (max 15). Her spinning Dash Attack: Mountain King\'s Game spends it to turn Fire and build Might.'],
+        ['Additional Ability: Aura of Authority', 'With an Attack or Rupture Agent in the squad: when an Attack or Rupture Agent uses an Ultimate, she gets 300 Decibels back.'],
+      ],
+      kit: {
+        basic: [
+          { name: 'Basic Attack: Tiger Seven Forms - Flaming Claw', anim: 'slashR', dur: 0.44, cancel: 0.3, reach: 1.6, move: [0, 0.15, 0.6], hits: [{ t: 0.15, mult: 46, daze: 55, bu: 20, attr: 'physical', shape: 'arc', r: 2.2, arc: 130 }] },
+          { name: 'Basic Attack: Tiger Seven Forms - Flaming Claw', anim: 'slashL', dur: 0.44, cancel: 0.31, reach: 1.6, move: [0, 0.15, 0.6], hits: [{ t: 0.15, mult: 50, daze: 58, bu: 24 }] },
+          { name: 'Basic Attack: Tiger Seven Forms - Flaming Claw', anim: 'spin', dur: 0.95, cancel: 0.8, reach: 1.7, dr: 0.4, hits: [0.12, 0.27, 0.42, 0.57, 0.72].map(t => ({ t, mult: 24, daze: 30, bu: 16, shape: 'circle', at: 'front', r: 1.9 })) },
+          { name: 'Basic Attack: Tiger Seven Forms - Flaming Claw', anim: 'slamDown', dur: 0.8, cancel: 0.65, reach: 1.8, move: [0.05, 0.32, 0.9], hits: [{ t: 0.36, mult: 160, daze: 175, bu: 55, heavy: true, shape: 'circle', at: 'front', r: 2.3, kb: 0.9, fx: 'flameRing' }] },
+        ],
+        spin: { name: 'Dash Attack: Tiger Seven Forms - Mountain King\'s Game', anim: 'spin', dur: 1.5, cancel: 1.45, reach: 3.5, dr: 0.4, spin: true, hits: [0.2, 0.4, 0.6, 0.8, 1.0].map(t => ({ t, mult: 40, daze: 42, bu: 30, shape: 'circle', at: 'self', r: 2.0 })).concat([{ t: 1.3, mult: 160, daze: 140, bu: 60, heavy: true, shape: 'circle', at: 'front', r: 2.4, kb: 0.9, fx: 'explode' }]) },
+        dash: { name: 'Dash Attack: Tiger Seven Forms - Tiger Charge', anim: 'slashR', dur: 0.55, cancel: 0.42, reach: 7, move: [0, 0.26, 4], hits: [{ t: 0.26, mult: 85, daze: 80, bu: 30, attr: 'physical' }] },
+        counter: { name: 'Dodge Counter: Tiger Seven Forms - Reignited Mountain', anim: 'slashL', dur: 0.7, cancel: 0.55, inv: [0, 0.6], move: [0, 0.15, 1.6], hits: [{ t: 0.15, mult: 80, daze: 70, bu: 40 }, { t: 0.32, mult: 140, daze: 120, bu: 60, heavy: true, kb: 0.9, fx: 'flameRing', shape: 'circle', at: 'front', r: 2.0 }] },
+        special: { name: 'Special Attack: Tiger Seven Forms - Mountain-Descending Tiger', anim: 'spinKick', dur: 0.85, cancel: 0.65, reach: 2.0, cd: 3.5, dr: 0.4, move: [0, 0.3, 0.8], hits: [{ t: 0.22, mult: 75, daze: 95, bu: 35, shape: 'circle', at: 'self', r: 2.0 }, { t: 0.55, mult: 130, daze: 165, bu: 50, heavy: true, shape: 'circle', at: 'front', r: 2.2, kb: 0.8, fx: 'flameRing' }] },
+        ex: { name: 'EX Special Attack: Tiger Seven Forms Alt - Mountain-Descending Savage Tiger', anim: 'slamDown', dur: 1.15, cancel: 1.0, cost: 40, reach: 2.6, inv: [0, 1.05], might: 50, momentum: 3, huwei: true, hits: [{ t: 0.55, mult: 430, daze: 410, bu: 120, heavy: true, shape: 'circle', at: 'front', r: 3.0, kb: 1.3, fx: 'explode' }] },
+        chain: { name: 'Chain Attack: Tiger Cauldron Collapse', anim: 'slamDown', dur: 1.25, inv: [0, 1.25], huwei: true, hits: [{ t: 0.6, mult: 580, daze: 280, bu: 160, heavy: true, shape: 'circle', at: 'target', r: 2.8, kb: 1.4, fx: 'explode' }] },
+        ult: { name: 'Ultimate: Tiger Seven Forms - Raging Tiger Explosion', anim: 'ultSmash', dur: 2.0, inv: [0, 2.0], might: 100, momentum: 6, huwei: true, hits: [{ t: 0.75, mult: 700, daze: 320, bu: 200, shape: 'circle', at: 'target', r: 3.5, kb: 0.6, fx: 'explode' }, { t: 1.4, mult: 1550, daze: 620, bu: 320, heavy: true, shape: 'circle', at: 'target', r: 4.5, kb: 2, fx: 'explode' }] },
+        assist: { name: 'Defensive Assist: Steadfast Crouching Tiger', type: 'defensive', anim: 'guard', dur: 0.45, inv: [0, 0.45], daze: 460 },
+        followup: { name: 'Assist Follow-Up: Feral Blazing Maw', anim: 'slashR', dur: 1.0, inv: [0, 0.95], move: [0, 0.25, 1.6], momentum: 1, huwei: true, hits: [{ t: 0.25, mult: 170, daze: 140, bu: 60 }, { t: 0.7, mult: 290, daze: 230, bu: 90, heavy: true, shape: 'circle', at: 'front', r: 2.6, kb: 1.1, fx: 'explode' }] },
+        quick: { name: 'Quick Assist: Decisive Stomp', anim: 'slashL', dur: 0.7, inv: [0, 0.6], move: [0, 0.25, 2.6], hits: [{ t: 0.25, mult: 200, daze: 175, bu: 60, kb: 0.8, shape: 'arc', r: 2.4, arc: 150 }] },
+        // what Hu Wei does on its own (not moves Ju Fufu makes; data for battle.js)
+        huwei: { name: 'Hu Wei', mult: 120, daze: 60, bu: 40, might: 20, every: 4 },
+        suppress: { name: 'Chain Attack: Suppressing Tiger Cauldron', mult: 650, daze: 160, bu: 200, r: 2.6 },
+      },
+    },
+
+    orphie: {
+      id: 'orphie', name: 'Orphie & Magus', short: 'Orphie', faction: 'Obol Squad', spec: 'Attack', attr: 'fire', rank: 'S',
+      color: '#ff6a1a', color2: '#c8202a', assist: 'defensive', stance: 'soldier',
+      blurb: 'Captain of the Obol Squad and Magus, her mechanical fire-breathing serpent. Magus sweeps lasers and flame blades on her command; with Bottled Heat full she pours it all into one long Heat Charge laser, and even off the field Magus fires on the squad\'s targets.',
+      stats: { hp: 8500, atk: 3100, def: 650, impact: 93, ap: 90, am: 92, cr: 0.35, cd: 0.9, er: 1.6, speed: 4.7 },
+      ai: { range: 2.2, dodge: 0.72, reflex: 0.6, aggr: 1.0 },
+      energyMax: 120, resource: 'heatO',
+      core: [
+        ['Core Passive: Taming Wind and Fire', 'CRIT Rate +25%, Aftershock DMG +85%. Orphie & Magus start with 100 Bottled Heat (max 125); EX Specials, the Chain Attack and the Ultimate restore 20. With 100, hold Special for EX Special Attack: Heat Charge: Magus fires a laser that grows hotter the longer it runs and ends in Fiery Eruption. When its laser hits, the whole squad gains Zeroed In for 12 s: +255 ATK.'],
+        ['Off the field', 'While another Agent attacks, Magus fires Special Attack: Corrosive Flash, four laser Aftershocks at her target (once every 5 s, +20 Bottled Heat).'],
+        ['Additional Ability: Forged in Flames', 'With a Stun or Support Agent in the squad: Aftershock DMG dealt by Agents with Zeroed In ignores 25% DEF.'],
+      ],
+      kit: {
+        basic: [
+          { name: 'Basic Attack: High-Pressure Flamethrower', anim: 'slashR', dur: 0.42, cancel: 0.3, reach: 2.2, range: 2.0, move: [0, 0.14, 0.4], hits: [{ t: 0.14, mult: 42, daze: 28, bu: 16, attr: 'physical' }] },
+          { name: 'Basic Attack: High-Pressure Flamethrower', anim: 'point', dur: 0.48, cancel: 0.36, reach: 3.6, range: 2.4, hits: [0.12, 0.26].map(t => ({ t, mult: 26, daze: 16, bu: 22, shape: 'line', r: 1.0, len: 4.2 })) },
+          { name: 'Basic Attack: High-Pressure Flamethrower', anim: 'kick', dur: 0.48, cancel: 0.35, reach: 2.0, range: 1.8, move: [0, 0.16, 0.5], hits: [{ t: 0.17, mult: 58, daze: 34, bu: 18, attr: 'physical' }] },
+          { name: 'Basic Attack: High-Pressure Flamethrower', anim: 'point', dur: 0.5, cancel: 0.38, reach: 3.6, range: 2.4, hits: [0.12, 0.26].map(t => ({ t, mult: 32, daze: 18, bu: 26, shape: 'line', r: 1.0, len: 4.4 })) },
+          { name: 'Basic Attack: High-Pressure Flamethrower', anim: 'sweep', dur: 0.52, cancel: 0.4, reach: 2.4, range: 2.0, hits: [{ t: 0.22, mult: 70, daze: 40, bu: 30, shape: 'arc', r: 2.8, arc: 170 }] },
+          { name: 'Basic Attack: High-Pressure Flamethrower', anim: 'slamDown', dur: 0.8, cancel: 0.66, reach: 2.6, range: 2.0, aftershock: true, hits: [{ t: 0.36, mult: 190, daze: 70, bu: 60, heavy: true, shape: 'arc', r: 3.2, arc: 160, kb: 0.9, fx: 'flameRing' }] },
+        ],
+        heatCharge: { name: 'EX Special Attack: Heat Charge', anim: 'point', dur: 2.75, cancel: 2.7, reach: 7, range: 4, dr: 0.4, inv: [1.4, 2.75], bheatCost: 100, zeroIn: true, aftershock: true,
+          hits: [0.4, 0.6, 0.8, 1.0, 1.2, 1.4, 1.6, 1.8, 2.0].map((t, i) => ({ t, mult: 45 + i * 6, daze: 22, bu: 30, shape: 'line', r: 1.2, len: 10 })).concat([{ t: 2.35, mult: 520, daze: 120, bu: 160, heavy: true, shape: 'line', r: 1.6, len: 11, kb: 1.2, fx: 'fireLine' }]) },
+        dash: { name: 'Dash Attack: Rush Command', anim: 'thrust', dur: 0.55, cancel: 0.42, reach: 7, move: [0, 0.26, 4], hits: [{ t: 0.26, mult: 85, daze: 45, bu: 25, attr: 'physical' }] },
+        counter: { name: 'Dodge Counter: Counter Strike Opportunity', anim: 'sweep', dur: 0.7, cancel: 0.55, inv: [0, 0.6], move: [0, 0.15, 1.4], hits: [{ t: 0.15, mult: 80, daze: 40, bu: 30, attr: 'physical' }, { t: 0.36, mult: 170, daze: 70, bu: 60, heavy: true, shape: 'arc', r: 2.8, arc: 160, kb: 0.9 }] },
+        special: { name: 'Special Attack: Blazing Chamber', anim: 'thrust', dur: 0.8, cancel: 0.62, reach: 2.4, cd: 3.5, dr: 0.4, move: [0, 0.2, 0.8], hits: [{ t: 0.2, mult: 95, daze: 50, bu: 40 }, { t: 0.5, mult: 165, daze: 80, bu: 60, heavy: true, shape: 'arc', r: 2.8, arc: 120, kb: 0.8 }] },
+        ex: { name: 'EX Special Attack: Watch Your Step', anim: 'sweep', dur: 1.15, cancel: 1.0, cost: 40, reach: 5, range: 3, inv: [0, 1.05], bheat: 20, aftershock: true, hits: [0.3, 0.45, 0.6, 0.75].map(t => ({ t, mult: 75, daze: 40, bu: 50, shape: 'line', r: 1.4, len: 8 })).concat([{ t: 0.95, mult: 330, daze: 90, bu: 110, heavy: true, shape: 'arc', r: 3.4, arc: 170, kb: 1.0, fx: 'flameRing' }]) },
+        chain: { name: 'Chain Attack: Overheated Barrel', anim: 'spin', dur: 1.3, inv: [0, 1.3], bheat: 20, aftershock: true, hits: [{ t: 0.35, mult: 220, daze: 80, bu: 100, shape: 'circle', at: 'self', r: 2.8 }, { t: 0.9, mult: 500, daze: 140, bu: 200, heavy: true, shape: 'line', r: 1.5, len: 9, kb: 1.2, fx: 'fireLine' }] },
+        ult: { name: 'Ultimate: Dance With Fire', anim: 'spin', dur: 2.2, inv: [0, 2.2], bheat: 20, aftershock: true, hits: [{ t: 0.45, mult: 420, daze: 100, bu: 150, shape: 'circle', at: 'self', r: 3.0 }].concat([1.0, 1.2, 1.4, 1.6].map(t => ({ t, mult: 260, daze: 60, bu: 120, shape: 'line', r: 1.6, len: 11 }))).concat([{ t: 1.9, mult: 1000, daze: 240, bu: 400, heavy: true, shape: 'line', r: 2.0, len: 12, kb: 1.6, fx: 'fireLine' }]) },
+        assist: { name: 'Defensive Assist: Blazing Gunblade', type: 'defensive', anim: 'guard', dur: 0.45, inv: [0, 0.45], daze: 400 },
+        followup: { name: 'Assist Follow-Up: Boiling Pierce', anim: 'thrust', dur: 1.0, inv: [0, 0.95], move: [0, 0.25, 1.8], hits: [{ t: 0.25, mult: 150, daze: 60, bu: 60 }, { t: 0.45, mult: 150, daze: 60, bu: 60 }, { t: 0.75, mult: 290, daze: 100, bu: 100, heavy: true, shape: 'line', r: 1.4, len: 6, kb: 1.0, fx: 'fireLine' }] },
+        quick: { name: 'Quick Assist: Searing Slash', anim: 'sweep', dur: 0.7, inv: [0, 0.6], move: [0, 0.25, 2.4], hits: [{ t: 0.2, mult: 120, daze: 60, bu: 50, attr: 'physical' }, { t: 0.4, mult: 150, daze: 70, bu: 60, shape: 'arc', r: 2.6, arc: 160 }] },
+        // Magus off the field (data for battle.js)
+        corrosive: { name: 'Special Attack: Corrosive Flash', mult: 95, bu: 40, every: 5, bheat: 20 },
+      },
+    },
+
+    remielle: {
+      id: 'remielle', name: 'Remielle Dan', short: 'Remielle', faction: 'Covenant of Dayat', spec: 'Anomaly', attr: 'lumiflux', rank: 'S',
+      color: '#ff8aa8', color2: '#b8a4e8', assist: 'defensive', stance: 'dancer',
+      blurb: 'A first-generation Void Hunter of the Covenant of Dayat, and the first Lumiflux Agent: her light takes on the attribute of whoever stands next to her in the squad. Her Lumiflux Buildup lets a teammate\'s Anomaly Refringe into a bigger blast, and from the wings, in Phase Flow, she keeps the light falling.',
+      stats: { hp: 8100, atk: 2900, def: 640, impact: 86, ap: 380, am: 155, cr: 0.1, cd: 0.5, er: 1.4, speed: 4.8 },
+      ai: { range: 2.0, dodge: 0.8, reflex: 0.62, aggr: 1.0 },
+      energyMax: 120, resource: 'radiance',
+      core: [
+        ['Attribute Flux', 'Lumiflux takes on the attribute of the next Agent in the squad: her DMG and Anomaly Buildup are that attribute. Her 4th Basic hit, EX Special and Chain Attack also leave Lumiflux Buildup on the enemy.'],
+        ['Core Passive: Temporal Patterns = Stilled Colors', 'When a teammate triggers an Attribute Anomaly on an enemy carrying Lumiflux Buildup, it Refringes: the Anomaly hits much harder (scaling with her Anomaly Proficiency), and she stores a Voidflare (up to 3). Hold Basic for Rainbow\'s End (Fleeting Grace in Luminous Reflection) and her Ultimate: each triggers Luminize, Anomaly DMG from every stored Voidflare.'],
+        ['Phase Flow', 'Basic Attacks build Floating Radiance (max 120). Swapped out with it full, she enters Phase Flow: off the field, light keeps falling on the target (Lumiflux Buildup), and the squad deals 10% more DMG while it lasts. When the Radiance runs dry (or after 3 Refringes) her next swap-in is Assist: Flower & Feather Dance: a big area hit, Luminize, and +3 s on a Stun.'],
+        ['Additional Ability: Invitation to Bloom', 'For each other Anomaly Agent in the squad, the squad gains ATK on entering battle (6% / 12% / 40% of hers with 1 / 2 / 3 Anomaly Agents).'],
+      ],
+      kit: {
+        basic: [
+          { name: 'Basic Attack: Leap', anim: 'slashR', dur: 0.46, cancel: 0.33, reach: 2.0, range: 1.8, move: [0, 0.18, 0.8], radiance: 8, hits: [{ t: 0.18, mult: 48, daze: 30, bu: 44, shape: 'arc', r: 2.4, arc: 150 }] },
+          { name: 'Basic Attack: Leap', anim: 'slashL', dur: 0.46, cancel: 0.33, reach: 2.0, range: 1.8, move: [0, 0.16, 0.6], radiance: 8, hits: [{ t: 0.16, mult: 52, daze: 34, bu: 48 }] },
+          { name: 'Basic Attack: Leap', anim: 'spin', dur: 0.6, cancel: 0.45, reach: 2.1, range: 1.8, radiance: 10, hits: [{ t: 0.24, mult: 66, daze: 40, bu: 62, shape: 'circle', at: 'self', r: 2.4 }] },
+          { name: 'Basic Attack: Leap', anim: 'slamDown', dur: 0.75, cancel: 0.6, reach: 2.1, range: 1.8, move: [0, 0.3, 0.6], radiance: 14, hits: [{ t: 0.32, mult: 118, daze: 70, bu: 110, heavy: true, lumi: 1, shape: 'circle', at: 'front', r: 2.2, kb: 0.6 }] },
+        ],
+        rainbow: { name: 'Basic Attack: Rainbow\'s End', anim: 'sing', dur: 1.3, cancel: 1.2, reach: 3.0, range: 2.4, dr: 0.4, radiance: 60, luminize: 1.05, consumeFlare: true, hits: [{ t: 0.75, mult: 380, daze: 150, bu: 300, heavy: true, shape: 'circle', at: 'front', r: 3.6, kb: 1.0 }] },
+        fleeting: { name: 'Basic Attack: Fleeting Grace', anim: 'sing', dur: 1.35, cancel: 1.25, reach: 3.0, range: 2.4, inv: [0.3, 1.0], radiance: 60, luminize: 2.1, consumeFlare: true, hits: [{ t: 0.4, mult: 200, daze: 80, bu: 160, shape: 'circle', at: 'front', r: 3.4 }, { t: 0.8, mult: 460, daze: 180, bu: 360, heavy: true, shape: 'circle', at: 'front', r: 3.8, kb: 1.2 }] },
+        dash: { name: 'Dash Attack: Keen Light', anim: 'thrust', dur: 0.55, cancel: 0.42, reach: 7, move: [0, 0.25, 4], hits: [{ t: 0.25, mult: 80, daze: 45, bu: 70 }] },
+        counter: { name: 'Dodge Counter: Mirrored Shadow', anim: 'slashL', dur: 0.62, cancel: 0.46, inv: [0, 0.55], move: [0, 0.15, 1.6], hits: [{ t: 0.18, mult: 170, daze: 75, bu: 190, heavy: true, kb: 0.8, shape: 'arc', r: 2.6, arc: 170 }] },
+        special: { name: 'Special Attack: Sliver of Light', anim: 'point', dur: 0.7, cancel: 0.55, reach: 6, range: 3, cd: 3.5, dr: 0.4, hits: [{ t: 0.32, mult: 140, daze: 70, bu: 150, heavy: true, shape: 'proj', speed: 18, r: 1.4, kb: 0.6, fx: 'lightLance' }] },
+        ex: { name: 'EX Special Attack: Ode to Dawn', anim: 'sing', dur: 1.15, cancel: 1.0, cost: 40, reach: 2.8, range: 2.2, inv: [0, 1.0], radiance: 20, hits: [{ t: 0.4, mult: 200, daze: 80, bu: 260 }, { t: 0.85, mult: 330, daze: 120, bu: 380, heavy: true, lumi: 2, shape: 'circle', at: 'front', r: 3.6, kb: 0.9 }] },
+        ffd: { name: 'Assist: Flower & Feather Dance', anim: 'ultAria', dur: 1.5, inv: [0, 1.5], luminize: 2.1, stunExtend: 3, reflection: true, hits: [{ t: 0.55, mult: 360, daze: 140, bu: 300, shape: 'circle', at: 'self', r: 3.6 }, { t: 1.0, mult: 620, daze: 220, bu: 480, heavy: true, shape: 'circle', at: 'self', r: 4.2, kb: 1.2 }] },
+        chain: { name: 'Chain Attack: Interwoven Dance Steps', anim: 'exAria', dur: 1.3, inv: [0, 1.3], reflection: true, hits: [{ t: 0.3, mult: 170, daze: 60, bu: 240 }, { t: 0.6, mult: 190, daze: 60, bu: 260, shape: 'circle', at: 'target', r: 3.0 }, { t: 0.95, mult: 300, daze: 120, bu: 480, heavy: true, lumi: 2, shape: 'circle', at: 'target', r: 3.4, kb: 1 }] },
+        ult: { name: 'Ultimate: Dazzling Curtain Call', anim: 'ultAria', dur: 2.2, inv: [0, 2.2], luminize: 2.205, hits: [0.7, 0.9, 1.1].map(t => ({ t, mult: 260, daze: 70, bu: 320, shape: 'circle', at: 'target', r: 3.6 })).concat([{ t: 1.6, mult: 960, daze: 210, bu: 900, heavy: true, shape: 'circle', at: 'target', r: 5, kb: 1.4 }]) },
+        assist: { name: 'Defensive Assist: Fleeting Light', type: 'defensive', anim: 'guardStick', dur: 0.45, inv: [0, 0.45], daze: 400 },
+        followup: { name: 'Assist Follow-Up: Awakening Glimmer', anim: 'slashR', dur: 1.0, inv: [0, 0.95], move: [0, 0.2, 1.4], hits: [0.25, 0.45].map(t => ({ t, mult: 120, daze: 50, bu: 160, shape: 'arc', r: 2.6, arc: 170 })).concat([{ t: 0.7, mult: 230, daze: 90, bu: 280, heavy: true, shape: 'circle', at: 'target', r: 2.6, kb: 0.8 }]) },
+        quick: { name: 'Quick Assist: Featherglow Rebirth', anim: 'slashL', dur: 0.65, inv: [0, 0.6], move: [0, 0.25, 2.5], hits: [{ t: 0.25, mult: 190, daze: 70, bu: 230, kb: 0.8, shape: 'arc', r: 2.6, arc: 160 }] },
+        // her light in Phase Flow, off the field (data for battle.js)
+        phase: { name: 'Phase Flow', mult: 90, daze: 40, bu: 120, every: 1.6, drain: 9, dmgUp: 0.1 },
       },
     },
   };
