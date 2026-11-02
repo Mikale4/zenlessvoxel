@@ -43,6 +43,7 @@
     E.tm = el('div', { class: 'tm' }); E.wv = el('div', { class: 'wv' });
     E.auto = el('button', { class: 'auto pe', onpointerdown: ev => { ev.preventDefault(); BT.setAuto(!BT.B.auto); HUD.saveAuto(); } }, 'AUTO');
     E.moveHint = el('div', { class: 'movehint' });
+    if (B.opts.tutorial) E.auto.hidden = true;                    // TRAINING: you fight
     // Proxy Clash: the rival Proxy's squad
     E.rv = null;
     if (B.rival) {
@@ -60,18 +61,27 @@
     // log, callouts, floating bars
     E.log = el('div', { class: 'log' }); E.co = el('div', { class: 'callouts' }); E.floats = el('div');
     root.append(E.log, E.co, E.floats);
-    // commands
-    const cmd = (label, key, fn, cls) => { const b = el('button', { class: 'cmd pe ' + (cls || ''), onpointerdown: ev => { ev.preventDefault(); SFX.unlock(); fn(); } }, el('span', null, label), el('small', null, key)); return b; };
+    // commands: taps, and the three buttons you hold like keys (Basic, Dodge, Special: a hold is a hold)
+    const cmd = (label, fn, cls) => el('button', { class: 'cmd pe ' + (cls || ''), onpointerdown: ev => { ev.preventDefault(); SFX.unlock(); fn(); } }, el('span', { class: 'lbl' }, label), el('small'));
+    const held = (label, btn, cls) => {
+      const b = el('button', { class: 'cmd pe ' + (cls || ''), onpointerdown: ev => { ev.preventDefault(); SFX.unlock(); try { b.setPointerCapture(ev.pointerId); } catch (e) { /* fine */ } BT.btnDown(btn); },
+        onpointerup: () => BT.btnUp(btn), onpointercancel: () => BT.btnUp(btn) }, el('span', { class: 'lbl' }, label), el('small'));
+      return b;
+    };
     E.swapWord = B.allOut ? 'SWITCH' : 'SWAP';                     // All-Out: nobody swaps out; you switch whom you lead
-    E.cPrev = cmd('◀ ' + E.swapWord, 'Q', () => BT.cmdSwap(-1));
-    E.cNext = cmd(E.swapWord + ' ▶', 'W', () => BT.cmdSwap(1));
-    E.cEx = cmd('EX', 'E', () => BT.cmdEx());
-    E.cUlt = cmd('ULT', 'R', () => BT.cmdUlt(), 'ult');
-    E.cTab = cmd('TARGET', 'TAB', () => BT.cmdFocus());
-    E.cMenu = cmd('TACTICS', 'ESC', () => MENU.tactics());
-    for (const b of [E.cPrev, E.cNext, E.cEx, E.cUlt, E.cTab, E.cMenu]) b.querySelector('span').className = 'lbl';
+    E.cPrev = cmd('◀ ' + E.swapWord, () => BT.cmdSwap(-1));
+    E.cNext = cmd(E.swapWord + ' ▶', () => BT.cmdSwap(1));
+    E.cEx = held('EX', 'special');
+    E.cUlt = cmd('ULT', () => BT.cmdUlt(), 'ult');
+    E.cTab = cmd('TARGET', () => BT.cmdFocus());
+    E.cMenu = cmd('TACTICS', () => MENU.tactics());
+    E.cDodge = held('DODGE', 'dodge', 'dodge');
+    E.cBasic = held('BASIC', 'basic', 'basic');
+    E.keyOf = [[E.cPrev, 'prev'], [E.cNext, 'next'], [E.cUlt, 'ult'], [E.cTab, 'target']];      // (Basic, Dodge and Special: setBtn)
+    E.cMenu.querySelector('small').textContent = 'ESC';
     E.cdBar = el('i', { class: 'cd' }); E.cNext.append(E.cdBar);
-    root.append(el('div', { class: 'cmds' }, E.cPrev, E.cNext, E.cEx, E.cTab, E.cUlt, E.cMenu));
+    E.cmds = el('div', { class: 'cmds' }, E.cPrev, E.cNext, E.cEx, E.cTab, E.cUlt, E.cMenu, E.cDodge, E.cBasic);
+    root.append(E.cmds);
     // chain prompt, cut-in
     E.chain = el('div', { class: 'chainp', hidden: true }); root.append(E.chain);
     E.cut = el('div', { class: 'cutin', hidden: true }); document.body.append(E.cut);
@@ -100,7 +110,7 @@
     if (!E.chain || off()) return;
     E.chain.innerHTML = ''; E.chain.hidden = false;
     const card = (a, i) => el('div', { class: 'cc', onpointerdown: ev => { ev.preventDefault(); BT.chainPick(i); } },
-      el('img', { src: portrait(a.modelId || a.id), alt: '' }), el('div', null, el('b', null, a.def.short), el('small', null, a.def.kit.chain.name.replace('Chain Attack: ', '')), el('kbd', null, i === 0 ? 'Q / 1' : 'W / 2')));
+      el('img', { src: portrait(a.modelId || a.id), alt: '' }), el('div', null, el('b', null, a.def.short), el('small', null, a.def.kit.chain.name.replace('Chain Attack: ', '')), el('kbd', null, KEYS.get(i === 0 ? 'chainL' : 'chainR').filter(Boolean).map(KEYS.label).join(' / '))));
     E.chainTb = el('i');
     const mid = el('div', { class: 'mid' }, 'CHAIN', el('div', { class: 'tb' }, E.chainTb), el('small', null, `${C.tgt.def.name} · ${C.tgt.chainsLeft + 1} left`), E.chainUlt = el('small', null, ''));
     if (C.opts[0]) E.chain.append(card(C.opts[0], 0));
@@ -133,7 +143,7 @@
     if (th && vigT <= 0 && E.vig) E.vig.className = (th.flash === 'gold' && B.assist > 0) ? 'gold' : 'red';
     else if (!th && vigT <= 0 && E.vig && E.vig.className !== '') E.vig.className = '';
     E.bars.classList.toggle('on', !!B.cutin || !!B.chain || !!(ag && ag.act && ['ult', 'ult2', 'chain'].includes(ag.act.kind)));
-    if (B.chain && E.chainTb) { E.chainTb.style.width = pct(B.chain.timer, BT.T.chainWindow); E.chainUlt.textContent = ag && (ag.decibels >= R.decibelMax) ? 'R: ULTIMATE' : ''; }
+    if (B.chain && E.chainTb) { E.chainTb.style.width = pct(B.chain.timer, BT.T.chainWindow); E.chainUlt.textContent = ag && (ag.decibels >= R.decibelMax) ? `${KEYS.short('ult')}: ULTIMATE` : ''; }
     floats(B);
     if (acc < 1 / 30) return; acc = 0;
     // main panel
@@ -172,7 +182,7 @@
       if (ag.stun > 0) r.unshift(`STUNNED ${ag.stun.toFixed(1)}s${B.allOut ? '' : ' · SWAP!'}`);
       for (const t of r) M.res.append(el('span', null, t));
     }
-    // the other two: W brings in the next, Q the previous
+    // the other two: one key brings in the next, one the previous
     const n = B.squad.length, nxt = BT.nextAlive(1), prv = BT.nextAlive(-1);
     const others = [1, 2].filter(k => k < n).map(k => B.squad[(B.active + k) % n]);   // (a squad of two: just the one)
     E.subs.forEach((s, i) => {
@@ -181,7 +191,7 @@
       s.hp.style.width = pct(a.hp, a.hpMax); s.en.style.width = pct(a.energy, a.def.energyMax); s.db.style.width = pct(a.decibels, R.decibelMax);
       if (B.rival) s.dz.style.width = pct(a.daze || 0, a.dazeMax || 1);
       s.root.classList.toggle('down', !a.alive); s.root.classList.toggle('dbmax', a.decibels >= R.decibelMax); s.root.classList.toggle('stun', a.stun > 0);
-      s.key.textContent = a === nxt ? 'W' : a === prv ? 'Q' : '—';
+      s.key.textContent = a === nxt ? KEYS.short('next') : a === prv ? KEYS.short('prev') : '—';
     });
     E.assist.innerHTML = ''; E.assist.append(el('span', null, 'ASSIST '));
     for (let i = 0; i < R.assistPointsMax; i++) E.assist.append(el('i', { class: i < B.assist ? 'on' : '' }));
@@ -237,7 +247,9 @@
       for (let i = 0; i < R.assistPointsMax; i++) E.rv.pips.append(el('i', { class: i < RV.assist ? 'on' : '' }));
     }
     E.auto.classList.toggle('on', !!B.auto); E.auto.textContent = B.auto ? 'AUTO: ON' : 'AUTO: OFF';
-    E.moveHint.textContent = B.auto ? 'She moves on her own' : (window.GAME && GAME.touch ? 'Drag to move' : '← ↑ ↓ → to move');
+    const me = !!ag && BT.isPlayer(ag), touch = window.GAME && GAME.touch, mk = ['up', 'left', 'down', 'right'].map(KEYS.short).join(' ');
+    E.moveHint.textContent = B.auto ? 'She fights on her own' : me ? (touch ? 'Drag to move · the buttons fight' : `${mk} move · ${KEYS.short('basic')} attack · ${KEYS.short('dodge')} dodge · ${KEYS.short('special')} special`)
+      : (touch ? 'Drag to move' : `${mk} to move · she attacks on her own`);
     // command buttons
     const qa = B.allOut ? B.squad.some(s => s.alive && s.launchedUntil > B.t) : ag && ag.launchedUntil > B.t;
     for (const [b, who] of [[E.cNext, nxt], [E.cPrev, prv]]) {
@@ -249,12 +261,34 @@
       else if (B.swapCd > 0 && !B.allOut) b.classList.add('off');
     }
     E.cdBar.style.width = B.swapCd > 0 ? pct(B.swapCd, BT.T.swapCd || 1) : '0%';
+    for (const [b, id] of E.keyOf) { const k = b.querySelector('small'); if (k.textContent !== KEYS.short(id)) k.textContent = KEYS.short(id); }
+    E.cmds.classList.toggle('fight', me);
+    E.cBasic.hidden = E.cDodge.hidden = !me;
     if (ag) {
-      E.cEx.className = 'cmd pe' + (ag.energy >= ag.def.kit.ex.cost ? ' ready' : ' off') + (ag.exCall ? ' assist' : '');
-      const ultReady = ag.decibels >= R.decibelMax || (ag.id === 'yixuan' && ag.tp >= 120);
+      const K = ag.def.kit, ultReady = ag.decibels >= R.decibelMax || (ag.id === 'yixuan' && ag.tp >= 120);
       E.cUlt.className = 'cmd pe ult' + (ultReady ? ' ready' : ' off');
+      if (!me) { E.cEx.className = 'cmd pe' + (ag.energy >= K.ex.cost ? ' ready' : ' off') + (ag.exCall ? ' assist' : ''); setBtn(E.cEx, 'EX', null, 'special'); }
+      else {
+        // what each button does right now: the moment lights it (a Dodge Counter, a Follow-Up, the EX), a hold move shows under it
+        const name = d => d.name.replace(/^[^:]*:\s*/, '').replace(/ - .*$/, '').toUpperCase();
+        const sp = BT.resolve(ag, 'special', false), spH = BT.holdable(ag, 'special') && BT.resolve(ag, 'special', true);
+        E.cEx.className = 'cmd pe' + (sp.kind !== 'special' ? ' ready' : '') + (sp.def === K.osb ? ' assist' : '');
+        setBtn(E.cEx, sp.def === K.osb ? 'BASH' : sp.def === K.ex2 ? 'EX ×2' : sp.kind !== 'special' ? 'EX' : 'SPECIAL', spH && 'HOLD: ' + name(spH.def), 'special');
+        const bt = BT.resolve(ag, 'basic', false), bh = BT.holdable(ag, 'basic') && BT.resolve(ag, 'basic', true);
+        const word = bt.kind === 'counter' ? 'COUNTER' : bt.kind === 'followup' ? 'FOLLOW-UP' : bt.def === K.thrust ? 'RETALIATE' : bt.kind === 'dash' || bt.def === K.spin ? 'DASH ATTACK' : 'BASIC';
+        E.cBasic.className = 'cmd pe basic' + (bt.kind === 'counter' ? ' quick' : bt.kind === 'followup' || bt.def === K.thrust ? ' assist' : bh ? ' ready' : '');
+        setBtn(E.cBasic, word, bh && 'HOLD: ' + name(bh.def), 'basic');
+        E.cDodge.className = 'cmd pe dodge' + (ag.dodgeCharges > 0 ? '' : ' off');
+        setBtn(E.cDodge, 'DODGE', null, 'dodge');
+      }
     }
   };
+  /* a button's word, and under it the hold move it has (or its key) */
+  function setBtn(b, word, hint, id) {
+    const l = b.firstChild, k = b.querySelector('small'), sub = hint || KEYS.short(id);
+    if (l.textContent !== word) l.textContent = word;
+    if (k.textContent !== sub) { k.textContent = sub; k.className = hint ? 'h' : ''; }
+  }
   /* small HP/Daze bars over every enemy but the target */
   function floats(B) {
     const cam = BT.world.camera, W = innerWidth, H = innerHeight, ag = BT.active(), tgt = ag && BT.pickTarget(ag);

@@ -38,6 +38,7 @@
     sel = U.store.get('setup', DEF_SETUP()); normSel();
     csel = U.store.get('clash', DEF_CLASH()); normClash(); rolled = null;
     const t = U.store.get('tuning', {}); for (const k in D.TUNING_DEFAULTS) BT.T[k] = k in t ? t[k] : D.TUNING_DEFAULTS[k];
+    KEYS.load();
     if (window.TOWN) TOWN.reload();
     SFX.setVolume(BT.T.volume); MUSIC.setVolume(BT.T.music); VOICE.setVolume(BT.T.voice);
     return a;
@@ -325,8 +326,9 @@
       el('button', { class: 'btn', onclick: () => { SFX.unlock(); MENU.deploy(); } }, sel.encounter === 'dive' ? 'START DIVE' : 'DEPLOY'),
       Auth.current() ? el('button', { class: 'btn dark small', onclick: () => { SFX.play('ui'); MENU.lobby({ spawn: [1.5, -11.0] }); } }, '◀ SIXTH STREET') : null,
       el('button', { class: 'btn dark small', onclick: () => MENU.lab() }, 'BATTLE LAB'),
+      el('button', { class: 'btn dark small', onclick: () => MENU.keys() }, 'KEY BINDINGS'),
       el('button', { class: 'btn dark small', onclick: () => MENU.howto() }, 'HOW TO PLAY'),
-      el('div', { class: 'hint' }, BT.T.auto ? 'AUTO is ON: the game moves your Agent and gives the commands (T toggles it in battle)' : `AUTO is OFF: you move the Agent (${window.GAME && GAME.touch ? 'drag on the battlefield' : 'arrow keys'}) and give the commands; she fights on her own (T toggles it)`)));
+      el('div', { class: 'hint' }, modeHint())));
     scr().append(el('div', { class: 'scr setup' }, left, mid, right));
   };
   /* Agents with more than one look (Aria: idol / construct) get a switch */
@@ -389,7 +391,7 @@
         SFX.play('ui'); csel.mode = id; csel.squad = csel.squad.slice(0, m.size); if (csel.rsquad) csel.rsquad = csel.rsquad.slice(0, m.size); rolled = null; saveClash(); MENU.clash();
       } }, el('b', null, m.name), el('small', null, m.title)));
     }
-    left.append(mg, el('div', { class: 'hint mode-sub' }, M0.sub + (M0.allOut ? ' You lead one (move her, call her EX and Ultimate; W / Q switch); the rest fight on their own. On a flash, W / Q sends a teammate to help.' : '')));
+    left.append(mg, el('div', { class: 'hint mode-sub' }, M0.sub + (M0.allOut ? ' You lead one (you fight with her; the Switch keys change whom); the rest fight on their own. On a flash, W / Q sends a teammate to help.' : '')));
     left.append(el('h2', null, 'YOUR SQUAD', el('small', null, N === 1 ? 'pick 1' : `pick ${N} · ${M0.allOut ? 'all on the field at once' : 'the first starts on the field'}`)));
     const cards = el('div', { class: 'cards' });
     for (const id in D.AGENTS) {
@@ -438,6 +440,7 @@
       el('button', { class: 'btn', onclick: () => { SFX.unlock(); MENU.clashGo(); } }, 'FIGHT'),
       Auth.current() ? el('button', { class: 'btn dark small', onclick: () => { SFX.play('ui'); MENU.lobby({ spawn: [-25.9, 5.4] }); } }, '◀ SIXTH STREET') : null,
       el('button', { class: 'btn dark small', onclick: () => MENU.lab() }, 'BATTLE LAB'),
+      el('button', { class: 'btn dark small', onclick: () => MENU.keys() }, 'KEY BINDINGS'),
       el('button', { class: 'btn dark small', onclick: () => MENU.howto() }, 'HOW TO PLAY'),
       el('div', { class: 'hint' }, `${M0.name} ${M0.title} · ${mySquad().map(id => D.AGENTS[id].short).join(' / ')}${csel.squad.length < N ? ' (filled in)' : ''}  vs  ${theirs.map(id => D.AGENTS[id].short).join(' / ')} · ${BT.T.auto ? 'AUTO is ON (T toggles it in battle)' : 'AUTO is OFF: you move and command'}`)));
     scr().append(el('div', { class: 'scr setup clash' }, left, mid, right));
@@ -447,6 +450,74 @@
     scr().innerHTML = '';
     VOICE.line(mySquad()[0], ['confirm']);
     GAME.startBattle({ squad: mySquad(), arena: csel.arena, look: Object.assign({}, sel.look), clash: { rival: csel.rival, squad: theirs, look: Object.assign({}, rlook), mode: csel.mode } });
+  };
+
+  /* how you will fight: AUTO, Auto-attack, or yourself (and with which keys) */
+  function modeHint() {
+    const t = window.GAME && GAME.touch, ks = id => KEYS.short(id), mv = ['up', 'left', 'down', 'right'].map(ks).join(' ');
+    if (BT.T.auto) return `AUTO is ON: your Agent fights on her own and the game gives the commands (${t ? 'the AUTO button' : ks('auto')} in battle turns it off)`;
+    if (BT.T.autoAttack) return `AUTO is OFF, Auto-attack on: you move her (${t ? 'drag' : mv}) and give the commands; she attacks on her own`;
+    return t ? 'AUTO is OFF: you fight. Drag to move; the buttons are Basic, Dodge, Special, Ultimate and Swap'
+      : `AUTO is OFF: you fight. ${mv} move · ${ks('basic')} Basic · ${ks('dodge')} Dodge · ${ks('special')} Special · ${ks('ult')} Ultimate · ${ks('next')} Switch`;
+  }
+
+  /* ------------------------------------------------------- key bindings --
+     Every battle action, with two keys (or mouse buttons) each. Click one,
+     press the new key: whatever else used it at the same time lets it go.
+     Saved per Proxy (keys.js). */
+  MENU.keys = () => {
+    const note = el('div', { class: 'note' }), grid = el('div', { class: 'binds' });
+    let wait = null;
+    const draw = () => {
+      grid.innerHTML = '';
+      grid.append(el('span'), el('small', { class: 'hd' }, 'KEY'), el('small', { class: 'hd' }, 'OR'));
+      for (const a of KEYS.ACTIONS) {
+        if (a.group) { grid.append(el('div', { class: 'g' }, a.group)); continue; }
+        grid.append(el('label', null, a.label, a.help ? el('small', null, a.help) : null), ...[0, 1].map(slot => {
+          const c = KEYS.get(a.id)[slot];
+          const b = el('button', { class: 'k' + (c ? '' : ' empty'), onclick: () => listen(a, slot, b) }, c ? KEYS.label(c) : '—');
+          return b;
+        }));
+      }
+    };
+    const noMenu = e => e.preventDefault();
+    function stop() {
+      removeEventListener('keydown', onKey, true); removeEventListener('mousedown', onMouse, true);
+      setTimeout(() => removeEventListener('contextmenu', noMenu, true), 50);
+      if (wait) { wait.b.classList.remove('wait'); wait.b.textContent = wait.text; }
+      wait = null;
+    }
+    function listen(a, slot, b) {
+      stop();
+      wait = { a, slot, b, text: b.textContent }; b.classList.add('wait'); b.textContent = 'PRESS A KEY';
+      note.textContent = `${a.label}: press a key or click a mouse button on this button. Esc cancels; Backspace or Delete clears it.`;
+      addEventListener('keydown', onKey, true); addEventListener('mousedown', onMouse, true); addEventListener('contextmenu', noMenu, true);
+    }
+    function take(code) {
+      const W = wait; stop();
+      const taken = KEYS.set(W.a.id, W.slot, code), name = id => KEYS.ACTIONS.find(x => x.id === id).label;
+      note.textContent = !code ? `${W.a.label}: cleared.` : taken.length ? `${KEYS.label(code)} was on ${taken.map(name).join(', ')}; now it is ${W.a.label}.` : `${W.a.label}: ${KEYS.label(code)}.`;
+      draw();
+    }
+    function onKey(e) {
+      e.preventDefault(); e.stopImmediatePropagation();
+      const c = KEYS.code(e);
+      if (c === 'Escape') { stop(); note.textContent = ''; return; }
+      take(c === 'Backspace' || c === 'Delete' ? null : c);
+    }
+    function onMouse(e) {
+      if (!wait) return;
+      if (e.target.closest('button') !== wait.b) { stop(); note.textContent = ''; return; }   // a click anywhere else: never mind
+      e.preventDefault(); e.stopImmediatePropagation(); take('Mouse' + e.button);
+    }
+    draw();
+    const box = el('div', { class: 'box' }, el('h2', null, 'KEY BINDINGS'),
+      el('p', null, 'The battle controls. The defaults are the real game\'s PC layout; each action takes two keys or mouse buttons. (On Sixth Street you walk with WASD or the arrows and use things with E.)'),
+      grid, note,
+      el('div', { class: 'row' },
+        el('button', { class: 'btn small', onclick: () => { stop(); p.remove(); } }, 'DONE'),
+        el('button', { class: 'btn dark small', onclick: () => { stop(); KEYS.reset(); note.textContent = 'Back to the defaults.'; draw(); } }, 'RESET TO DEFAULTS')));
+    const p = el('div', { class: 'panel keysp' }, box); scr().append(p);
   };
 
   /* --------------------------------------------------------- Battle Lab */
@@ -464,6 +535,7 @@
     }
     box.append(grid, el('div', { class: 'row' },
       el('button', { class: 'btn small', onclick: () => { p.remove(); MENU.saveTuning(); if (!from) MENU.setup(); } }, 'DONE'),
+      el('button', { class: 'btn dark small', onclick: () => MENU.keys() }, 'KEY BINDINGS'),
       el('button', { class: 'btn dark small', onclick: () => { Object.assign(BT.T, D.TUNING_DEFAULTS); MENU.saveTuning(); SFX.setVolume(BT.T.volume); MUSIC.setVolume(BT.T.music); VOICE.setVolume(BT.T.voice); p.remove(); MENU.lab(from); } }, 'RESET TO DEFAULTS')));
     const p = el('div', { class: 'panel' }, box); scr().append(p);
   };
@@ -479,16 +551,37 @@
 
   /* -------------------------------------------------------- how to play */
   MENU.howto = () => {
-    const k = (key, what) => el('tr', null, el('td', null, ...key.split(' ').map(x => el('kbd', null, x))), el('td', null, what));
+    const B = BT.B, inFight = GAME.mode === 'battle' && B && !B.opts.tutorial, done = window.TUTORIAL && TUTORIAL.done();
+    // the keys of one or more actions: every first key, then (after a /) every second one
+    const keys = ids => { const at = slot => ids.map(id => KEYS.get(id)[slot]).filter(Boolean).map(c => el('kbd', null, KEYS.label(c))), a = at(0), b = at(1); return b.length ? [...a, ' / ', ...b] : a; };
+    const k = (ids, what) => el('tr', null, el('td', null, ...keys([].concat(ids))), el('td', null, what));
     const box = el('div', { class: 'box' }, el('h2', null, 'HOW TO PLAY'),
-      el('p', null, 'Like Pallet to Pewter: your Agents fight on their own, in real time. They pick their skills, chain their combos, spend Energy, and try to dodge what they see coming. You are the commander, and with AUTO off you also move the Agent on the field (arrow keys, or drag anywhere on a phone): she attacks whatever is in range, but goes where you take her. Turn on AUTO and the game moves her and gives the commands too.'),
-      el('h4', null, 'Commands'),
-      el('table', { class: 'keys' }, k('← ↑ ↓ →', 'Move the Agent on the field (AUTO off). On a phone: drag anywhere on the battlefield; the stick appears under your thumb.'), k('W', 'Swap to the next Agent. During an enemy\'s gold flash this is a Defensive Assist (parry); on a red flash, or with no Assist Points, the incoming Agent Perfect Dodges. While your Agent is launched it is a Quick Assist.'),
-        k('Q', 'Swap to the previous Agent (same rules).'), k('1 2 3', 'Swap to that squad slot.'),
-        k('R', 'Ultimate, when the on-field Agent\'s Decibels are at MAXIMUM (Yixuan: or 120 Technique Points for Endless Talisman Suppression).'),
-        k('E', 'Call an EX Special Attack (spends Energy / Adrenaline).'), k('Tab', 'Change the focus target (or click an enemy).'),
-        k('Q W', 'During a Chain Attack: pick who follows up (left / right; 1 / 2 also work).'), k('T', 'AUTO on/off: AUTO moves your Agent and gives your commands.'), k('Esc', 'Tactics menu (stops time).')),
-      el('p', null, 'On a phone every command has a button; tap an enemy to focus it, tap a squad card to swap to her.'),
+      // the interactive tutorial (tutorial.js)
+      el('div', { class: 'train' },
+        el('div', null, el('b', null, 'TRAINING'), done ? el('em', null, '✓ DONE') : null,
+          el('p', null, 'Learn by doing: a fight against a Faun where nothing happens until you do it. Thirteen short lessons, from your first steps and Basic string to Perfect Dodges, Assists, the Chain Attack and the Ultimate. About five minutes.')),
+        el('button', { class: 'btn', disabled: inFight || null, onclick: () => { p.remove(); TUTORIAL.start(); } }, done ? 'TRAIN AGAIN' : 'START TRAINING')),
+      inFight ? el('p', { class: 'hint' }, 'Finish or leave this fight to train.') : null,
+      el('h4', null, 'Two ways to fight'),
+      el('p', null, 'AUTO off (the default): you play, as in the real game. You move the Agent on the field and press every attack, dodge, Special, Ultimate and switch yourself. AUTO on: she fights on her own, as in Pallet to Pewter: she picks her skills, chains her string, spends her Energy and dodges what she sees coming, and the game gives the commands too. Switch any time with the AUTO button (or its key). In between, the Battle Lab\'s Auto-attack lets you just move her and give the commands while she attacks on her own.'),
+      el('h4', null, 'Controls (AUTO off)'),
+      el('table', { class: 'keys' },
+        k(['up', 'left', 'down', 'right'], 'Move. On a phone: drag anywhere on the battlefield; the stick appears under your thumb.'),
+        k('basic', 'Basic Attack. Tap again and again for her string; hold it for her hold move (shown under the button when she has one).'),
+        k('dodge', 'Dodge the way you push (no direction: a step back). Just before a hit it is a Perfect Dodge. Keep it held after a dodge to sprint. Two dodges, then a short wait.'),
+        k('special', 'Special Attack. With the Energy past the mark it is her EX Special Attack.'),
+        k('ult', 'Ultimate, at MAXIMUM Decibels (Yixuan: or 120 Technique Points).'),
+        k('next', 'Switch to the next Agent. On a gold flash it is a Defensive Assist; on a red one (or with no Assist Points) the incoming Agent Perfect Dodges; while yours is launched, a Quick Assist.'),
+        k('prev', 'Switch to the previous Agent (the same rules).'), k(['slot1', 'slot2', 'slot3'], 'Switch to that squad slot.'),
+        k('target', 'Change target (or click / tap an enemy).'), k(['chainL', 'chainR'], 'During a Chain Attack: pick who follows up, left or right.'),
+        k('auto', 'AUTO on / off.'), k('tactics', 'Tactics menu (stops time). Esc always opens it.')),
+      el('p', null, 'Every key is yours to change: KEY BINDINGS. On a phone every command has a button; tap an enemy to focus it, tap a squad card to swap to her.'),
+      el('h4', null, 'What a button does depends on the moment'),
+      el('ul', null,
+        el('li', null, 'Basic right after a dodge (or while sprinting): a Dash Attack. Right after a Perfect Dodge: the Dodge Counter. Right after a Defensive Assist: the Assist Follow-Up.'),
+        el('li', null, 'Special pressed again during Burnice\'s, Aria\'s or Yixuan\'s EX: her second EX. A Special cuts a Basic short once its hit lands; a Dodge cuts short anything but an Ultimate, a Chain Attack or an Assist.'),
+        el('li', null, 'Held Basic: Caesar\'s Dead End (1 Assist Point), Burnice\'s Mixed Flame Blend (Nitro-Fuel), Aria\'s Perfect Pitch, Qingyi\'s Enchanted Moonlit Blossoms (75 Voltage), Yixuan\'s Auric Array (an Auric Ink Point), Remielle\'s Rainbow\'s End. Held Special: Orphie\'s Heat Charge (100 Bottled Heat), Yixuan\'s Cloud-Shaper. Caesar after a Perfect Block: Basic for Roaring Thrust, Special for Overpowered Shield Bash.'),
+        el('li', null, 'The buttons light up for the moment: COUNTER, FOLLOW-UP, DASH ATTACK, EX, EX ×2, ASSIST, QUICK.')),
       el('h4', null, 'The rules (from the official game)'),
       el('ul', null,
         el('li', null, 'Hits build Daze. A full Daze bar Stuns the enemy: it cannot act and takes ×1.5 DMG. A heavy hit (combo finishers, Specials, EX, counters) on a Stunned enemy opens a Chain Attack: 1 chain on normal enemies, 2 on elites, 3 on bosses.'),
@@ -503,7 +596,7 @@
       el('ul', null,
         el('li', null, '1v1 DUEL: one Agent each. No swaps, no assists, no Chain Attacks.'),
         el('li', null, '2v2 and 3v3 TAG TEAM: one Agent per side on the field at a time, as in the Hollow. Swap, assist, Quick Assist, Chain Attack.'),
-        el('li', null, '2v2 and 3v3 ALL-OUT: every Agent of both squads on the field at once. You lead one (yellow ring): move her, call her EX and Ultimate; W / Q (or a squad card) switch whom you lead. The others fight on their own and fire their own Ultimates. On a flash aimed at any of yours, W / Q sends a teammate dashing in to parry (gold) or pull her clear (red); when one is launched, a teammate\'s Quick Assist.')),
+        el('li', null, '2v2 and 3v3 ALL-OUT: every Agent of both squads on the field at once. You lead one (yellow ring): you fight with her as with anyone; the Switch keys (or a squad card) switch whom you lead. The others fight on their own and fire their own Ultimates. On a flash aimed at any of yours, Switch sends a teammate dashing in to parry (gold) or pull her clear (red); when one is launched, a teammate\'s Quick Assist.')),
       el('ul', null,
         el('li', null, 'Their heavy hits flash gold: swap for a Defensive Assist and parry. The finisher of their Ultimate flashes red: dodge it, or swap and the incoming Agent Perfect Dodges. The big ones are marked on the ground.'),
         el('li', null, 'Only a high-level skill\'s heavy hit (an EX Special, Dodge Counter, Chain Attack, Ultimate, Assist Follow-Up or Quick Assist) staggers an Agent, theirs or yours. Anything else is a flinch.'),
@@ -529,12 +622,13 @@
     act('RESUME', () => { });
     for (const a of B.squad) if (a !== ag) act(`${B.allOut ? 'LEAD' : 'SWAP'}: ${a.def.short.toUpperCase()}`, () => BT.cmdSwap(a), !a.alive);
     act('ULTIMATE', () => BT.cmdUlt(), !(ag.decibels >= D.RULES.decibelMax || (ag.id === 'yixuan' && ag.tp >= 120)));
-    act('CALL EX', () => BT.cmdEx(), ag.energy < ag.def.kit.ex.cost);
+    if (!BT.isPlayer(ag)) act('CALL EX', () => BT.cmdEx(), ag.energy < ag.def.kit.ex.cost);   // (you fight: the Special key is the EX)
     act('NEXT TARGET', () => BT.cmdFocus());
-    act(B.auto ? 'AUTO: TURN OFF' : 'AUTO: TURN ON', () => { BT.setAuto(!B.auto); MENU.saveTuning(); });
+    if (!B.opts.tutorial) act(B.auto ? 'AUTO: TURN OFF' : 'AUTO: TURN ON', () => { BT.setAuto(!B.auto); MENU.saveTuning(); });
+    // another panel over the battle: time waits until it closes
+    const over = (label, open) => el('button', { class: 'btn dark small', onclick: () => { MENU.closeTactics(); B.paused = true; open(); const chk = setInterval(() => { if (!document.querySelector('.panel')) { clearInterval(chk); if (BT.B) BT.B.paused = false; } }, 200); } }, label);
     box.append(row, el('div', { class: 'row' },
-      el('button', { class: 'btn dark small', onclick: () => { MENU.closeTactics(); B.paused = true; MENU.lab('battle'); const chk = setInterval(() => { if (!document.querySelector('.panel')) { clearInterval(chk); if (BT.B) BT.B.paused = false; } }, 200); } }, 'BATTLE LAB'),
-      el('button', { class: 'btn dark small', onclick: () => { MENU.closeTactics(); B.paused = true; MENU.howto(); const chk = setInterval(() => { if (!document.querySelector('.panel')) { clearInterval(chk); if (BT.B) BT.B.paused = false; } }, 200); } }, 'HOW TO PLAY'),
+      over('BATTLE LAB', () => MENU.lab('battle')), over('KEY BINDINGS', () => MENU.keys()), over('HOW TO PLAY', () => MENU.howto()),
       el('button', { class: 'btn dark small', onclick: () => { MENU.closeTactics(); BT.retreat(); } }, 'RETREAT')));
     scr().append(el('div', { class: 'panel', id: 'tactics' }, box));
   };

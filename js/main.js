@@ -132,7 +132,7 @@
       leaveLobby(); clearPreview(); GAME.mode = 'battle'; U.$('screens').innerHTML = '';
       quiet(false);
       // a meal at Waterfall Soup and the day's coffee go into this fight (a dive brings its own: dive.js)
-      if (!opts.dive && window.TOWN && Auth.current()) { const fb = TOWN.takeBuff(); if (fb) { opts.buff = Object.assign({}, fb.buff, opts.buff || {}); opts.buffNote = fb.note; } }
+      if (!opts.dive && !opts.tutorial && window.TOWN && Auth.current()) { const fb = TOWN.takeBuff(); if (fb) { opts.buff = Object.assign({}, fb.buff, opts.buff || {}); opts.buffNote = fb.note; } }
       MUSIC.play(opts.clash ? 'clash_' + opts.clash.rival : opts.arena + '_' + opts.encounter);
       VOICE.prime(opts.squad.concat(opts.clash ? opts.clash.squad : []));
       BT.T.auto = !!BT.T.auto;
@@ -169,43 +169,62 @@
     if (B.opts.attract) { if (GAME.mode === 'title') GAME.attract(); return; }
     if (B.result === 'retreat') MUSIC.play('lose');   // as in the real game: Defeat plays on a lost or a quit Commission
     if (B.opts.dive && DIVE.after(B)) return;         // one fight of a Hollow dive (dive.js)
+    if (B.opts.tutorial && TUTORIAL.after(B)) return; // TRAINING (tutorial.js)
     MENU.results(B);
   };
   BT.hooks.phase2 = () => MUSIC.phase2();
 
   /* -------------------------------------------------------------- input --
-     Q / W swap (previous / next; on a flash it is an Assist; in an All-Out
-     Proxy Clash they switch whom you lead), E calls an EX,
-     R the Ultimate, 1-3 a squad slot, Tab the focus, T AUTO, Esc Tactics.
-     With AUTO off the arrow keys move the on-field Agent. During a Chain
-     Attack, Q / W (or 1 / 2) pick the left or right Agent. */
-  const keyMap = e => {
-    if (GAME.mode !== 'battle' || !BT.B) return;
-    const B = BT.B, k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
-    if (document.querySelector('.panel') && k !== 'Escape') return;
+     The battle is played with actions, each on keys of your own (keys.js;
+     the defaults are the real game's): move, Basic, Dodge, Special,
+     Ultimate, switch to the next / previous Agent (on a flash an Assist,
+     while she is launched a Quick Assist; in an All-Out Proxy Clash it picks
+     whom you lead), a squad slot, target, AUTO, Tactics. During a Chain
+     Attack the chain keys pick the left or right Agent and Ultimate still
+     works. Esc always opens Tactics (or skips the Chain Attack). */
+  const MOVES = { up: 1, down: 1, left: 1, right: 1 }, BTNS = { basic: 1, special: 1, dodge: 1 }, held = new Set();
+  function escape() {
+    const B = BT.B; if (B.chain) return BT.chainSkip();
+    const open = document.querySelector('.panel');
+    if (open && open.id !== 'tactics') { open.remove(); if (BT.B) BT.B.paused = false; } else MENU.tactics();
+  }
+  /* a key or mouse button went down: true if the battle used it */
+  function action(code, ev) {
+    if (GAME.mode !== 'battle' || !BT.B) return false;
+    const B = BT.B, repeat = ev && ev.repeat;
+    if (code === 'Escape') { if (!repeat) escape(); return true; }
+    if (document.querySelector('.panel')) return false;
     if (B.chain) {
-      if (e.repeat) return;
-      if (k === '1' || k === 'q') { BT.chainPick(0); e.preventDefault(); return; }
-      if (k === '2' || k === 'w') { BT.chainPick(1); e.preventDefault(); return; }
-      if (k === 'r') { BT.cmdUlt(); return; }
-      if (k === 'Escape') { BT.chainSkip(); return; }
-      return;
+      const ids = KEYS.of(code, true); if (!ids.length) return false;
+      if (repeat) return true;
+      if (ids.includes('chainL')) BT.chainPick(0); else if (ids.includes('chainR')) BT.chainPick(1);
+      else if (ids.includes('ult')) BT.cmdUlt(); else if (ids.includes('tactics')) escape();
+      return true;
     }
-    switch (k) {
-      case 'w': if (!e.repeat) BT.cmdSwap(1); e.preventDefault(); break;
-      case 'q': if (!e.repeat) BT.cmdSwap(-1); break;
-      case '1': case '2': case '3': { const a = B.squad[+k - 1]; if (a) BT.cmdSwap(a); break; }
-      case 'r': BT.cmdUlt(); break;
-      case 'e': BT.cmdEx(); break;
-      case 'Tab': BT.cmdFocus(); e.preventDefault(); break;
-      case 't': if (!e.repeat) { BT.setAuto(!B.auto); MENU.saveTuning(); } break;
-      case 'Escape': { const open = document.querySelector('.panel'); if (open && open.id !== 'tactics') { open.remove(); if (BT.B) BT.B.paused = false; } else MENU.tactics(); break; }
+    const ids = KEYS.of(code, false); if (!ids.length) return false;
+    for (const id of ids) {
+      if (MOVES[id]) { held.add(id); continue; }
+      if (repeat) continue;
+      if (BTNS[id]) { BT.btnDown(id); continue; }
+      switch (id) {
+        case 'ult': BT.cmdUlt(); break;
+        case 'next': BT.cmdSwap(1); break;
+        case 'prev': BT.cmdSwap(-1); break;
+        case 'slot1': case 'slot2': case 'slot3': { const a = B.squad[+id.slice(4) - 1]; if (a) BT.cmdSwap(a); break; }
+        case 'target': if (!(/^Mouse/.test(code) && tapFocus(ev.clientX, ev.clientY))) BT.cmdFocus(); break;   // a mouse button: the enemy under the pointer
+        case 'auto': BT.setAuto(!B.auto); MENU.saveTuning(); break;
+        case 'tactics': escape(); break;
+      }
     }
-  };
-  const ARROWS = { ArrowLeft: 1, ArrowRight: 1, ArrowUp: 1, ArrowDown: 1 }, held = new Set();
-  addEventListener('keydown', e => { SFX.unlock(); if (ARROWS[e.key]) { held.add(e.key); if (GAME.mode === 'battle') e.preventDefault(); } keyMap(e); });
-  addEventListener('keyup', e => held.delete(e.key));
-  addEventListener('blur', () => { held.clear(); endPress(); });
+    return true;
+  }
+  /* and let go (whatever else is going on, so nothing stays held) */
+  function release(code) {
+    for (const id of KEYS.of(code, false).concat(KEYS.of(code, true))) { if (MOVES[id]) held.delete(id); if (BTNS[id] && BT.B) BT.btnUp(id); }
+  }
+  addEventListener('keydown', e => { SFX.unlock(); if (action(KEYS.code(e), e)) e.preventDefault(); });
+  addEventListener('keyup', e => release(KEYS.code(e)));
+  addEventListener('blur', () => { held.clear(); if (BT.B) BT.btnsUp(); endPress(); });
 
   /* The mouse and a finger alike. A press that lets go where it began is a tap: it focuses
      the enemy under it. A press that travels is a thumb stick (AUTO off): it appears where
@@ -217,13 +236,21 @@
     let best = null, bd = 1e9;
     for (const v of BT.B.enemies) { if (!v.alive) continue; const p = new THREE.Vector3(v.x, v.height * 0.5, v.z); const d = ray.ray.distanceSqToPoint(p); if (d < Math.max(0.8, v.rad * v.rad * 1.6) * (TOUCH ? 2.2 : 1) && d < bd) { bd = d; best = v; } }
     if (best) BT.cmdFocus(best);
+    return best;
   }
+  /* mouse buttons are bound like keys (left click Basic, right click Dodge, middle click target); left click only
+     while you fight yourself (AUTO off): otherwise it is still a tap to focus, or a drag to steer */
+  const mouseHeld = new Set();
+  const mouseBound = ev => GAME.mode === 'battle' && BT.B && KEYS.of('Mouse' + ev.button, !!BT.B.chain).length > 0 && (ev.button !== 0 || BT.isPlayer(BT.active()));
+  canvas.addEventListener('mousedown', ev => { if (!mouseBound(ev)) return; ev.preventDefault(); const c = 'Mouse' + ev.button; mouseHeld.add(c); action(c, ev); });
+  addEventListener('mouseup', ev => { const c = 'Mouse' + ev.button; if (mouseHeld.delete(c)) release(c); });
+  canvas.addEventListener('contextmenu', ev => { if (GAME.mode === 'battle') ev.preventDefault(); });
   const STICK_R = 56, DRAG_PX = 10;
   let press = null, stick = null, stickEl = null;
   canvas.addEventListener('pointerdown', ev => {
     SFX.unlock();
     if (!(GAME.mode === 'battle' && BT.B) && GAME.mode !== 'lobby') return;
-    if (press || (ev.pointerType === 'mouse' && ev.button > 0)) return;
+    if (press || (ev.pointerType === 'mouse' && (ev.button > 0 || mouseBound(ev)))) return;
     press = { id: ev.pointerId, x0: ev.clientX, y0: ev.clientY, bx: ev.clientX, by: ev.clientY, drag: false };
     try { canvas.setPointerCapture(ev.pointerId); } catch (err) { /* moves still arrive */ }
   });
@@ -254,9 +281,9 @@
     stickEl.style.transform = `translate(${press.bx.toFixed(1)}px,${press.by.toFixed(1)}px)`;
     stickEl.firstChild.style.transform = `translate(${dx.toFixed(1)}px,${dy.toFixed(1)}px)`;
   }
-  /* the arrow keys win over the stick; either one is BT.input for the Agent AI */
+  /* the move keys win over the stick; either one is BT.input for the Agent you lead */
   function readInput() {
-    const x = (held.has('ArrowRight') ? 1 : 0) - (held.has('ArrowLeft') ? 1 : 0), y = (held.has('ArrowUp') ? 1 : 0) - (held.has('ArrowDown') ? 1 : 0);
+    const x = (held.has('right') ? 1 : 0) - (held.has('left') ? 1 : 0), y = (held.has('up') ? 1 : 0) - (held.has('down') ? 1 : 0);
     const I = BT.input || (BT.input = {});
     if (x || y) { const L = Math.hypot(x, y); I.x = x / L; I.y = y / L; I.k = 1; }
     else if (stick && stick.on) { I.x = stick.dx; I.y = -stick.dy; I.k = stick.m; }

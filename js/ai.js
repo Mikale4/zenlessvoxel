@@ -35,7 +35,7 @@
     }
     for (const ob of B.obstacles) { const dx = e.x - ob.x, dz = e.z - ob.z, d = Math.hypot(dx, dz), min = ob.r + e.rad; if (d < min && d > 1e-4) { e.x += dx / d * (min - d); e.z += dz / d * (min - d); } }
     e.x = clamp(e.x, I[0] + e.rad * 0.5, I[2] - e.rad * 0.5); e.z = clamp(e.z, I[1] + e.rad * 0.5, I[3] - e.rad * 0.5);
-    const sp = Math.hypot(e.vx, e.vz); e.anim.speed = sp; e.anim.phase += sp * dt * 2.3;
+    const sp = Math.hypot(e.vx, e.vz); ANIM.stride(e, sp, dt);
     if (e.state === 'idle' || e.state === 'move') {
       if (sp <= 0.45) e.anim.state = 'idle';
       else if (e.type === 'enemy') e.anim.state = (Math.sin(e.face) * e.vx + Math.cos(e.face) * e.vz) / sp > 0.55 ? 'run' : 'strafe';   // side-steps and backing off
@@ -71,29 +71,38 @@
     if (!a || !a.alive) return;
     a.stT += dt;
     if (a.stun > 0) { a.state = 'stun'; a.anim.state = 'stun'; a.anim.t += dt; physics(a, dt, true); return; }   // Stunned (Proxy Clash; clash.js counts it down)
+    if (player(a)) holdTick(a);
     // carry out defensive plans (dodges, blocks) made when attacks were announced
     for (const th of B.threats) if (th.target === a && th.plan && !th.plan.done && B.t >= th.plan.at) { th.plan.done = true; execPlan(a, th); }
     switch (a.state) {
       case 'hit': a.hitT -= dt; a.anim.t += dt; physics(a, dt, true); if (a.hitT <= 0) { a.state = 'idle'; a.anim.state = 'idle'; } return;
       case 'down': a.downT -= dt; a.anim.t += dt; physics(a, dt, true); if (a.downT <= 0) { a.state = 'getup'; a.anim.state = 'getup'; a.anim.t = 0; a.getupT = 0.45; } return;
       case 'getup': a.getupT -= dt; a.anim.t += dt; physics(a, dt, true); if (a.getupT <= 0) { a.state = 'idle'; a.anim.state = 'idle'; } return;
-      case 'dodge': a.anim.t += dt; physics(a, dt, false); { const d = Math.exp(-dt * 5); a.vx *= d; a.vz *= d; } return;
+      case 'dodge':
+        a.anim.t += dt; physics(a, dt, false); { const d = Math.exp(-dt * 5); a.vx *= d; a.vz *= d; }
+        // you fight: Basic out of a Perfect Dodge is the Dodge Counter at once; anything else waits for the dodge to carry her
+        if (player(a) && a.press && (a.stT >= 0.2 || (a.press.btn === 'basic' && a.counterUntil > B.t))) { a.state = 'idle'; a.anim.state = 'idle'; const P = a.press; a.press = null; play(a, P); }
+        return;
       case 'win': return;
     }
     if (a.act) {
       BT.stepAct(a, dt); physics(a, dt, true);
       const A = a.act;
+      if (player(a)) { if (A) playerTick(a, dt, true); return; }
       if (A && A.kind === 'basic' && A.t >= (A.def.cancel || A.dur)) decide(a, dt, true);
       return;
     }
-    if (a.guardUntil > B.t) { a.anim.state = 'guard'; a.state = 'guard'; physics(a, dt, true); if (a.queue.length || (manual(a) && moveInput())) { a.guardUntil = 0; a.state = 'idle'; } else return; }
+    if (a.guardUntil > B.t) { a.anim.state = 'guard'; a.state = 'guard'; physics(a, dt, true); if (a.queue.length || (manual(a) && (moveInput() || a.press))) { a.guardUntil = 0; a.state = 'idle'; } else return; }
     else if (a.state === 'guard') { a.state = 'idle'; a.anim.state = 'idle'; }
     if (a.gap > 0) { a.gap -= dt; physics(a, dt, true); return; }
     decide(a, dt, false);
     physics(a, dt, !a.moving);
   }
-  /* you steer the Agent you lead when AUTO is off; everyone else moves on her own */
+  /* you steer the Agent you lead when AUTO is off; everyone else moves on her own.
+     And unless the Battle Lab's Auto-attack is on, you fight with her too: every attack and dodge is yours */
   const manual = a => !B_().auto && a === BT.active();
+  const player = a => manual(a) && (!T_().autoAttack || !!B_().opts.tutorial);
+  BT.isPlayer = a => !!(B_() && a && player(a));
 
   function decide(a, dt, fromCombo) {
     const B = B_(), T = T_(), K = a.def.kit;
@@ -104,6 +113,7 @@
       if (q.def.cost && !q.free && a.energy < q.def.cost) return;
       startSkill(a, q.def, q.kind, q.tgt || BT.pickTarget(a), q); return;
     }
+    if (player(a)) return playerTick(a, dt, false);
     if (a.counterUntil > B.t) { a.counterUntil = 0; startSkill(a, K.counter, 'counter', a.counterTgt && a.counterTgt.alive ? a.counterTgt : BT.pickTarget(a)); return; }
     // AUTO off: you move her (arrow keys or a drag); she still fights on her own
     if (manual(a)) {
@@ -124,7 +134,7 @@
     const reach = (c.def.reach || 1.6), d = dist(a, tgt) - tgt.rad;
     if (d > reach) {
       if (fromCombo) return;
-      if (d > 4.6 && K.dash && c.kind === 'basic' && (a.cds.dash || 0) <= B.t) { a.cds.dash = B.t + 1.5; startSkill(a, K.dash, 'dash', tgt); return; }
+      if (d > 4.6 && K.dash && c.kind === 'basic' && (a.cds.dash || 0) <= B.t) { a.cds.dash = B.t + 1.5; startSkill(a, K.dash, 'dash', tgt); return; }   // (a dodge in, then Basic)
       a.moving = true;
       const want = Math.max(0.6, Math.min(reach - 0.3, c.def.range || a.def.ai.range));
       const ax = ang(tgt, a); steer(a, tgt.x + Math.sin(ax) * (want + tgt.rad), tgt.z + Math.cos(ax) * (want + tgt.rad), a.st.speed, dt);
@@ -145,13 +155,16 @@
   BT.input = { x: 0, y: 0, k: 0 };
   function moveInput() { const I = BT.input; return I && I.k > 0.15 ? I : null; }
   BT.moveInput = moveInput;
-  function steerManual(a, I, dt) {
-    const B = B_(), y = B.cam.yaw || 0;
-    // the screen's up and right, on the floor: the camera looks along (-sin yaw, -cos yaw)
-    const wx = Math.cos(y) * I.x - Math.sin(y) * I.y, wz = -Math.sin(y) * I.x - Math.cos(y) * I.y, L = Math.hypot(wx, wz) || 1;
+  /* the way the input points, on the floor: the screen's up and right (the camera looks along (-sin yaw, -cos yaw)) */
+  function inputDir(I) {
+    const y = B_().cam.yaw || 0;
+    return Math.atan2(Math.cos(y) * I.x - Math.sin(y) * I.y, -Math.sin(y) * I.x - Math.cos(y) * I.y);
+  }
+  function steerManual(a, I, dt, run) {
+    const d = inputDir(I);
     a.moving = true;
-    steer(a, a.x + wx / L * 3, a.z + wz / L * 3, a.st.speed * clamp(0.3 + I.k, 0.5, 1), dt);
-    a.face = turn(a.face, Math.atan2(wx, wz), 1 - Math.exp(-14 * dt));
+    steer(a, a.x + Math.sin(d) * 3, a.z + Math.cos(d) * 3, a.st.speed * clamp(0.3 + I.k, 0.5, 1) * (run ? 1.45 : 1), dt);
+    a.face = turn(a.face, d, 1 - Math.exp(-14 * dt));
   }
   function decideManual(a, dt, fromCombo) {
     const B = B_(), K = a.def.kit;
@@ -183,55 +196,216 @@
     startSkill(a, c.def, c.kind, tgt, c);
   }
 
-  function choose(a, tgt, fromCombo) {
-    const B = B_(), T = T_(), K = a.def.kit, id = a.id;
-    const exOk = a.energy >= K.ex.cost;
-    if (!fromCombo) {
-      if (a.exCall && exOk) { a.exCall = false; return pickEx(a); }
-      // (All-Out: the teammates you are not leading fire their own Ultimates)
-      if (((T.autoUlt && !B.auto) || (B.allOut && a !== BT.active() && !B.auto)) && (a.decibels >= R.decibelMax || (id === 'yixuan' && a.tp >= 120)) && (tgt.stun > 0 || Math.random() < 0.02)) { if (BT.cmdUlt(a)) return null; }
-      if (id === 'yixuan' && a.auric > 0) return { def: K.auric, kind: 'auric' };
-      if (id === 'burnice' && a.nitro && a.heat >= 20 && (a.cds.hold || 0) <= B.t && (!tgt.scorched || Math.random() < 0.25)) return { def: K.hold, kind: 'hold' };
-      if (id === 'aria') {
-        if (a.noIce && Math.random() < 0.7) return { def: K.noIce, kind: 'special' };
-        const near = B.fandom.filter(f => Math.hypot(f.x - a.x, f.z - a.z) < 7).length;
-        if ((a.cds.charged || 0) <= B.t && (near >= 2 || a.cheer > 0 || (tgt.anom && Math.random() < 0.45))) return { def: K.charged, kind: 'charged' };
-      }
-      if (id === 'caesar' && B.assist >= 4 && (a.cds.deadEnd || 0) <= B.t && BT.enemiesIn('circle', a.x, a.z, 3.6, 0).length >= 2 && Math.random() < 0.25) return { def: K.deadEnd, kind: 'core' };
-      // Qingyi: Flash Connect turns her next Basic Attack into Enchanted Moonlit Blossoms
+  /* ------------------------------------------------- the five buttons --
+     As in the real game, every move comes from five buttons: Basic,
+     Special, Ultimate, Dodge and Switch, tapped or held, and what a button
+     does depends on the moment. resolve() is that rule, the same for your
+     presses (AUTO off) and for AUTO's (choose(), below):
+       Basic    the next step of her string (a second without one starts it
+                over). Just after a dodge, or sprinting: the Dash Attack (Ju
+                Fufu with 3 Momentum: Mountain King's Game). After a Perfect
+                Dodge: the Dodge Counter. After a Defensive Assist: the Assist
+                Follow-Up. Caesar after a block: Roaring Thrust.
+                Held: Caesar's Dead End (1 Assist Point), Burnice's Mixed
+                Flame Blend (Nitro-Fuel, 20 Heat), Aria's Perfect Pitch,
+                Qingyi's Enchanted Moonlit Blossoms (75 Voltage), Yixuan's
+                Auric Array (an Auric Ink Point), Remielle's Rainbow's End
+                (Fleeting Grace in Luminous Reflection).
+       Special  the Special Attack; with the Energy, the EX. Again during
+                Burnice's, Aria's or Yixuan's EX (Burnice: also after her
+                Chain Attack, Follow-Up or Mixed Flame Blend): her second EX.
+                Caesar after a block: Overpowered Shield Bash. Aria with No
+                Ice ready and no EX: Full-Sugar Electronica - No Ice.
+                Held: Orphie's Heat Charge (100 Bottled Heat), Yixuan's
+                Cloud-Shaper (her other EX; the button is our choice).
+     Ultimate, Dodge and Switch are BT.cmdUlt, BT.playerDodge, BT.cmdSwap.
+     o.dash: as if she had just dodged (AUTO dashing in); o.step: that step of her string */
+  function resolve(a, btn, hold, o) {
+    const B = B_(), K = a.def.kit, id = a.id, t = B.t;
+    o = o || {};
+    if (btn === 'special') {
+      if (id === 'caesar' && a.retaliate > t && (a.retFree || a.energy >= K.osb.cost)) return { def: K.osb, kind: 'ex2', free: a.retFree, aegis: true };
+      if (hold && id === 'orphie' && a.bheat >= 100) return { def: K.heatCharge, kind: 'ex2' };
+      if (K.ex2 && a.ex2Until > t && a.energy >= K.ex2.cost) return { def: K.ex2, kind: 'ex2' };
+      if (a.energy >= K.ex.cost) return { def: hold && K.exAlt ? K.exAlt : K.ex, kind: 'ex' };
+      if (id === 'aria' && a.noIce) return { def: K.noIce, kind: 'special' };
+      return { def: K.special, kind: 'special' };
+    }
+    if (a.followUntil > t) return { def: K.followup, kind: 'followup' };
+    if (a.counterUntil > t) return { def: K.counter, kind: 'counter' };
+    if (id === 'caesar' && a.retaliate > t) return { def: K.thrust, kind: 'special' };
+    if (o.dash || a.dashUntil > t) return id === 'jufufu' && a.momentum >= 3 ? { def: K.spin, kind: 'core' } : { def: K.dash, kind: 'dash' };
+    if (hold) {
+      if (id === 'caesar' && B.assist >= 1) return { def: K.deadEnd, kind: 'core' };
+      if (id === 'burnice' && a.nitro && a.heat >= 20) return { def: K.hold, kind: 'hold' };
+      if (id === 'aria') return { def: K.charged, kind: 'charged' };
       if (id === 'qingyi' && a.voltage >= 75) return { def: K.moonlit, kind: 'core' };
-      // Ju Fufu: spend Momentum on the spin
-      if (id === 'jufufu' && a.momentum >= 3 && (a.cds.spin || 0) <= B.t && Math.random() < 0.5) return { def: K.spin, kind: 'core' };
-      // Orphie: with 100 Bottled Heat, hold Special for Heat Charge (best on a Stunned target)
-      if (id === 'orphie' && a.bheat >= 100 && (a.cds.heat || 0) <= B.t && (tgt.stun > 0 || Math.random() < 0.3)) return { def: K.heatCharge, kind: 'ex2' };
+      if (id === 'yixuan' && a.auric > 0) return { def: K.auric, kind: 'auric' };
       if (id === 'remielle') {
         // no one to swap to (All-Out, or the last one standing): with full Radiance she dances where she stands
         if (a.radiance >= 120 && (B.allOut || B.squad.filter(s => s.alive).length < 2)) return { def: K.ffd, kind: 'core' };
-        if ((a.cds.rainbow || 0) <= B.t && (a.flares > 0 || a.reflect > B.t || Math.random() < 0.12)) return { def: a.reflect > B.t ? K.fleeting : K.rainbow, kind: 'charged' };
+        return { def: a.reflect > t ? K.fleeting : K.rainbow, kind: 'charged' };
       }
-      if (exOk && (a.energy >= a.def.energyMax * 0.85 || tgt.stun > 0 || Math.random() < 0.1)) return pickEx(a);
-      if ((a.cds.special || 0) <= B.t && Math.random() < 0.3) return { def: K.special, kind: 'special' };
     }
-    if (B.t - a.lastBasic > 0.9) a.combo = 0;
-    // ranged fighters skip their close-range combo steps when the target is far
-    let step = K.basic[a.combo % K.basic.length];
-    if (a.def.ai.range > 2.5 && (step.reach || 1.6) < 2.2 && dist(a, tgt) - tgt.rad > 2.6) { a.combo++; step = K.basic[a.combo % K.basic.length]; }
-    return { def: step, kind: 'basic' };
+    const step = o.step != null ? o.step : t - a.lastBasic > 0.9 ? 0 : a.combo;
+    return { def: K.basic[step % K.basic.length], kind: 'basic', step };
   }
-  function pickEx(a) {
-    const K = a.def.kit;
-    if (a.id === 'yixuan' && Math.random() < 0.4) return { def: K.exAlt, kind: 'ex' };
-    return { def: K.ex, kind: 'ex' };
+  BT.resolve = resolve;
+
+  /* ---------------------------------------------------- your presses --
+     A press is remembered for a moment (an input buffer, as in the real
+     game) and plays as soon as she can move: at once when she is free, at a
+     Basic's cancel point, when the move running ends (pressed during one,
+     it waits for its end: Special during Burnice's EX is her second EX). A
+     Special cuts a Basic, Dash Attack or Dodge Counter short once its hit
+     has landed; a Dodge cuts short anything but an Ultimate, a Chain Attack
+     or an Assist. A button held past HOLD is a hold when she has a hold move
+     right now; otherwise it plays the moment it is pressed, and Basic kept
+     held keeps her string going. */
+  const HOLD = 0.22, BUFFER = 0.4, LOCKED = ['ult', 'ult2', 'chain', 'assist'];
+  const btns = () => { const B = B_(); return B.btns || (B.btns = {}); };
+  const holdable = (a, btn) => resolve(a, btn, true).def !== resolve(a, btn, false).def;
+  BT.holdable = holdable;
+  function queuePress(a, btn, hold) {
+    const B = B_(), A = a.act;
+    const rest = A ? Math.max(0, (A.def.cancel || A.dur) - A.t) / (A.speed || 1) : 0;
+    a.press = { btn, hold, until: B.t + Math.max(BUFFER, rest + 0.15) };
+  }
+  BT.btnDown = btn => {
+    const B = B_(), a = BT.active(); if (!B || !a) return;
+    if (btn === 'dodge') { btns().dodge = { down: true }; BT.playerDodge(); return; }
+    const S = btns()[btn] = { down: true, at: B.real, sent: false, tap: false };
+    if (!player(a)) { S.sent = true; if (btn === 'special') BT.cmdEx(); return; }   // AUTO or Auto-attack: Special calls her EX
+    if (B.phase !== 'fight' || B.chain || B.cutin || B.paused) { S.sent = true; return; }
+    if (!holdable(a, btn)) { S.sent = true; S.tap = true; queuePress(a, btn, false); }
+  };
+  BT.btnUp = btn => {
+    const B = B_(), S = B && btns()[btn]; if (!S || !S.down) return;
+    S.down = false;
+    const a = BT.active(); if (!a) return;
+    if (btn === 'dodge') { a.sprint = false; return; }
+    if (!S.sent && player(a)) queuePress(a, btn, false);
+    S.sent = true;
+  };
+  BT.btnHeld = btn => { const B = B_(), S = B && B.btns && B.btns[btn]; return !!(S && S.down); };
+  BT.btnsUp = () => { const B = B_(); if (B && B.btns) for (const k in B.btns) BT.btnUp(k); };
+  function holdTick(a) {
+    const B = B_(), S = B.btns; if (!S) return;
+    for (const btn of ['basic', 'special']) {
+      const s = S[btn]; if (!s || !s.down) continue;
+      if (!s.sent && B.real - s.at >= HOLD) { s.sent = true; queuePress(a, btn, true); }
+      else if (btn === 'basic' && s.tap && !a.press && (!a.act || (a.act.kind === 'basic' && a.act.t >= (a.act.def.cancel || a.act.dur)))) queuePress(a, 'basic', false);
+    }
+  }
+  function ready(a, btn) {
+    const A = a.act; if (!A) return true;
+    if (LOCKED.includes(A.kind)) return false;
+    if (btn === 'special' && ['basic', 'dash', 'counter'].includes(A.kind) && A.hi > 0) return true;
+    return A.t >= (A.def.cancel || A.dur);
+  }
+  /* whom your attack goes for: the target you picked if she is near, else the nearest enemy the way she faces (or you push) */
+  function softTarget(a) {
+    const B = B_(), I = moveInput(), dir = I ? inputDir(I) : a.face;
+    if (B.focus && B.focus.alive && dist(a, B.focus) - B.focus.rad < 9) return B.focus;
+    let best = null, bv = 1e9;
+    for (const v of B.enemies) {
+      if (!v.alive || v.spawnT > 0) continue;
+      const d = dist(a, v) - v.rad; if (d > 10) continue;
+      const s = d + 2.2 * Math.abs(wrap(ang(a, v) - dir)); if (s < bv) { bv = s; best = v; }
+    }
+    return best;
+  }
+  function play(a, P) {
+    const K = a.def.kit, c = resolve(a, P.btn, P.hold);
+    if (!c.def || (c.def === K.deadEnd && B_().assist < 1)) return false;
+    const tgt = c.kind === 'counter' && a.counterTgt && a.counterTgt.alive ? a.counterTgt : c.kind === 'followup' && a.followTgt && a.followTgt.alive ? a.followTgt : softTarget(a);
+    if (a.act) BT.endAct(a);
+    if (c.kind === 'counter') a.counterUntil = 0;
+    if (c.kind === 'followup') a.followUntil = 0;
+    if (c.def === K.thrust || c.def === K.osb) a.retaliate = 0;
+    if (c.kind === 'dash' || c.def === K.spin) a.dashUntil = 0;
+    a.guardUntil = 0;
+    // just out of reach: a quick step in (the real game's attacks home in a little)
+    if (tgt) {
+      const d = dist(a, tgt) - tgt.rad, reach = c.def.reach || 1.6;
+      if (d > reach - 0.2 && d < reach + 2.5) { const g = ang(a, tgt), v = Math.min(14, (d - reach + 0.5) * 7); a.vx = Math.sin(g) * v; a.vz = Math.cos(g) * v; }
+      a.lastTgt = tgt;
+    }
+    startSkill(a, c.def, c.kind, tgt, { free: c.free, aegis: c.aegis, step: c.step, manual: true });
+    a.gap = 0; a.moving = false;
+    return true;
+  }
+  function playerTick(a, dt, inAct) {
+    const B = B_();
+    if (a.press && B.t > a.press.until) a.press = null;
+    if (a.press && ready(a, a.press.btn)) { const P = a.press; a.press = null; if (play(a, P)) return; }
+    const mv = moveInput(), run = !!(mv && a.sprint && BT.btnHeld('dodge'));
+    if (run) a.dashUntil = B.t + 0.25; else a.sprint = false;        // sprinting: Basic is a Dash Attack
+    if (inAct) {
+      const A = a.act;                                                // a Basic gives way to moving once it can be cancelled
+      if (mv && A && ['basic', 'dash'].includes(A.kind) && A.t >= (A.def.cancel || A.dur)) { BT.endAct(a); steerManual(a, mv, dt, false); }
+      return;
+    }
+    if (mv) steerManual(a, mv, dt, run);
+  }
+  /* the Dodge button: a dodge the way you push (no direction: a step back); kept held, a sprint after it */
+  BT.playerDodge = () => {
+    const B = B_(), a = BT.active();
+    if (!B || !a || !a.alive || B.phase !== 'fight' || B.cutin || B.chain || B.paused || !player(a)) return false;
+    if (a.stun > 0 || ['hit', 'down', 'getup', 'stun', 'dead', 'win'].includes(a.state) || (a.act && LOCKED.includes(a.act.kind))) return false;
+    const I = moveInput(), dir = I ? inputDir(I) : a.face + Math.PI;
+    if (!doDodge(a, null, dir)) return false;
+    if (I) a.face = dir;
+    a.press = null; a.guardUntil = 0; a.dashUntil = a.dodge.until + 0.35; a.sprint = true;
+    return true;
+  };
+
+  function choose(a, tgt, fromCombo) {
+    // AUTO presses the same buttons you do: it decides what to press (and when to hold), resolve() says what that does now
+    const B = B_(), T = T_(), K = a.def.kit, id = a.id;
+    const press = (btn, hold, o) => resolve(a, btn, hold, o);
+    const exOk = a.energy >= K.ex.cost;
+    if (!fromCombo) {
+      if (a.exCall && exOk) { a.exCall = false; return press('special', id === 'yixuan' && Math.random() < 0.4); }
+      // (All-Out: the teammates you are not leading fire their own Ultimates)
+      if (((T.autoUlt && !B.auto) || (B.allOut && a !== BT.active() && !B.auto)) && (a.decibels >= R.decibelMax || (id === 'yixuan' && a.tp >= 120)) && (tgt.stun > 0 || Math.random() < 0.02)) { if (BT.cmdUlt(a)) return null; }
+      if (id === 'yixuan' && a.auric > 0) return press('basic', true);
+      if (id === 'burnice' && a.nitro && a.heat >= 20 && (a.cds.hold || 0) <= B.t && (!tgt.scorched || Math.random() < 0.25)) return press('basic', true);
+      if (id === 'aria') {
+        if (a.noIce && !exOk && Math.random() < 0.7) return press('special');
+        const near = B.fandom.filter(f => Math.hypot(f.x - a.x, f.z - a.z) < 7).length;
+        if ((a.cds.charged || 0) <= B.t && (near >= 2 || a.cheer > 0 || (tgt.anom && Math.random() < 0.45))) return press('basic', true);
+      }
+      if (id === 'caesar' && B.assist >= 4 && (a.cds.deadEnd || 0) <= B.t && BT.enemiesIn('circle', a.x, a.z, 3.6, 0).length >= 2 && Math.random() < 0.25) return press('basic', true);
+      // Qingyi: Flash Connect turns her held Basic Attack into Enchanted Moonlit Blossoms
+      if (id === 'qingyi' && a.voltage >= 75) return press('basic', true);
+      // Ju Fufu: spend Momentum on the spin (a dash in, then Basic)
+      if (id === 'jufufu' && a.momentum >= 3 && (a.cds.spin || 0) <= B.t && Math.random() < 0.5) return press('basic', false, { dash: true });
+      // Orphie: with 100 Bottled Heat, hold Special for Heat Charge (best on a Stunned target)
+      if (id === 'orphie' && a.bheat >= 100 && (a.cds.heat || 0) <= B.t && (tgt.stun > 0 || Math.random() < 0.3)) return press('special', true);
+      if (id === 'remielle') {
+        if (a.radiance >= 120 && (B.allOut || B.squad.filter(s => s.alive).length < 2)) return press('basic', true);
+        if ((a.cds.rainbow || 0) <= B.t && (a.flares > 0 || a.reflect > B.t || Math.random() < 0.12)) return press('basic', true);
+      }
+      // with the Energy, Special is the EX (as for you): AUTO keeps it for a full bar or a Stun
+      if (exOk && (a.energy >= a.def.energyMax * 0.85 || tgt.stun > 0 || Math.random() < 0.1)) return press('special', id === 'yixuan' && Math.random() < 0.4);
+      if (!exOk && (a.cds.special || 0) <= B.t && Math.random() < 0.3) return press('special');
+    }
+    // ranged fighters skip their close-range combo steps when the target is far
+    let c = press('basic');
+    if (c.kind === 'basic' && a.def.ai.range > 2.5 && (c.def.reach || 1.6) < 2.2 && dist(a, tgt) - tgt.rad > 2.6) c = press('basic', false, { step: c.step + 1 });
+    return c;
   }
   function startSkill(a, def, kind, tgt, opts) {
     const B = B_(), K = a.def.kit;
     if (!def) return;
     if (kind === 'core' && def === K.deadEnd) { if (B.assist < 1) return; B.assist -= 1; a.cds.deadEnd = B.t + 8; BT.battleSpirit(a); }
     if (tgt) a.face = ang(a, tgt);
-    const A = BT.startAct(a, def, { tgt, kind, free: opts && opts.free, aegis: opts && opts.aegis });
+    const A = BT.startAct(a, def, { tgt, kind, free: opts && opts.free, aegis: opts && opts.aegis, manual: opts && opts.manual });
     BT.onSkillStart(a, def, A);
-    if (kind === 'basic') { a.combo++; a.lastBasic = B.t + def.dur; }
+    if (kind === 'basic') { a.combo = (opts && opts.step != null ? opts.step : a.combo) + 1; a.lastBasic = B.t + def.dur; }
     else a.combo = 0;
+    BT.emit('skill', { a, def, kind, step: kind === 'basic' ? a.combo - 1 : null });
     if (kind === 'special') a.cds.special = B.t + (def.cd || 3.5);
     if (kind === 'hold') a.cds.hold = B.t + 4;
     if (kind === 'charged') a.cds.charged = B.t + 2.5;
@@ -242,15 +416,15 @@
       if (['ex', 'ex2', 'followup', 'chain', 'quick', 'counter', 'auric', 'eruption', 'special'].includes(kind) || def === K.hold) BT.log(`${a.def.short}: ${def.name}`, kind === 'ex' || kind === 'ex2' ? 'ex' : 'skill');
       if (kind === 'ex' || kind === 'ex2') BT.callout(def.name.replace(/^EX Special Attack: /, ''), 'skill', a.def.short + ' · EX');
     }
-    // EX follow-ups the way the kits chain them
-    const r = Math.random();
-    if (kind === 'ex' && def === K.ex) {
+    // EX follow-ups the way the kits chain them (AUTO pressing Special again; yours are your own presses)
+    const r = Math.random(), bot = !(opts && opts.manual);
+    if (bot && kind === 'ex' && def === K.ex) {
       if (a.id === 'burnice' && a.energy >= K.ex2.cost && r < 0.6) a.queue.push({ def: K.ex2, kind: 'ex2', delay: 0.05 });
       if (a.id === 'aria' && a.energy >= K.ex2.cost && r < 0.65) a.queue.push({ def: K.ex2, kind: 'ex2', delay: 0.05 });
       if (a.id === 'yixuan' && a.energy >= K.ex2.cost && r < 0.6) a.queue.push({ def: K.ex2, kind: 'ex2', delay: 0.05 });
     }
-    if (a.id === 'burnice' && (kind === 'chain' || kind === 'followup' || def === K.hold) && a.energy >= K.ex2.cost && r < 0.5) a.queue.push({ def: K.ex2, kind: 'ex2', delay: 0.05 });
-    if (kind === 'counter' && a.id === 'aria') a.combo = 2;   // Slide-Shift Variation flows into the 3rd Sweet Melody
+    if (bot && a.id === 'burnice' && (kind === 'chain' || kind === 'followup' || def === K.hold) && a.energy >= K.ex2.cost && r < 0.5) a.queue.push({ def: K.ex2, kind: 'ex2', delay: 0.05 });
+    if (kind === 'counter' && a.id === 'aria') { a.combo = 2; a.lastBasic = B.t + def.dur; }   // Slide-Shift Variation flows into the 3rd Sweet Melody
     a.gap = kind === 'basic' ? 0 : rnd(0.04, 0.18);
   }
   BT.startSkill = startSkill;
@@ -278,6 +452,7 @@
   };
   function execPlan(a, th) {
     const B = B_(), K = a.def.kit;
+    if (player(a)) return;                       // you fight: the dodges are yours
     if (!['idle', 'act', 'guard', 'move'].includes(a.state) || th.done) return;
     if (a.act) {
       const A = a.act, inv = A.def.inv;
@@ -288,18 +463,22 @@
     else if (th.plan.type === 'block') { a.act = null; startSkill(a, K.special, 'special', th.e && th.e.alive ? th.e : BT.pickTarget(a)); }
     else if (th.plan.type === 'inkblock') { a.act = null; startSkill(a, K.ex, 'ex', th.e && th.e.alive ? th.e : BT.pickTarget(a)); }
   }
-  function doDodge(a, e) {
+  /* a dodge: away from e and to one side, or (yours) the way dir points */
+  function doDodge(a, e, dir) {
     const B = B_(), T = T_();
     if (a.dodgeCharges <= 0) return false;
     a.dodgeCharges--; if (a.dodgeCharges <= 0) a.dodgeCd = T.dodgeCd;
+    if (a.act && window.CHOREO) CHOREO.end(a, a.act);
     a.act = null; a.queue = a.queue.filter(q => q.kind === 'followup');
     a.dodge = { t0: B.t, until: B.t + 0.38 };
     a.state = 'dodge'; a.anim.state = 'dodge'; a.anim.t = 0; a.stT = 0;
-    const away = e && e.x != null ? ang(e, a) : a.face + Math.PI, side = Math.random() < 0.5 ? 1 : -1;
+    let side;
+    if (dir == null) { const away = e && e.x != null ? ang(e, a) : a.face + Math.PI; side = Math.random() < 0.5 ? 1 : -1; dir = away + side * 1.1; }
+    else side = wrap(dir - a.face) >= 0 ? 1 : -1;
     a.anim.side = side;
-    const dir = away + side * 1.1;
     a.vx = Math.sin(dir) * 8; a.vz = Math.cos(dir) * 8;
     SFX.play('dodge'); FX.burst(a.x, 0.3, a.z, 6, { col: [0xffffff, 0x9ad8ff], speed: 2, size: 0.08, life: 0.25, g: 0 });
+    BT.emit('dodge', { a });
     return true;
   }
   BT.doDodge = doDodge;
@@ -314,6 +493,11 @@
     BT.gainDecibels(ag, 150);
     if (ag.id === 'caesar') {
       ag.impactUp = B.t + 3; BT.battleSpirit(ag);
+      if (player(ag)) {                            // you fight: Basic retaliates with Roaring Thrust, Special with Overpowered Shield Bash
+        BT.endAct(ag); ag.retaliate = B.t + 1.2; ag.retFree = viaEx;
+        BT.log(`Caesar: Perfect Block! Retaliate: Basic for Roaring Thrust, Special for Overpowered Shield Bash${viaEx ? ' (free)' : ''}`, 'perfect');
+        return;
+      }
       ag.act = null; ag.queue.unshift(viaEx ? { def: K.osb, kind: 'ex2', free: true, tgt: e, delay: 0.05 } : { def: K.thrust, kind: 'special', tgt: e, delay: 0.05 });
       BT.log(`Caesar: Perfect Block! ${viaEx ? 'Overpowered Shield Bash (free)' : 'Roaring Thrust'}`, 'perfect');
     } else if (ag.id === 'yixuan') { BT.gainEnergy(ag, 10, true); BT.log('Yixuan: Perfect Block with Ink Manifestation (+10 Adrenaline).', 'perfect'); }
@@ -327,6 +511,7 @@
     ag.vx += Math.sin(ang(e, ag)) * 2.5; ag.vz += Math.cos(ang(e, ag)) * 2.5;
     BT.callout('RETALIATION', 'perfect', ag.def.short); SFX.play('parry');
     ag.impactUp = B.t + 3; BT.battleSpirit(ag);
+    if (player(ag)) { ag.retaliate = B.t + 1.2; ag.retFree = false; return; }
     if (ag.energy >= K.osb.cost) ag.queue.unshift({ def: K.osb, kind: 'ex2', tgt: e, delay: 0.05, aegis: true });
     else ag.queue.unshift({ def: K.thrust, kind: 'special', tgt: e, delay: 0.05 });
   };

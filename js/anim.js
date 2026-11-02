@@ -36,6 +36,41 @@
     hulk: { armL: [-0.2, 0, 0.3], armR: [-0.3, 0, -0.3], torso: [0.3, 0, 0], head: [-0.25, 0, 0], legL: [-0.2, 0, 0.12], legR: [0.2, 0, -0.12], hipsY: -0.08 },
   };
   const PARTS = ['armL', 'armR', 'torso', 'head', 'legL', 'legR'];
+
+  /* ---- the gait, at a pace (m/s): how far each leg swings (radians either way: a stroll less than a run), and the
+     share of the cycle a foot spends planted (a walk always has one foot down; a run has moments with none) */
+  function gait(speed) {
+    const run = clamp((speed - 1.6) / 2.6, 0, 1);
+    return { amp: clamp(0.3 + 0.17 * speed, 0.42, 1.06), duty: 0.62 - 0.22 * run, run };
+  }
+  /* one leg's angle forward at a point u (0..1) of the cycle. Planted, from heel-strike to toe-off, the foot sweeps
+     back under the hip at an even pace (the sine of the angle falls in a straight line), so it stays put on the
+     ground while the body passes over it; then it lifts and swings forward to land again */
+  function legAngle(u, G) {
+    const X = Math.sin(G.amp);
+    if (u < G.duty) return Math.asin(X - 2 * X * u / G.duty);
+    const k = (u - G.duty) / (1 - G.duty);
+    return Math.asin(-X + 2 * X * k * k * (3 - 2 * k));
+  }
+  /* move the walk cycle on by the ground covered, so the feet keep pace with it instead of sliding: in one
+     cycle a planted foot sweeps back 2 sin(swing) leg lengths, over duty of the cycle */
+  const _inv = new THREE.Matrix4(), _m = new THREE.Matrix4(), _s = new THREE.Vector3();
+  /* how long a leg is, hip to sole: its voxels measured in its own frame (whatever pose it is in right now) */
+  function legLength(ent) {
+    const L = ent.rig && ent.rig.parts.legL; if (!L) return 0.6;
+    L.updateWorldMatrix(true, true); _inv.copy(L.matrixWorld).invert();
+    const box = new THREE.Box3();
+    L.traverse(o => { if (o.isMesh && o.geometry) { if (!o.geometry.boundingBox) o.geometry.computeBoundingBox(); box.union(o.geometry.boundingBox.clone().applyMatrix4(_m.multiplyMatrices(_inv, o.matrixWorld))); } });
+    const len = -box.min.y * L.getWorldScale(_s).y;
+    return len > 0.08 && len < 3 ? len : 0.6;
+  }
+  function stride(ent, speed, dt) {
+    const A = ent.anim; A.speed = speed;
+    if (ent.kind === 'quad' || ent.kind === 'float') { A.phase += speed * dt * 2.3; return; }
+    if (!ent.legLen) ent.legLen = legLength(ent);
+    const G = gait(speed);
+    A.phase += speed * dt * PI * G.duty / (Math.sin(G.amp) * ent.legLen);
+  }
   function P(o) { // fill a pose from a partial one
     const r = { hipsY: o.hipsY || 0, lift: o.lift || 0, tilt: o.tilt || 0, roll: o.roll || 0, spin: o.spin || 0 };
     for (const k of PARTS) r[k] = o[k] ? o[k].slice() : [0, 0, 0];
@@ -130,9 +165,13 @@
     base.hipsY += Math.sin(t * 2.6 + ent.seed) * 0.012;
     base.torso[0] += Math.sin(t * 2.6 + ent.seed) * 0.02;
     if (A.state === 'run') {
-      const ph = A.phase, s = clamp(A.speed / 4, 0.35, 1.2), sw = Math.sin(ph) * 0.9 * s;
-      base = mix(base, P({ armL: [sw * 0.8 - 0.3, 0, 0.1], armR: [-sw * 0.8 - 0.3, 0, -0.1], legL: [-sw, 0, 0], legR: [sw, 0, 0], torso: [0.2 * s, 0, 0], head: [-0.1, 0, 0] }), clamp(s, 0, 1));
-      base.hipsY += Math.abs(Math.cos(ph)) * 0.06 * s;
+      // the gait follows the pace: a stroll (upright, arms easy) up to a run (leaning in, arms pumping). The legs take
+      // their full stride (legAngle), which stride() matches to the ground; each arm swings against its leg
+      const ph = A.phase, G = gait(A.speed), run = G.run, u = (ph / (2 * PI)) % 1;
+      const thL = legAngle(u, G), thR = legAngle((u + 0.5) % 1, G), arm = 0.55 + 0.3 * run;
+      base = mix(base, P({ armL: [thL * arm - 0.05 - 0.25 * run, 0, 0.1], armR: [thR * arm - 0.05 - 0.25 * run, 0, -0.1], torso: [0.03 + 0.17 * run, 0, 0], head: [-0.1 * run, 0, 0] }), 0.6 + 0.4 * run);
+      base.legL = [-thL, 0, 0.02]; base.legR = [-thR, 0, -0.02];
+      base.hipsY += Math.abs(Math.cos(ph)) * (0.025 + 0.035 * run);
       if (ent.stance === 'guns' || ent.stance === 'gun') { base.armL[0] = -0.9; base.armR[0] = -0.9; }
       if (ent.stance === 'shield') base.armL = [-0.9, 0.15, 0.15];
     } else if (A.state === 'strafe') {
@@ -263,15 +302,15 @@
   /* apply a pose to the rig, easing every part toward it */
   function apply(ent, dt, t) {
     const R = ent.rig, parts = R.parts, rest = R.rest, A = ent.anim;
-    const rate = A.state === 'act' ? 26 : A.state === 'hit' ? 30 : 12;
-    const k = 1 - Math.exp(-rate * dt);
+    const rate = A.state === 'act' ? 26 : A.state === 'hit' ? 30 : A.state === 'run' || A.state === 'strafe' ? 24 : 12;
+    const k0 = 1 - Math.exp(-rate * dt), k = k0, kLeg = A.state === 'run' ? 1 - Math.exp(-60 * dt) : k;   // (legs keep up with the walk cycle: a planted foot stays planted)
     let pose;
     if (ent.kind === 'quad') pose = quadPose(ent, t);
     else if (ent.kind === 'float') pose = floatPose(ent, t);
     else pose = humanoidPose(ent, t);
-    const set = (name, rot) => {
+    const set = (name, rot, kk) => {
       const p = parts[name]; if (!p || !rot) return;
-      const r0 = rest[name];
+      const r0 = rest[name], k = kk || k0;
       p.rotation.x += (r0.rx + rot[0] - p.rotation.x) * k;
       p.rotation.y += (r0.ry + rot[1] - p.rotation.y) * k;
       p.rotation.z += (r0.rz + rot[2] - p.rotation.z) * k;
@@ -279,7 +318,7 @@
     if (ent.kind === 'quad') { for (const n of ['body', 'head', 'legFL', 'legFR', 'legBL', 'legBR', 'tail', 'jaw']) set(n, pose[n]); }
     else if (ent.kind === 'float') { for (const n of ['body', 'head', 'armL', 'armR', 'tail']) set(n, pose[n]); }
     else {
-      for (const n of PARTS) set(n, pose[n]);
+      for (const n of PARTS) set(n, pose[n], n === 'legL' || n === 'legR' ? kLeg : k);
       if (parts.hips) parts.hips.position.y += (rest.hips.py + pose.hipsY * 0.9 - parts.hips.position.y) * k;
       // hair and coat tails trail behind motion
       const sway = clamp(A.speed / 5, 0, 1);
@@ -302,5 +341,5 @@
     B.rotation.y = pose.spin || 0;
   }
 
-  window.ANIM = { apply, READY, ACT: H_ACT, QUAD: Q_ACT, stage, add, mix, P, TAIL, WING };
+  window.ANIM = { apply, stride, READY, ACT: H_ACT, QUAD: Q_ACT, stage, add, mix, P, TAIL, WING };
 })();

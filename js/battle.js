@@ -50,6 +50,11 @@
   function log(text, cls) { if (BT.hooks.log) BT.hooks.log(text, cls); }
   function callout(text, cls, sub) { if (BT.hooks.callout) BT.hooks.callout(text, cls, sub); }
   BT.log = log; BT.callout = callout;
+  /* moments anyone can listen for (TRAINING does): BT.on(fn) calls fn(kind, data) for 'skill', 'dodge', 'perfect',
+     'swap', 'assist', 'parry', 'quick', 'stun', 'chain', 'ult', and 'frame' every frame; it returns the way to stop */
+  const listeners = [];
+  BT.on = fn => { listeners.push(fn); return () => { const i = listeners.indexOf(fn); if (i >= 0) listeners.splice(i, 1); }; };
+  BT.emit = (kind, data) => { for (const f of listeners.slice()) f(kind, data); };
 
   /* -------------------------------------------------------- entities -- */
   function makeEnt(type, id, def, modelId) {
@@ -129,14 +134,14 @@
   BT.start = opts => {
     BT.end();
     const T = BT.T, clash = !!(opts.clash && window.CLASH), allOut = clash && CLASH.modeOf(opts.clash, opts.squad.length).allOut;
-    const enc = clash ? { name: 'Proxy Clash', waves: [[]] } : D.ENCOUNTERS[opts.arena][opts.encounter];
+    const enc = clash ? { name: 'Proxy Clash', waves: [[]] } : opts.enc || D.ENCOUNTERS[opts.arena][opts.encounter];   // (TRAINING brings its own)
     const built = BT.world.loadArena(opts.arena);
     const B = BT.B = {
       opts, arena: built.A, built, bounds: built.bounds, obstacles: built.obstacles || [], barrels: (built.barrels || []).map(b => Object.assign({ alive: true }, b)),
       t: 0, real: 0, phase: 'intro', introT: 0, squad: opts.squad.map((id, i) => makeAgent(id, i, opts.look)), active: 0, enemies: [], projs: [], threats: [], zones: [],
       wave: 0, waves: enc.waves, enc, addsDone: false, assist: Math.min(R.assistPointsMax, T.assistPoints != null ? T.assistPoints : R.assistPointsStart),
       swapCd: 0, chain: null, cutin: null, slow: null, freeze: 0, paused: false, aegis: null, veil: 0, fandom: [], focus: null,
-      cam: { x: 0, z: 2, zoom: 1, yaw: 0, k: 4, shake: 0, shot: null }, hazardT: rnd(8, 12), result: null, auto: !!T.auto, allOut,
+      cam: { x: 0, z: 2, zoom: 1, yaw: 0, k: 4, shake: 0, shot: null }, hazardT: rnd(8, 12), result: null, auto: !!T.auto && !opts.tutorial, allOut,
       eh: { swing: 0, out: 0, assist: 0, perfect: 0, dodged: 0, inv: 0, block: 0, hit: 0 },
       stats: { dmg: 0, perfect: 0, assists: 0, chains: 0, stuns: 0, anomalies: 0, disorders: 0, ults: 0, taken: 0, maxHit: 0 },
     };
@@ -299,6 +304,7 @@
     if (!v.alive) return;
     if (v.rival) { dmg = CLASH.hurt(v, dmg, o); if (dmg <= 0) return; }   // a rival's Radiant Aegis soaks it up
     v.hp -= dmg; v.flash = 1; B.stats.dmg += dmg; B.stats.maxHit = Math.max(B.stats.maxHit, dmg);
+    if (v.floor) v.hp = Math.max(v.hp, v.hpMax * v.floor);              // (TRAINING: it stays up until the last lesson)
     if (T.dmgNumbers) {
       const col = o.color || (D.ATTR[o.attr] ? D.ATTR[o.attr].color : '#fff');
       FX.number(v.x, v.height * 0.75 + (o.dy || 0), v.z, U.fmt(dmg), (o.crit ? 'crit ' : '') + (o.big ? 'big ' : '') + (o.cls || ''), col);
@@ -324,7 +330,7 @@
     let k = T.dazeRate * BUFF('daze') * (a.impactUp > B.t ? 1.2 : 1) * (v.flinch > 0 ? 1 + D.ANOMALY.assault.flinchDaze : 1);
     v.daze += amount * k;
     if (v.enhanced) { v.enhDaze = (v.enhDaze || 0) + amount * k; if (v.enhDaze >= v.dazeMax * 0.3) breakEnhance(v); }
-    if (v.daze >= v.dazeMax) stunEnemy(v, a);
+    if (v.daze >= v.dazeMax) { if (v.noStun) v.daze = v.dazeMax * 0.97; else stunEnemy(v, a); }   // (TRAINING: not before its lesson)
   }
   BT.addDaze = addDaze;
   function breakEnhance(v) {
@@ -341,7 +347,7 @@
     v.daze = v.dazeMax; v.stun = v.stunMax; v.act = null; v.state = 'stun'; v.anim.state = 'stun'; v.stT = 0;
     v.chainsLeft = Math.min(R.chains[v.rank] || 1, alive(B.squad).length); v.chainsUsed = 0;
     B.threats = B.threats.filter(t => t.e !== v);
-    B.stats.stuns++; callout('STUNNED', 'stun', v.def.name); log(`${v.def.name} is Stunned! (${v.chainsLeft} Chain Attack${v.chainsLeft > 1 ? 's' : ''})`, 'stun');
+    B.stats.stuns++; BT.emit('stun', { v, a }); callout('STUNNED', 'stun', v.def.name); log(`${v.def.name} is Stunned! (${v.chainsLeft} Chain Attack${v.chainsLeft > 1 ? 's' : ''})`, 'stun');
     SFX.play('stun'); gainDecibels(a, 150);
     FX.glow(v.x, v.height * 0.8, v.z, 2.5, 0xfff0a0, 0.4, { size1: 4 });
   }
@@ -371,7 +377,7 @@
     // Ju Fufu: with 100 Might, Hu Wei answers a teammate's Chain Attack with Suppressing Tiger Cauldron
     const fu = B.squad.find(s => s.id === 'jufufu' && s.alive);
     if (fu && fu !== ag && fu.might >= 100 && !(B.suppressCd > B.t)) { fu.might -= 100; B.suppressCd = B.t + 8; suppress(fu, v); }
-    gainAssist(R.assistGain); B.stats.chains++; gainDecibels(ag, 300);
+    gainAssist(R.assistGain); B.stats.chains++; gainDecibels(ag, 300); BT.emit('chain', { a: ag, v });
     log(`${ag.def.short}: ${ag.def.kit.chain.name}`, 'chain'); callout(ag.def.kit.chain.name.replace('Chain Attack: ', ''), 'skill', ag.def.short);
     shot({ x: v.x, z: v.z, zoom: 0.72, dur: 0.9, pri: 3, yaw: rnd(-0.4, 0.4) });
     return true;
@@ -486,7 +492,7 @@
   BT.enemiesIn = enemiesIn;
   BT.agentHit = (a, h, A) => {
     const B = BT.B, T = BT.T;
-    const tgt = A.tgt && A.tgt.alive ? A.tgt : BT.pickTarget(a);
+    const tgt = A.tgt && A.tgt.alive ? A.tgt : A.data.manual ? null : BT.pickTarget(a);   // (yours with no one in reach: a swing at the air)
     const attr = h.attr || a.flux || a.def.attr, cols = FX.colors(attr), dir = A.dir;   // (Remielle: the attribute her Lumiflux took on)
     const shape = h.shape || 'arc', reach = (A.def.reach || 1.6);
     if (shape === 'proj') { spawnProj(a, h, A, tgt, attr); SFX.play(attr === 'fire' ? 'fire' : 'ether'); return; }
@@ -680,6 +686,9 @@
     const B = BT.B;
     if (def.cost && !A.data.free) spendEnergy(a, Math.min(a.energy, def.cost));
     if (def.aegis || A.data.aegis) giveAegis(a);
+    // Special pressed again during her EX (or just after) is her second EX; Burnice's also follows her Chain Attack, Follow-Up and Mixed Flame Blend
+    const K = a.def.kit;
+    if (K.ex2) { if (def === K.ex2) a.ex2Until = 0; else if (def === K.ex || (a.id === 'burnice' && (A.kind === 'chain' || A.kind === 'followup' || def === K.hold))) a.ex2Until = B.t + A.dur + 0.5; }
     if (def.heatCost && a.id === 'burnice') { a.heat -= def.heatCost; if (a.heat <= 0) exitNitro(a); }
     if (a.id === 'aria') {
       if (def.fandomStart) addFandom(A.tgt ? A.tgt.x : a.x, A.tgt ? A.tgt.z : a.z, def.fandomStart);
@@ -713,7 +722,6 @@
       if (def.bheatCost) a.bheat = Math.max(0, a.bheat - def.bheatCost);
     }
     if (a.id === 'remielle') {
-      const K = a.def.kit;
       if (def.radiance) a.radiance = Math.min(120, a.radiance + def.radiance);
       if (def === K.rainbow || def === K.fleeting) log(`Remielle: ${def.name}${a.flares ? ` (${a.flares} Voidflare${a.flares > 1 ? 's' : ''})` : ''}`, 'skill');
       if (def === K.fleeting) a.reflect = 0;
@@ -787,6 +795,7 @@
     else if (why === 'forced') say(ag, 'assist_down');
     for (const th of B.threats) { th.plan = null; if (th.target === out && !th.hazard) th.target = ag; } // the new Agent faces what was coming, with her own plans
     if (BT.hooks.swap) BT.hooks.swap(out, ag, why);
+    BT.emit('swap', { out, a: ag, why });
     BT.planDefense && BT.B.threats.forEach(th => BT.planDefense(ag, th));
   }
   BT.swapIn = swapIn;
@@ -881,7 +890,7 @@
       hurtEnemy(e, dmg, { attr: 'auric', src: out, cls: 'afterburn' }); gainEnergy(out, 5, true);
       FX.beam(new THREE.Vector3(e.x, 8, e.z), new THREE.Vector3(e.x, 0.5, e.z), 0xffcf4a, 0.25, 0.25);
     }
-    B.stats.assists++;
+    B.stats.assists++; BT.emit('assist', { a: ag, type: th.assist.type });
     return true;
   }
   function doQuickAssist(ag, who) {
@@ -891,7 +900,7 @@
     out.launchedUntil = 0;
     const A = startAct(ag, ag.def.kit.quick, { tgt, kind: 'quick' });
     callout('QUICK ASSIST', 'assist', ag.def.kit.quick.name.replace('Quick Assist: ', '')); say(ag, 'quick', { with: out.id });
-    log(`${ag.def.short}: ${ag.def.kit.quick.name}`, 'assist');
+    log(`${ag.def.short}: ${ag.def.kit.quick.name}`, 'assist'); BT.emit('quick', { a: ag });
     if (ag.id === 'aria') ag.noIce = true;
     return true;
   }
@@ -907,7 +916,7 @@
     ag.act = null; ag.dodge = null; ag.queue.length = 0;
     const def = yix ? ag.def.kit.ult2 : ag.def.kit.ult;
     if (!yix) ag.decibels -= R.decibelMax;
-    gainAssist(R.assistGain); B.stats.ults++;
+    gainAssist(R.assistGain); B.stats.ults++; BT.emit('ult', { a: ag });
     B.cutin = { agent: ag, def, t: 0, dur: BT.T.cutins ? 1.15 : 0.01, kind: yix ? 'ult2' : 'ult' };
     if (BT.hooks.cutin) BT.hooks.cutin(ag, def);
     SFX.play('ult'); say(ag, yix ? 'ult2' : 'ult');
@@ -921,7 +930,7 @@
     if (v) B.focus = v; else { const i = L.indexOf(B.focus); B.focus = L[(i + 1) % L.length]; }
     log(`Focus: ${B.focus.def.name}`, 'cmd');
   };
-  BT.setAuto = on => { const B = BT.B; if (B) B.auto = on; BT.T.auto = on; };
+  BT.setAuto = on => { const B = BT.B; if (B && B.opts.tutorial) return; if (B) B.auto = on; BT.T.auto = on; };   // (TRAINING: you fight)
 
   /* --------------------------------------- enemy hits on the on-field Agent -- */
   /* resolve one enemy hit against the on-field Agent: assists, dodges, blocks, damage */
@@ -948,6 +957,7 @@
   };
   function parry(ag, e, h) {
     const B = BT.B, def = ag.def.kit.assist;
+    BT.emit('parry', { a: ag, e });
     SFX.play('parry'); B.freeze = Math.max(B.freeze, 0.12);
     const p = new THREE.Vector3(); sockWorld(ag, 'weapon', p);
     FX.glow(p.x, p.y, p.z, 2.6, 0xfff0a0, 0.3, { size1: 4.5 }); FX.burst(p.x, p.y, p.z, 30, { col: [0xffffff, 0xfff0a0, 0xf4d35e], speed: 8, size: 0.1, life: 0.4 });
@@ -970,11 +980,12 @@
     shot({ x: (ag.x + e.x) / 2, z: (ag.z + e.z) / 2, zoom: 0.75, dur: 0.6, pri: 2, roll: rnd(-0.06, 0.06) });
     say(ag, 'perfect_assist');
     if (e.def.cancelsFollowUp && Math.random() < 0.35) { callout('FOLLOW-UP CANCELLED', 'warn', e.def.name); if (BT.hooks.glitch) BT.hooks.glitch(); return; }
+    if (BT.isPlayer(ag)) { ag.followUntil = B.t + 1.6; ag.followTgt = e; return; }   // you fight: Basic for the Assist Follow-Up
     ag.queue.unshift({ def: ag.def.kit.followup, kind: 'followup', tgt: e, delay: 0.1 });
   }
   function perfectDodge(ag, e, viaAssist) {
     const B = BT.B, T = BT.T;
-    ag.dodge.perfectDone = true; B.stats.perfect++;
+    ag.dodge.perfectDone = true; B.stats.perfect++; BT.emit('perfect', { a: ag, e });
     callout('PERFECT DODGE', 'perfect'); SFX.play('perfect'); if (!viaAssist) say(ag, 'perfect_dodge');
     B.slow = { s: viaAssist ? 0.2 : 0.3, t: 0.5 };
     ag.counterUntil = B.t + 1.0; ag.counterTgt = e && e.type === 'enemy' ? e : null;
@@ -1049,7 +1060,7 @@
         zn.tick = 0.5; const dmg = Math.round(ag.hpMax * 0.012 * T.enemyDmg); ag.hp -= dmg; if (T.dmgNumbers) FX.number(ag.x, ag.height, ag.z, U.fmt(dmg), 'hurt', '#b88aff'); if (ag.hp <= 0) agentDown(ag);
       }
     }
-    if (!T.hazards || !ag || !ag.alive || B.rival) return;     // a Proxy Clash is a straight fight
+    if (!T.hazards || !ag || !ag.alive || B.rival || B.opts.tutorial) return;     // a Proxy Clash is a straight fight (and TRAINING a quiet one)
     B.hazardT -= dt; if (B.hazardT > 0) return;
     const id = B.arena.id;
     if (id === 'summit') {                                         // miasma pools well up under the Agent
@@ -1153,6 +1164,7 @@
     FX.update(dt, rdt);
     camUpdate(B.cutin ? rdt : rdt);
     if (BT.hooks.frame) BT.hooks.frame(B, rdt);
+    BT.emit('frame', rdt);
   };
   function flashTint(e, rdt) {
     if (e.flash > 0) e.flash = Math.max(0, e.flash - rdt * 6);

@@ -105,6 +105,12 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .cmd.assist.red { background: linear-gradient(180deg, #5a1018, #2a080c); border-color: var(--red); color: #ffb0b0; }
 .cmd.quick { background: linear-gradient(180deg, #10405a, #081c2a); border-color: var(--cyan); color: var(--cyan); animation: pulse .2s infinite alternate; }
 .cmd .cd { position: absolute; left: 0; bottom: 0; height: 3px; background: var(--yel); }
+.cmd small { max-width: 100%; padding: 0 8px; box-sizing: border-box; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cmd small.h { color: var(--yel2); }
+/* you fight (AUTO off): Dodge and a wide Basic under the commands, as on the real game's phone layout */
+.cmd.basic { grid-column: span 2; height: 68px; font-size: 24px; }
+.cmd.dodge { height: 68px; }
+.cmd.basic.ready { animation: none; }
 
 .callouts { position: absolute; left: 50%; top: 30%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 4px; }
 .co { font: 46px/1 var(--disp); letter-spacing: 3px; color: #fff; text-shadow: 0 3px 0 #000, 0 0 18px rgba(0,0,0,.7); animation: coIn .9s ease-out forwards; white-space: nowrap; text-align: center; }
@@ -216,6 +222,22 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .tune input[type=checkbox] { width: 20px; height: 20px; accent-color: var(--yel); }
 .tune output { font: 700 12px var(--font); color: var(--yel2); text-align: right; }
 .row { display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap; }
+/* KEY BINDINGS */
+.binds { display: grid; grid-template-columns: 1fr 130px 130px; gap: 4px 8px; align-items: center; font-size: 13px; }
+.binds .g { grid-column: 1 / -1; font: 18px/1 var(--disp); letter-spacing: 1px; color: #fff; margin-top: 12px; }
+.binds .hd { font: 700 10px var(--font); color: var(--dim); letter-spacing: 1px; text-align: center; }
+.binds label { color: #dedee6; } .binds label small { display: block; color: var(--dim); font-size: 11px; line-height: 1.35; }
+.binds button.k { font: 700 12px var(--font); background: #22222b; color: var(--yel2); border: 1px solid #3a3a46; padding: 7px 6px; cursor: pointer; }
+.binds button.k:hover { border-color: var(--yel); }
+.binds button.k.empty { color: #55555f; }
+.binds button.k.wait { background: var(--yel); color: #111; border-color: var(--yel); animation: pulse .4s infinite alternate; }
+.keysp .note { color: var(--yel2); font-size: 12px; min-height: 18px; margin-top: 10px; }
+@media (max-width: 560px) { .binds { grid-template-columns: 1fr 92px 92px; } .binds button.k { font-size: 11px; padding: 6px 3px; } }
+/* HOW TO PLAY: the way into TRAINING */
+.train { display: grid; grid-template-columns: 1fr auto; gap: 14px; align-items: center; background: linear-gradient(90deg, rgba(244,211,94,.14), rgba(244,211,94,.03)); border: 1px solid rgba(244,211,94,.5); border-left: 4px solid var(--yel); padding: 12px 14px; margin: 4px 0 6px; }
+.train b { font: 26px/1 var(--disp); letter-spacing: 1.5px; color: var(--yel); } .train em { margin-left: 10px; font: 800 11px var(--font); font-style: normal; color: #5be37a; }
+.train p { margin: 6px 0 0; }
+@media (max-width: 560px) { .train { grid-template-columns: 1fr; } }
 table.keys { border-collapse: collapse; font-size: 13px; } table.keys td { padding: 3px 10px 3px 0; color: #cfcfd6; } table.keys kbd { font: 700 11px var(--font); background: #2a2a34; padding: 2px 6px; border-radius: 3px; color: var(--yel2); }
 
 .results { display: grid; place-items: center; background: rgba(6,6,10,.72); }
@@ -327,7 +349,7 @@ table.keys { border-collapse: collapse; font-size: 13px; } table.keys td { paddi
 /* scrolling panels still scroll under a finger */
 .panel .box, .col, .setup, .results .box { touch-action: pan-y; -webkit-overflow-scrolling: touch; }
 /* on a touch screen the buttons are the commands: no keyboard letters on them */
-.touch .cmd small, .touch .asub kbd, .touch .chainp .cc kbd { display: none; }
+.touch .cmd small:not(.h), .touch .asub kbd, .touch .chainp .cc kbd { display: none; }
 .touch .cmd { font-size: 19px; }
 .touch .asub { grid-template-columns: 44px 1fr; }
 
@@ -337,7 +359,7 @@ table.keys { border-collapse: collapse; font-size: 13px; } table.keys td { paddi
   .asub { width: 200px; grid-template-columns: 34px 1fr 40px; } .asub img { width: 34px; height: 34px; }
   .touch .asub { grid-template-columns: 34px 1fr; }
   .enemy { top: auto; bottom: 200px; width: 60vw; } .log { display: none; }
-  .cmds { grid-template-columns: repeat(3, 62px); } .cmd { height: 50px; font-size: 16px; }
+  .cmds { grid-template-columns: repeat(3, 62px); } .cmd { height: 50px; font-size: 16px; } .cmd.basic, .cmd.dodge { height: 60px; } .cmd.basic { font-size: 20px; }
   .co { font-size: 34px; } .co.fight, .co.wave, .co.clear, .co.fail { font-size: 48px; }
   .setup { grid-template-columns: 1fr; overflow: auto; align-content: start; background: rgba(8,8,12,.9); } .col { overflow: visible; min-height: auto; }
   .setup .col:nth-child(2) { display: none; }
@@ -359,7 +381,7 @@ table.keys { border-collapse: collapse; font-size: 13px; } table.keys td { paddi
   .aname { font-size: 16px; } .aname small { display: none; } .hpnum { font-size: 10px; } .res { font-size: 9px; gap: 4px; } .db { font-size: 9px; }
   .asub { width: 170px; padding: 4px 6px 4px 4px; } .asub img { width: 30px; height: 30px; } .touch .asub { grid-template-columns: 30px 1fr; }
   .topright { top: 112px; } .topright .tm { font-size: 24px; } .topright .wv { display: none; }
-  .cmds { bottom: max(12px, env(safe-area-inset-bottom)); grid-template-columns: repeat(3, 64px); gap: 5px; } .cmd { height: 54px; }
+  .cmds { bottom: max(12px, env(safe-area-inset-bottom)); grid-template-columns: repeat(3, 64px); gap: 5px; } .cmd { height: 54px; } .cmd.basic, .cmd.dodge { height: 66px; }
   .callouts { top: 42%; } .co { font-size: 28px; } .co.fight, .co.wave, .co.clear, .co.fail { font-size: 42px; }
   .chainp { bottom: 150px; gap: 8px; } .chainp .cc { width: 128px; padding: 6px; } .chainp .mid { min-width: 70px; font-size: 20px; }
   .hpfloat { width: 44px; }
@@ -378,7 +400,7 @@ table.keys { border-collapse: collapse; font-size: 13px; } table.keys td { paddi
   .enemy { top: max(8px, env(safe-area-inset-top)); bottom: auto; width: min(380px, 40vw); } .enemy .en-name { font-size: 17px; } .enemy .bar.hp { height: 9px; }
   .enemy .chip { font-size: 9px; padding: 1px 4px; } .enemy .stunx { font-size: 10px; min-height: 12px; }
   .topright { top: max(8px, env(safe-area-inset-top)); } .topright .tm { font-size: 22px; } .topright .wv { font-size: 9px; } .topright .auto { font-size: 11px; padding: 3px 8px; }
-  .cmds { bottom: max(8px, env(safe-area-inset-bottom)); grid-template-columns: repeat(3, 62px); gap: 5px; } .cmd { height: 46px; font-size: 16px; }
+  .cmds { bottom: max(8px, env(safe-area-inset-bottom)); grid-template-columns: repeat(3, 62px); gap: 5px; } .cmd { height: 46px; font-size: 16px; } .cmd.basic, .cmd.dodge { height: 52px; }
   .callouts { top: 26%; } .co { font-size: 28px; } .co small { font-size: 10px; } .co.fight, .co.wave, .co.clear, .co.fail { font-size: 44px; } .co.disorder, .co.abloom { font-size: 36px; }
   .chainp { bottom: 10px; } .chainp .cc { width: 160px; grid-template-columns: 44px 1fr; padding: 6px; } .chainp .cc img { width: 44px; height: 44px; } .chainp .cc b { font-size: 18px; }
   .cutin .txt b { font-size: 44px; }
@@ -500,3 +522,27 @@ table.keys { border-collapse: collapse; font-size: 13px; } table.keys td { paddi
   .dv-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } .dv-tile { min-height: 96px; padding: 8px; } .dv-tile b { font-size: 19px; }
   .dv-cards { grid-template-columns: 1fr; } .dv-card { padding: 9px 10px; }
 }
+
+/* ------------------------------------------------------------ TRAINING --
+   the lesson card over the battle (tutorial.js) */
+.tut { position: absolute; left: 0; right: 0; margin: 0 auto; top: 104px; width: min(540px, 92vw); box-sizing: border-box; z-index: 6; pointer-events: auto;
+  background: rgba(12,12,18,.94); border: 1px solid rgba(244,211,94,.6); border-left: 4px solid var(--yel); padding: 10px 14px; box-shadow: 0 6px 24px rgba(0,0,0,.5); }
+.tut .n { display: flex; justify-content: space-between; font: 800 10px var(--font); letter-spacing: 1px; color: var(--yel); }
+.tut .n i { font-style: normal; color: var(--dim); }
+.tut h3 { margin: 3px 0 4px; font: 26px/1 var(--disp); letter-spacing: 1.5px; color: #fff; }
+.tut p { margin: 0; font-size: 13px; line-height: 1.5; color: #dedee6; }
+.tut kbd { font: 700 11px var(--font); background: #2a2a34; padding: 1px 6px; border-radius: 3px; color: var(--yel2); border: 1px solid #44444f; white-space: nowrap; }
+.tut .pips { display: flex; gap: 4px; margin-top: 8px; } .tut .pips i { flex: 1; height: 5px; background: rgba(255,255,255,.12); transition: background .2s; } .tut .pips i.on { background: var(--yel); }
+.tut .try { color: #ffb0b0; font-size: 12px; margin-top: 5px; }
+.tut .row { display: flex; gap: 8px; justify-content: flex-end; margin-top: 8px; }
+.tut .row button { font: 700 10px var(--font); letter-spacing: .5px; background: transparent; border: 1px solid #44444f; color: var(--dim); padding: 3px 10px; cursor: pointer; }
+.tut .row button:hover { color: #fff; border-color: #777; }
+.tut.ok { border-color: #5be37a; border-left-color: #5be37a; animation: tutok .6s ease-out; } .tut.ok h3 { color: #5be37a; }
+.tut.new { animation: tutin .35s ease-out; }
+@keyframes tutok { 0% { transform: scale(1.04); box-shadow: 0 0 30px rgba(91,227,122,.6); } 100% { transform: none; } }
+@keyframes tutin { 0% { opacity: 0; transform: translateY(-10px); } 100% { opacity: 1; transform: none; } }
+/* a narrow screen: beside the squad panel, under the clock */
+@media (max-width: 820px) { .tut { left: auto; right: 12px; top: 96px; margin: 0; width: min(440px, calc(100vw - 268px)); } .tut h3 { font-size: 22px; } .tut p { font-size: 12px; } }
+@media (max-width: 820px) and (orientation: portrait) { .tut { top: auto; left: 8px; right: 8px; width: auto; bottom: calc(max(12px, env(safe-area-inset-bottom)) + 250px); } }
+@media (max-height: 520px) { .tut { top: 64px; left: 0; right: 0; margin: 0 auto; width: min(400px, 46vw); padding: 7px 10px; } .tut h3 { font-size: 20px; } .tut p { font-size: 11px; } }
+.tutdone .stats { display: grid; grid-template-columns: 1fr auto; gap: 4px 20px; margin: 10px 0; font-size: 13px; } .tutdone .stats b { color: var(--yel2); }

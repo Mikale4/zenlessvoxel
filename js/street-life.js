@@ -367,7 +367,7 @@
     const moved = Math.hypot(e.x - ox, e.z - oz) / Math.max(dt, 1e-4);
     p.stuck = moved < 0.2 ? (p.stuck || 0) + dt : 0;
     if (p.stuck > 1.5) { p.stuck = 0; if (p.goal) p.path = findPath(L.nav, e.x, e.z, p.goal.x, p.goal.z); else p.path = []; }
-    e.anim.speed = moved; e.anim.phase += moved * dt * 2.3;
+    ANIM.stride(e, moved, dt);                // the feet keep pace with the ground (anim.js)
   }
   function reach(p) {
     const e = p.e, sp = p.goal;

@@ -1,8 +1,9 @@
 # Zenless Voxel Zone — Battle Lab
 
 An unofficial, non-commercial **Zenless Zone Zero** fan game in voxels, built around one question first: what should the
-battles feel like? Like *Pallet to Pewter*, your Agents fight **on their own, in real time**, and **you are the commander**: you move the
-Agent on the field and give the commands. Flip on **AUTO** and the game moves her and gives the commands too.
+battles feel like? **You fight as in the real game**: you move the Agent on the field and press every attack, dodge,
+Special, Ultimate and switch yourself. Or flip on **AUTO** and, like *Pallet to Pewter*, your Agents fight **on their own,
+in real time** while the game gives the commands too.
 
 **Play:** https://mikale4.github.io/zenlessvoxel/ (computer or phone). Settings are saved in your browser.
 
@@ -25,6 +26,9 @@ Or locally: open `index.html` in a browser (no server or install needed).
   regulars, and three story chapters for every Agent (see [Things to do](#things-to-do-on-sixth-street)).
 - **Proxy Clash**: Agents against Agents, a rival Proxy's squad against yours, in five modes: 1v1 Duel, 2v2 and 3v3
   Tag Team (one on the field at a time), 2v2 and 3v3 All-Out (everyone at once).
+- **Manual play, or AUTO**: the real game's five buttons (Basic, Dodge, Special, Ultimate, Switch), with every move of
+  every kit on them; or let the Agents fight on their own (see [Commands](#commands)). Every key can be rebound.
+- **TRAINING**: an interactive tutorial, thirteen lessons you play through against a Faun (see [Training](#training)).
 - **The Battle Lab**: every rule and number as a toggle or slider, saved in your browser.
 - **Music** from the official soundtrack: a track for every screen and every fight, each from where it plays in the
   real game (see [Music](#music)).
@@ -136,9 +140,9 @@ battleground, and fight. Five modes:
 | **2v2 Tag Team** · **3v3 Tag Team** | One Agent per side on the field at a time, as in the Hollow: swap, Defensive Assist, Quick Assist, Chain Attack. |
 | **2v2 All-Out** · **3v3 All-Out** | Every Agent of both squads on the field at once. |
 
-In **All-Out** you **lead** one Agent (the yellow ring): you move her (AUTO off) and call her EX and Ultimate; `W` / `Q`
-or a squad card switch whom you lead. The others fight on their own and fire their own Ultimates. On a flash aimed at any
-of yours, `W` / `Q` sends a teammate dashing in to **parry** it (gold) or **pull her clear** (red); when one is launched,
+In **All-Out** you **lead** one Agent (the yellow ring): with AUTO off you fight with her as with anyone; the Switch keys
+(`Space` / `C`) or a squad card switch whom you lead. The others fight on their own and fire their own Ultimates. On a flash
+aimed at any of yours, Switch sends a teammate dashing in to **parry** it (gold) or **pull her clear** (red); when one is launched,
 a teammate's **Quick Assist**. Your teammates spread out over their rivals rather than all piling onto one, and theirs do
 the same.
 
@@ -264,21 +268,63 @@ Chain Attacks, Ultimates and KOs, quieter, and give way to yours.
 
 ## Commands
 
+Two ways to fight, switched any time with the **AUTO** button (or `T`):
+
+- **AUTO off** (the default): **you play**, as in the real game. You move the Agent on the field and press every attack,
+  dodge, Special, Ultimate and switch yourself.
+- **AUTO on**: she fights on her own (she picks her skills, chains her string, spends her Energy, dodges what she sees
+  coming) and the game gives the commands too.
+- In between, the Battle Lab's **Auto-attack**: you move her and give the commands; she attacks and dodges on her own.
+
+The defaults are the real game's PC layout. Every action takes two keys or mouse buttons, and **KEY BINDINGS** (on the
+squad screen, in the Battle Lab and in Tactics) changes any of them, saved per Proxy (`js/keys.js`).
+
 | Key | Command |
 |---|---|
-| `←` `↑` `↓` `→` | **Move** the Agent on the field (AUTO off). She still fights on her own: the moment you let go she attacks whatever is in range. |
-| `W` / `Q` / `1` `2` `3` | Swap to the next / previous Agent / that slot. On an enemy's **gold flash** this is a **Defensive Assist** (parry, costs Assist Points); on a **red flash** (or with no Assist Points) the incoming Agent **Perfect Dodges**. While your Agent is **launched**, it's a **Quick Assist**. |
-| `E` | Call an **EX Special Attack**. |
-| `R` | **Ultimate** when the on-field Agent's Decibels are at MAXIMUM (Yixuan: or 120 Technique Points). |
-| `Q` / `W` (or `1` / `2`) | During a **Chain Attack**: pick who follows up (left / right). |
-| `Tab` or click | Change the focus target. |
-| `T` | **AUTO** on/off. AUTO moves your Agent and gives your commands; with it off you move her and command, and she fights on her own. |
+| `W` `A` `S` `D` / arrows | **Move**. |
+| Left click / `J` | **Basic Attack**. Tap it again and again for her string; **hold** it for her hold move. Kept held with no hold move, her string goes on. |
+| `Shift` / right click | **Dodge** the way you push (no direction: a step back). Just before a hit: a **Perfect Dodge**. Kept held after a dodge: a sprint. |
+| `E` / `K` | **Special Attack**; with the Energy past the mark, the **EX Special Attack**. |
+| `Q` / `L` | **Ultimate** at MAXIMUM Decibels (Yixuan: or 120 Technique Points). |
+| `Space` / `C` / `1` `2` `3` | Switch to the next / previous Agent / that slot. On an enemy's **gold flash** this is a **Defensive Assist** (parry, costs Assist Points); on a **red flash** (or with no Assist Points) the incoming Agent **Perfect Dodges**. While your Agent is **launched**, it's a **Quick Assist**. |
+| `C` `Space` (or `1` `2`) | During a **Chain Attack**: pick who follows up (left / right). |
+| `Tab` / middle click | Change target (middle click: the enemy under the pointer; or click / tap one). |
+| `T` | **AUTO** on/off. |
 | `Esc` | **Tactics** menu (time stands still). |
 
+**What a button does depends on the moment**, as in the real game: one lookup (`resolve()` in `js/ai.js`) turns a
+button, tapped or held, into the move, for your presses and AUTO's alike.
+
+| Moment | Basic | Special |
+|---|---|---|
+| Any time | The next step of her string (a second without one starts it over) | The Special; with the Energy, the EX |
+| Just after a dodge, or sprinting | **Dash Attack** (Ju Fufu with 3 Momentum: Mountain King's Game) | |
+| Just after a Perfect Dodge | **Dodge Counter** | |
+| Just after a Defensive Assist | **Assist Follow-Up** | |
+| During (or just after) Burnice's, Aria's or Yixuan's EX | | Her **second EX** (Burnice: also after her Chain Attack, Follow-Up or Mixed Flame Blend) |
+| Caesar, just after a Perfect Block | **Roaring Thrust** | **Overpowered Shield Bash** |
+| Held | Caesar: **Dead End** (1 Assist Point) · Burnice: **Mixed Flame Blend** (Nitro-Fuel) · Aria: **Perfect Pitch** · Qingyi: **Enchanted Moonlit Blossoms** (75 Voltage) · Yixuan: **Auric Array** (an Auric Ink Point) · Remielle: **Rainbow's End** / Fleeting Grace | Orphie: **Heat Charge** (100 Bottled Heat) · Yixuan: **Cloud-Shaper** (our choice of button for her other EX) |
+
+A press is remembered for a moment and plays as soon as she can move (an input buffer); one made during a long move
+waits for its end. A Special cuts a Basic, Dash Attack or Dodge Counter short once its hit has landed; a Dodge cuts
+short anything but an Ultimate, a Chain Attack or an Assist. Attacks home in a little on the target you picked, or on the
+nearest enemy the way she faces. The buttons light up for the moment: COUNTER, FOLLOW-UP, DASH ATTACK, EX, EX ×2, ASSIST,
+QUICK, and name her hold move when one is ready.
+
 **On a phone** (portrait or landscape): drag anywhere on the battlefield to move (a thumb stick appears under your
-thumb), tap the buttons for every command, tap an enemy to focus it, tap a squad card to swap to her. Phones start on a
-lighter graphics budget (fewer pixels, softer shadows, fewer particles), and if the frames still run slow the game
-steps it down on its own.
+thumb); with AUTO off, BASIC, DODGE and SPECIAL are buttons you tap or hold, with ULT, the swaps, TARGET and TACTICS
+above them. Tap an enemy to focus it, tap a squad card to swap to her. Phones start on a lighter graphics budget (fewer
+pixels, softer shadows, fewer particles), and if the frames still run slow the game steps it down on its own.
+
+## Training
+
+**HOW TO PLAY → START TRAINING** (`js/tutorial.js`): a fight on the Hollow Concert Stage against one Faun where nothing
+happens until you do it. A card over the battle gives one lesson at a time, in your own keys (on a phone, the buttons),
+and the next opens once you have done it (or SKIP): move, the Basic string, a hold move, dodging, the Dash Attack, a
+Perfect Dodge and its Dodge Counter, the Special, the EX, switching, a Defensive Assist and its Follow-Up, Stun and a
+Chain Attack, the Ultimate, and a last round where the Faun fights back. The Faun only swings when a lesson wants it to,
+and a missed Perfect Dodge or Assist says why (too early, too late, no flash yet). Nobody loses: the squad is topped up
+and the Faun cannot fall before the last lesson. The squad is Qingyi, Caesar and Aria.
 
 ## The rules (from the official game)
 
@@ -318,14 +364,16 @@ Plain JavaScript and three.js (r128, vendored in `lib/`), no build step. Every m
 | `js/arenas.js` | The three battlegrounds |
 | `js/data.js` | **All the numbers**: rules, kits, enemies, encounters, Battle Lab defaults |
 | `js/battle.js` | The battle: damage, Daze/Stun/Chains, anomalies, assists, ultimates, hazards, camera |
-| `js/ai.js` | Agent AI, enemy AI, the AUTO commander |
+| `js/ai.js` | The five buttons (what each does at each moment, for you and AUTO alike), your presses, Agent AI, enemy AI, the AUTO commander |
 | `js/clash.js` | Proxy Clash: the rival Proxy's Agents (their brain, dodges, blocks, assists, swaps, Ultimates) |
 | `js/moves.js` | How the Agents move: poses, footwork and effects per skill, matched to the official skill previews |
 | `js/enemy-moves.js` | How the enemies move and attack: poses, footwork, props (Pompey's bike and hover guns), effects |
-| `js/anim.js` · `js/fx.js` · `js/audio.js` | Procedural animation, effects, synthesized sound |
+| `js/anim.js` · `js/fx.js` · `js/audio.js` | Procedural animation (a walk and run whose planted foot keeps pace with the ground), effects, synthesized sound |
 | `js/music.js` · `audio/` | The soundtrack: what plays where, crossfades, the first-click unlock |
 | `js/voice.js` · `js/voice-data.js` · `audio/voice/` | The Agents' voice lines: which moment says what, one voice at a time |
 | `js/hud.js` · `js/menu.js` · `js/main.js` | HUD, menus, boot and input |
+| `js/keys.js` | The battle controls and your key bindings |
+| `js/tutorial.js` | TRAINING, the interactive tutorial |
 | `tools/` | Dev only: a model/arena viewer and headless test scripts (`node tools/play.js`, `tools/moves-test.js`, `tools/enemy-test.js`, `tools/flow-test.js`, `tools/phone-test.js`, `tools/clash-test.js` (Proxy Clash fights and calibration batches), `tools/clash-shots.js`, `tools/zfight-check.js`) |
 
 Zenless Zone Zero, its characters, enemies, music and voices belong to HoYoverse / miHoYo. This is a non-commercial fan project, not

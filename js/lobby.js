@@ -279,7 +279,7 @@
       if (S.stuck > 0.6) { S.path.shift(); S.stuck = 0; if (!S.path.length && S.useOnArrive) { const id = S.useOnArrive, p = spotOf(id); S.useOnArrive = null; if (p && Math.hypot(me.x - p[0], me.z - p[1]) < 1.6) S.pendingUse = id; } }
     } else S.stuck = 0;
     if (vx || vz) me.face = U.turn(me.face, Math.atan2(vx, vz), 1 - Math.exp(-14 * dt));
-    me.anim.speed = moved; me.anim.phase += moved * dt * 2.3; me.anim.state = moved > 0.3 ? 'run' : 'idle';
+    ANIM.stride(me, moved, dt); me.anim.state = moved > 0.3 ? 'run' : 'idle';
     if (S.act && S.act.t >= 0) { const sp = S.act.sp; me.anim.state = 'pose'; me.posePreset = LIFE.poseFor(S.act.o.act, S.t, 1); me.airY = sp && sp.seat != null ? sp.seat + 0.06 - 9 * me.rig.scale : 0; }
     animate(me, dt);
     // your sibling at the counter turns to you when you come close
