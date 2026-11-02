@@ -22,6 +22,10 @@ Or locally: open `index.html` in a browser (no server or install needed).
 - **Proxy Clash**: Agents against Agents, a rival Proxy's squad against yours, in five modes: 1v1 Duel, 2v2 and 3v3
   Tag Team (one on the field at a time), 2v2 and 3v3 All-Out (everyone at once).
 - **The Battle Lab**: every rule and number as a toggle or slider, saved in your browser.
+- **Music** from the official soundtrack: a track for every screen and every fight, each from where it plays in the
+  real game (see [Music](#music)).
+- **Voices**: the Agents' own lines from the real game, in battle, at squad select and on Sixth Street (see
+  [Voices](#voices)).
 
 ## Signing in, and Sixth Street
 
@@ -130,6 +134,55 @@ previews. Ground markings fill up until an area attack lands; *How to Play* list
 | **Dullahan** | Sword combos, a whirlwind; a **charged thrust** that a high-level skill (EX, Chain, Ultimate...) breaks. |
 | **Dead End Butcher** | Pummels, hammer fists, a crushing leap. A high-level skill right after its combos deals **bonus Daze**. Phase 2 adds punch flurries and a **sweeping Ether laser**. It can turn **Ether Enhanced** (more ATK) until you Daze it enough. |
 
+## Music
+
+From HOYO-MiX's official albums *Hyper Commission* (2024) and *Hyper Commission 2.0* (2026), and *19%* from
+*Loading...* (the KHInsider gamerip), in `audio/`. Each track is where the real game plays it (the *Played In* column on
+the Zenless Zone Zero Wiki's album pages). The music starts on your first click or key (browsers block sound until
+then), crossfades between screens, picks a screen's track back up where it left off, and starts a fight's from the top.
+Battle Lab: *Music volume*.
+
+| Where | Track | In the real game |
+|---|---|---|
+| Title | 19% | The official website's theme |
+| Sixth Street | 60% Fantasy - Serenity, then 60% Fantasy - Passion | Sixth Street, evenings |
+| Inside Random Play | Time To Play | Random Play |
+| Hollow Deep Dive (squad select) | 60% Fantasy | Random Play |
+| Proxy Clash (setup) | Up-Up-Down-Down-Left-Left-Right-Right | Godfinger, the arcade |
+| Blazewood · Patrol / Elite | Wind of the Wild / Dusk in the Wilderness | Chapter 4 Commissions / the Outer Ring Hollows |
+| Blazewood · Pompey | Long Live the King | Notorious Hunt: Corrupted Overlord - Pompey |
+| Yunkui Summit · Patrol / Elite | Darkest Hour / The Source | Miasmic Field / Yunkui Disciples Re-Emerge |
+| Yunkui Summit · Miasma Priest | "Mevorakh", and The Way in phase 2 | Notorious Hunt: Miasma Priest, and the fight's second phase |
+| Concert Stage · Patrol | Perish Together | A Harmony of Delusions: Performance Showdown |
+| Concert Stage · Elite / Dead End Butcher | Sword of Corruption / Four-Armed Sword | Every Dullahan fight / Notorious Hunt: Dead End Butcher |
+| Proxy Clash vs Patch / Vesper / Mirage | Purchasable Loyalty / Pride and Paranoia / The Final Duel | Fights with Pulchra, Bellum and Mors / Razor / The Defector |
+| Mission clear / failed or retreated | Victory / Defeat | Finishing / losing or quitting a Commission |
+
+The rival Proxies are this game's own, so their tracks are picks: the real game's music for fights against people.
+
+## Voices
+
+The Agents' English voice lines from the real game (the Zenless Zone Zero Wiki's *Voice-Overs* pages), 674 of them,
+in `audio/voice/<agent>/` and listed in `js/voice-data.js`. Caesar, Burnice, Yixuan, Qingyi, Ju Fufu and Orphie speak;
+Aria (no audio on the wiki yet) and Remielle (no page yet) do not. Battle Lab: *Voice volume*.
+
+| When | She says (the wiki's category) |
+|---|---|
+| Squad select: you pick her / DEPLOY or FIGHT | Select Agent / Confirm Agent Selection |
+| Sixth Street: you talk to her | Obtain Agent or Select Agent, and the box shows the words |
+| A fight starts | Encounter Normal / Elite / Boss Enemy (a Proxy Clash: Boss) |
+| EX Special, Dodge Counter, Perfect Dodge | EX Special Attack, Dodge Counter, Perfect Dodge |
+| A Stun opens a Chain Attack (AUTO off) / she takes the Chain | Chain Attack Selection / Chain Attack |
+| Ultimate | Ultimate (Yixuan's Endless Talisman Suppression has its own) |
+| Defensive Assist, then the parry | Assist, Perfect Assist |
+| Quick Assist / swapping in / after a teammate goes down | Assist (her lines for a teammate when it is Caesar or Burnice she helps) |
+| An enemy's gold or red flash / it recovers from a Stun | Charge Hint / Enemy Stun Recovery |
+| Launched / down | Staggered / Defeated |
+
+One voice at a time: an Ultimate, a Chain Attack, a KO or the start of a fight cuts in; the everyday lines speak only
+now and then (an EX about 3 times in 5) and never over another line. A rival Proxy's Agents speak their EX Specials,
+Chain Attacks, Ultimates and KOs, quieter, and give way to yours.
+
 ## Commands
 
 | Key | Command |
@@ -187,8 +240,10 @@ Plain JavaScript and three.js (r128, vendored in `lib/`), no build step. Every m
 | `js/moves.js` | How the Agents move: poses, footwork and effects per skill, matched to the official skill previews |
 | `js/enemy-moves.js` | How the enemies move and attack: poses, footwork, props (Pompey's bike and hover guns), effects |
 | `js/anim.js` · `js/fx.js` · `js/audio.js` | Procedural animation, effects, synthesized sound |
+| `js/music.js` · `audio/` | The soundtrack: what plays where, crossfades, the first-click unlock |
+| `js/voice.js` · `js/voice-data.js` · `audio/voice/` | The Agents' voice lines: which moment says what, one voice at a time |
 | `js/hud.js` · `js/menu.js` · `js/main.js` | HUD, menus, boot and input |
 | `tools/` | Dev only: a model/arena viewer and headless test scripts (`node tools/play.js`, `tools/moves-test.js`, `tools/enemy-test.js`, `tools/flow-test.js`, `tools/phone-test.js`, `tools/clash-test.js` (Proxy Clash fights and calibration batches), `tools/clash-shots.js`, `tools/zfight-check.js`) |
 
-Zenless Zone Zero, its characters and enemies belong to HoYoverse / miHoYo. This is a non-commercial fan project, not
+Zenless Zone Zero, its characters, enemies, music and voices belong to HoYoverse / miHoYo. This is a non-commercial fan project, not
 affiliated with or endorsed by them, and will come down on request.

@@ -275,6 +275,7 @@
         FX.glow(p.x, p.y + 0.2, p.z, 1.2, f.color === 'red' ? 0xff3a3a : 0xffd04a, 0.35, { size1: 3.2, depthTest: false });
         FX.glow(p.x, p.y + 0.2, p.z, 0.5, 0xffffff, 0.25, { size1: 1.6, depthTest: false });
         SFX.play(f.color === 'red' ? 'flashRed' : 'flashGold'); if (BT.hooks.flash) BT.hooks.flash(f.color, f.th);
+        BT.say(BT.active(), 'charge_hint');
       }
       BT.physics(e, dt, true);
       if (e.act === A && A.kind === 'basic' && A.t >= (A.def.cancel || A.dur)) decide(e, dt, true);
@@ -660,6 +661,7 @@
   CLASH.down = v => {
     const RV = B_().rival; RV.downT = 0;
     BT.log(`${v.def.name} is down!`, 'kill'); BT.callout(`RIVAL ${v.def.short.toUpperCase()} DOWN`, 'perfect', `${RV.squad.filter(r => r.alive).length} left`);
+    BT.say(v, 'defeated');
   };
 
   /* ------------------------------------- your Agent's move: dodge it? --

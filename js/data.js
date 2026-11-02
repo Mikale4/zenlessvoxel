@@ -615,6 +615,8 @@
     { key: 'dmgNumbers', label: 'Damage numbers', type: 'bool', def: true },
     { key: 'showLog', label: 'Battle log', type: 'bool', def: true },
     { key: 'volume', label: 'Sound volume', type: 'range', min: 0, max: 1, step: 0.05, def: 0.6 },
+    { key: 'music', label: 'Music volume', type: 'range', min: 0, max: 1, step: 0.05, def: 0.5 },
+    { key: 'voice', label: 'Voice volume', type: 'range', min: 0, max: 1, step: 0.05, def: 0.8, help: 'The Agents\' own lines from the real game. Aria and Remielle have none yet.' },
   ];
   const TUNING_DEFAULTS = {}; for (const d of TUNING_DEFS) if (d.key) TUNING_DEFAULTS[d.key] = d.def;
 

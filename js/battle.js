@@ -177,6 +177,13 @@
   }
 
   /* ------------------------------------------------------- the actions -- */
+  /* an Agent speaks (voice.js): her line from the real game for this moment */
+  function say(ag, moment, o) { if (window.VOICE && BT.B && !BT.B.opts.attract && ag && ag.id) VOICE.say(ag.id, moment, Object.assign({ rival: !!ag.rival }, o)); }
+  BT.say = say;
+  // what she says as a move starts (your Ultimates and Chain Attacks speak where you call them)
+  const SAYS = { ex: 'ex', ex2: 'ex', counter: 'counter' }, RIVAL_SAYS = { ex: 'ex', ex2: 'ex', counter: 'counter', ult: 'ult', chain: 'chain' };
+
+  /* ------------------------------------------------------- the actions -- */
   function startAct(e, def, opts) {
     opts = opts || {};
     e.act = { def, t: 0, hi: 0, tgt: opts.tgt || null, dir: e.face, kind: opts.kind || 'basic', fired: {}, data: opts, dur: opts.dur || def.dur };
@@ -184,6 +191,7 @@
     Object.assign(e.anim, { state: 'act', t: 0, act: def, th: def.hits && def.hits.length ? def.hits[0].t : Math.min(0.3, def.dur * 0.5), dur: e.act.dur });
     if (window.CHOREO) CHOREO.start(e, e.act);
     if (e.type === 'agent' && BT.B && BT.B.rival) CLASH.onAgentAct(e, e.act);   // a rival sees it coming
+    const line = e.rival ? RIVAL_SAYS[e.act.kind] : e.type === 'agent' ? SAYS[e.act.kind] : null; if (line) say(e, line);
     return e.act;
   }
   BT.startAct = startAct;
@@ -334,7 +342,7 @@
     if (!opts.length) return;
     v.chainsLeft--;
     B.chain = { tgt: v, opts: opts.slice(0, 2), timer: BT.T.chainWindow, from: a, count: (B.chainCount || 0) };
-    callout('CHAIN ATTACK', 'chain'); SFX.play('chain');
+    callout('CHAIN ATTACK', 'chain'); SFX.play('chain'); if (!B.auto) say(B.chain.opts[0], 'chain_select');   // (AUTO picks at once)
     if (BT.hooks.chainOpen) BT.hooks.chainOpen(B.chain);
   }
   function closeChain() {
@@ -348,7 +356,7 @@
     if (B.allOut) pullIn(ag); else swapIn(ag, 'chain', v);
     ag.x = v.x + Math.sin(ang(v, ag) || 0) * (v.rad + 1.2); ag.z = v.z + Math.cos(ang(v, ag) || 0) * (v.rad + 1.2); ag.face = ang(ag, v);
     const A = startAct(ag, ag.def.kit.chain, { tgt: v, kind: 'chain' }); B.chainLast = A;
-    onSkillStart(ag, ag.def.kit.chain, A);
+    onSkillStart(ag, ag.def.kit.chain, A); say(ag, 'chain');
     // Ju Fufu: with 100 Might, Hu Wei answers a teammate's Chain Attack with Suppressing Tiger Cauldron
     const fu = B.squad.find(s => s.id === 'jufufu' && s.alive);
     if (fu && fu !== ag && fu.might >= 100 && !(B.suppressCd > B.t)) { fu.might -= 100; B.suppressCd = B.t + 8; suppress(fu, v); }
@@ -763,6 +771,9 @@
     if (tgt) ag.face = ang(ag, tgt);
     for (const c of B.companions) if (c.owner === ag) showCompanion(c, true);
     FX.glow(ag.x, 1.1, ag.z, 2.4, D.ATTR[ag.def.attr].hex, 0.3, { size1: 3 }); SFX.play('swap');
+    // a plain swap or a teammate down: she says so (an assist, a Chain Attack or an Ultimate speaks for itself)
+    if (why === 'swap') say(ag, B.focus && B.focus.stun > 0 ? 'assist_stunned' : 'assist', { with: out && out.id, p: 0.4 });
+    else if (why === 'forced') say(ag, 'assist_down');
     for (const th of B.threats) { th.plan = null; if (th.target === out && !th.hazard) th.target = ag; } // the new Agent faces what was coming, with her own plans
     if (BT.hooks.swap) BT.hooks.swap(out, ag, why);
     BT.planDefense && BT.B.threats.forEach(th => BT.planDefense(ag, th));
@@ -843,7 +854,7 @@
     if (defensive) {
       B.assist -= cost; th.assist = { agent: ag, type: 'defensive' };
       startAct(ag, def, { tgt: e, kind: 'assist', dur: Math.max(def.dur, th.impactAt - B.t + 0.12) });
-      callout('DEFENSIVE ASSIST', 'assist', def.name.replace('Defensive Assist: ', ''));
+      callout('DEFENSIVE ASSIST', 'assist', def.name.replace('Defensive Assist: ', '')); say(ag, 'assist', { with: out.id, p: 0.8 });
       log(`${ag.def.short}: ${def.name} (${cost ? `${cost} Assist Point${cost > 1 ? 's' : ''}` : 'free'})`, 'assist');
     } else {
       th.assist = { agent: ag, type: 'evade' };
@@ -851,7 +862,7 @@
       if (who.act && window.CHOREO) CHOREO.end(who, who.act); who.act = null;
       who.dodge = { t0: th.impactAt - 0.05, until: th.impactAt + 0.3, assist: true };
       who.state = 'dodge'; who.anim.state = 'dodge'; who.anim.t = 0; who.anim.side = 1; who.stT = 0;
-      callout(B.assist < cost && th.flash === 'gold' ? 'NO ASSIST POINTS' : 'PERFECT DODGE', 'assist', 'Assist on a red flash');
+      callout(B.assist < cost && th.flash === 'gold' ? 'NO ASSIST POINTS' : 'PERFECT DODGE', 'assist', 'Assist on a red flash'); say(ag, 'perfect_dodge');
       log(B.allOut ? `${ag.def.short} pulls ${th.target.def.short} clear of a ${th.flash === 'red' ? 'red flash' : 'flash (no Assist Points)'}: Perfect Dodge.` : `${ag.def.short} switches in on a ${th.flash === 'red' ? 'red flash' : 'flash with no Assist Points'}: Perfect Dodge.`, 'assist');
     }
     if (!B.allOut && out.id === 'yixuan' && e.type === 'enemy' && squadHas(s => ['Stun', 'Support', 'Defense'].includes(s.def.spec))) {   // Auric Ink Undercurrent: the lightning strike
@@ -868,7 +879,7 @@
     if (B.allOut) pullIn(ag); else swapIn(ag, 'quick', tgt);
     out.launchedUntil = 0;
     const A = startAct(ag, ag.def.kit.quick, { tgt, kind: 'quick' });
-    callout('QUICK ASSIST', 'assist', ag.def.kit.quick.name.replace('Quick Assist: ', ''));
+    callout('QUICK ASSIST', 'assist', ag.def.kit.quick.name.replace('Quick Assist: ', '')); say(ag, 'quick', { with: out.id });
     log(`${ag.def.short}: ${ag.def.kit.quick.name}`, 'assist');
     if (ag.id === 'aria') ag.noIce = true;
     return true;
@@ -888,7 +899,7 @@
     gainAssist(R.assistGain); B.stats.ults++;
     B.cutin = { agent: ag, def, t: 0, dur: BT.T.cutins ? 1.15 : 0.01, kind: yix ? 'ult2' : 'ult' };
     if (BT.hooks.cutin) BT.hooks.cutin(ag, def);
-    SFX.play('ult');
+    SFX.play('ult'); say(ag, yix ? 'ult2' : 'ult');
     log(`${ag.def.short}: ${def.name}!`, 'ult');
     return true;
   };
@@ -946,13 +957,14 @@
     gainDecibels(ag, 250); gainEnergy(ag, 8);
     if (ag.id === 'caesar') { ag.impactUp = B.t + 3; battleSpirit(ag); }
     shot({ x: (ag.x + e.x) / 2, z: (ag.z + e.z) / 2, zoom: 0.75, dur: 0.6, pri: 2, roll: rnd(-0.06, 0.06) });
+    say(ag, 'perfect_assist');
     if (e.def.cancelsFollowUp && Math.random() < 0.35) { callout('FOLLOW-UP CANCELLED', 'warn', e.def.name); if (BT.hooks.glitch) BT.hooks.glitch(); return; }
     ag.queue.unshift({ def: ag.def.kit.followup, kind: 'followup', tgt: e, delay: 0.1 });
   }
   function perfectDodge(ag, e, viaAssist) {
     const B = BT.B, T = BT.T;
     ag.dodge.perfectDone = true; B.stats.perfect++;
-    callout('PERFECT DODGE', 'perfect'); SFX.play('perfect');
+    callout('PERFECT DODGE', 'perfect'); SFX.play('perfect'); if (!viaAssist) say(ag, 'perfect_dodge');
     B.slow = { s: viaAssist ? 0.2 : 0.3, t: 0.5 };
     ag.counterUntil = B.t + 1.0; ag.counterTgt = e && e.type === 'enemy' ? e : null;
     gainDecibels(ag, 150); if (ag.def.resource === 'adrenaline') gainEnergy(ag, 5, true); else gainEnergy(ag, 4);
@@ -979,7 +991,7 @@
       if (ag.act && window.CHOREO) CHOREO.end(ag, ag.act);
       ag.act = null; ag.queue.length = 0; ag.state = 'down'; ag.anim.state = 'down'; ag.anim.t = 0; ag.stT = 0; ag.downT = 1.25; ag.launchedUntil = B.t + 1.25;
       const d = ang(e, ag); ag.vx = Math.sin(d) * 7; ag.vz = Math.cos(d) * 7;
-      callout('LAUNCHED', 'warn', 'Swap now for a Quick Assist'); B.cam.shake = Math.max(B.cam.shake, 0.35);
+      callout('LAUNCHED', 'warn', 'Swap now for a Quick Assist'); B.cam.shake = Math.max(B.cam.shake, 0.35); say(ag, 'staggered');
       log(`${ag.def.short} is launched! (Quick Assist ready)`, 'warn');
     } else if ((!anti || h.heavy) && !h.flinchOnly) {   // flinchOnly: a rival Agent's hit that only makes her flinch (clash.js)
       if (ag.act && window.CHOREO) CHOREO.end(ag, ag.act);
@@ -993,7 +1005,7 @@
     const B = BT.B;
     if (ag.act && window.CHOREO) CHOREO.end(ag, ag.act);
     ag.hp = 0; ag.alive = false; ag.act = null; ag.state = 'dead'; ag.anim.state = 'dead'; ag.stT = 0; ag.queue.length = 0; ag.stun = 0; ag.dodge = null;
-    log(`${ag.def.name} is down!`, 'warn'); callout(`${ag.def.short.toUpperCase()} DOWN`, 'warn');
+    log(`${ag.def.name} is down!`, 'warn'); callout(`${ag.def.short.toUpperCase()} DOWN`, 'warn'); say(ag, 'defeated');
     B.downSwap = 1.0;
   }
 
@@ -1116,7 +1128,7 @@
     }
     if (B.phase === 'intro') {
       B.introT += rdt;
-      if (B.introT > 1.6) { B.phase = 'fight'; callout('FIGHT', 'fight'); }
+      if (B.introT > 1.6) { B.phase = 'fight'; callout('FIGHT', 'fight'); say(active(), 'encounter_' + (B.rival ? 'boss' : B.opts.encounter)); }
     }
     if (dt > 0) {
       B.t += dt;
@@ -1178,14 +1190,14 @@
       if (v.lumi && v.lumiT <= B.t) v.lumi = 0;
       if (v.stun > 0) {
         v.stun -= dt; v.daze = v.dazeMax * clamp(v.stun / v.stunMax, 0, 1);
-        if (v.stun <= 0) { v.stun = 0; v.daze = 0; v.subj = 0; v.state = 'idle'; v.anim.state = 'idle'; v.chainsLeft = 0; log(`${v.def.name} recovers from Stun.`, 'sys'); if (B.chain && B.chain.tgt === v) closeChain(); }
+        if (v.stun <= 0) { v.stun = 0; v.daze = 0; v.subj = 0; v.state = 'idle'; v.anim.state = 'idle'; v.chainsLeft = 0; log(`${v.def.name} recovers from Stun.`, 'sys'); if (B.chain && B.chain.tgt === v) closeChain(); say(active(), 'stun_recover'); }
       }
       // boss adds and phases
       if (v.rank === 'boss' && !B.addsDone && B.enc.adds && v.hp / v.hpMax <= B.enc.adds.at) {
         B.addsDone = true; log(`${v.def.name} calls for backup!`, 'warn'); callout('REINFORCEMENTS', 'wave');
         B.enc.adds.ids.forEach((id, k) => { const e = makeEnemy(id); e.x = (k ? 1 : -1) * 7; e.z = -4; e.airY = 6; e.spawnT = 0.6 + k * 0.2; B.enemies.push(e); });
       }
-      if (v.def.phase2 && v.phase === 1 && v.hp / v.hpMax <= v.def.phase2.at) { v.phase = 2; callout('PHASE 2', 'wave', v.def.phase2.name); log(`${v.def.name} enters phase 2: ${v.def.phase2.name}.`, 'warn'); }
+      if (v.def.phase2 && v.phase === 1 && v.hp / v.hpMax <= v.def.phase2.at) { v.phase = 2; callout('PHASE 2', 'wave', v.def.phase2.name); log(`${v.def.name} enters phase 2: ${v.def.phase2.name}.`, 'warn'); if (BT.hooks.phase2 && !B.opts.attract) BT.hooks.phase2(v); }
     }
     hazards(dt);
     if (B.rival) CLASH.step(dt);                                // the rival Proxy: resources, swaps, the next Agent in
@@ -1215,7 +1227,8 @@
     const B = BT.B; if (B.result) return;
     B.result = result; B.phase = 'end'; closeChain();
     for (const ag of fielded()) if (result === 'win' && ag.alive && !(ag.stun > 0)) { if (ag.act && window.CHOREO) CHOREO.end(ag, ag.act); ag.state = 'win'; ag.anim.state = 'win'; ag.act = null; }
-    SFX.play(result === 'win' ? 'win' : 'lose');
+    // Victory / Defeat from the soundtrack; the synthesized jingle only with the music off
+    if (B.opts.attract || !MUSIC.play(result === 'win' ? 'win' : 'lose', { fade: 300 })) SFX.play(result === 'win' ? 'win' : 'lose');
     const clash = !!B.rival;
     callout(result === 'win' ? (clash ? 'VICTORY' : 'MISSION CLEAR') : (clash ? 'DEFEAT' : 'MISSION FAILED'), result === 'win' ? 'clear' : 'fail');
     log(result === 'win' ? (clash ? `${B.rival.diff.name}'s whole squad is down.` : 'All enemies defeated.') : 'The whole squad is down.', 'sys');

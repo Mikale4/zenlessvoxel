@@ -38,7 +38,7 @@
     sel = U.store.get('setup', DEF_SETUP()); normSel();
     csel = U.store.get('clash', DEF_CLASH()); normClash(); rolled = null;
     const t = U.store.get('tuning', {}); for (const k in D.TUNING_DEFAULTS) BT.T[k] = k in t ? t[k] : D.TUNING_DEFAULTS[k];
-    SFX.setVolume(BT.T.volume);
+    SFX.setVolume(BT.T.volume); MUSIC.setVolume(BT.T.music); VOICE.setVolume(BT.T.voice);
     return a;
   };
   MENU.boot = () => { MENU.loadAccount(); MENU.title(); };
@@ -50,6 +50,7 @@
      squad, a random battleground), and the menu signs you in. */
   MENU.title = () => {
     if (GAME.mode !== 'title' || !BT.B) GAME.attract();
+    MUSIC.play('title');
     const acc = Auth.current(), n = Auth.list().length;
     scr().innerHTML = '';
     const B = BT.B;
@@ -63,7 +64,7 @@
         el('button', { class: 'btn' + (acc ? ' dark' : ''), onclick: () => { SFX.unlock(); SFX.play('ui'); MENU.auth('login'); } }, 'LOG IN'),
         el('button', { class: 'btn dark', onclick: () => { SFX.unlock(); SFX.play('ui'); MENU.auth('register'); } }, 'REGISTER A PROXY')),
       el('div', { class: 't-foot' }, n ? `${n} ${n === 1 ? 'Proxy' : 'Proxies'} registered on this device` : 'No Proxies yet: register to begin'),
-      el('div', { class: 'note' }, 'An unofficial, non-commercial Zenless Zone Zero fan game. Zenless Zone Zero, its characters and enemies belong to HoYoverse / miHoYo; this project is not affiliated with or endorsed by them.'));
+      el('div', { class: 'note' }, 'An unofficial, non-commercial Zenless Zone Zero fan game. Zenless Zone Zero, its characters, enemies, music and voices belong to HoYoverse / miHoYo; this project is not affiliated with or endorsed by them.'));
     scr().append(s);
   };
   function liveText() {
@@ -201,7 +202,8 @@
   /* talking to an Agent: a line, then her file, and the offer of the Hollow */
   MENU.talk = id => {
     const A = D.AGENTS[id];
-    MENU.say([{ who: id, name: A.short, text: U.pick(Lobby.LINES[id]) }], () => MENU.dossier(id));
+    // one of her own lines from the real game, said out loud (Aria and Remielle, who have none yet: a line of ours)
+    MENU.say([{ who: id, name: A.short, text: VOICE.line(id, ['obtain', 'select']) || U.pick(Lobby.LINES[id]) }], () => MENU.dossier(id));
   };
   MENU.dossier = id => {
     const A = D.AGENTS[id], inSquad = sel.squad.indexOf(id);
@@ -209,7 +211,7 @@
       el('div', { class: 'ds-head' }, el('img', { src: portrait(BT.modelFor(id, sel.look)), alt: '' }), el('div', null, el('h2', null, A.name.toUpperCase()), el('p', null, inSquad === 0 ? 'Leading your squad.' : inSquad > 0 ? `In your squad (slot ${inSquad + 1}).` : 'Not in your squad.'))),
       kitPanel(id),
       el('div', { class: 'row' },
-        el('button', { class: 'btn small', onclick: () => { p.remove(); lead(id); MENU.setup(); } }, 'TAKE HER INTO THE HOLLOW'),
+        el('button', { class: 'btn small', onclick: () => { p.remove(); lead(id); VOICE.line(id, ['confirm']); MENU.setup(); } }, 'TAKE HER INTO THE HOLLOW'),
         el('button', { class: 'btn dark small', onclick: () => p.remove() }, 'CLOSE')));
     const p = el('div', { class: 'panel' }, box); scr().append(p);
   };
@@ -256,6 +258,7 @@
     scr().innerHTML = '';
     const old = document.querySelector('.dlg'); if (old) old.remove();
     if (GAME.mode !== 'menu') GAME.toMenu();
+    MUSIC.play('dive');
     GAME.preview(sel.arena, sel.squad, sel.look);
     const left = el('div', { class: 'col' }), mid = el('div', { class: 'col' }), right = el('div', { class: 'col' });
     // squad
@@ -267,7 +270,7 @@
         SFX.unlock(); SFX.play('ui'); kitFocus = id;
         const k = sel.squad.indexOf(id);
         if (k >= 0) { if (sel.squad.length > 1) sel.squad.splice(k, 1); }
-        else { if (sel.squad.length >= 3) sel.squad.pop(); sel.squad.push(id); }
+        else { if (sel.squad.length >= 3) sel.squad.pop(); sel.squad.push(id); VOICE.line(id, ['select']); }
         save(); MENU.setup();
       } }, i >= 0 ? el('span', { class: 'ord' }, String(i + 1)) : null, el('img', { src: portrait(BT.modelFor(id, sel.look)), alt: A.name }), el('b', null, A.name), el('small', null, `${A.spec} · ${D.ATTR[A.attr].name} · ${A.faction}`)));
     }
@@ -316,6 +319,7 @@
 
   MENU.deploy = () => {
     scr().innerHTML = '';
+    VOICE.line(sel.squad[0], ['confirm']);
     GAME.startBattle({ squad: sel.squad.slice(), arena: sel.arena, encounter: sel.encounter, look: Object.assign({}, sel.look) });
   };
 
@@ -336,6 +340,7 @@
     scr().innerHTML = '';
     const old = document.querySelector('.dlg'); if (old) old.remove();
     if (GAME.mode !== 'menu') GAME.toMenu();
+    MUSIC.play('clash_menu');
     const theirs = rivalSquad(), RV = D.RIVALS[csel.rival], acc = Auth.current() || {};
     GAME.preview(csel.arena, mySquad(), sel.look, theirs, rlook);
     const left = el('div', { class: 'col' }), mid = el('div', { class: 'col' }), right = el('div', { class: 'col' });
@@ -358,7 +363,7 @@
       cards.append(el('button', { class: 'card' + (i >= 0 ? ' sel' : ''), onclick: () => {
         SFX.unlock(); SFX.play('ui'); kitFocus = id;
         const k = csel.squad.indexOf(id);
-        if (k >= 0) { if (csel.squad.length > 1) csel.squad.splice(k, 1); } else { if (csel.squad.length >= N) csel.squad.pop(); csel.squad.push(id); }
+        if (k >= 0) { if (csel.squad.length > 1) csel.squad.splice(k, 1); } else { if (csel.squad.length >= N) csel.squad.pop(); csel.squad.push(id); VOICE.line(id, ['select']); }
         saveClash(); MENU.clash();
       } }, i >= 0 ? el('span', { class: 'ord' }, String(i + 1)) : null, el('img', { src: portrait(BT.modelFor(id, sel.look)), alt: A.name }), el('b', null, A.name), el('small', null, `${A.spec} · ${D.ATTR[A.attr].name}`)));
     }
@@ -406,6 +411,7 @@
   MENU.clashGo = () => {
     const theirs = rivalSquad().slice();
     scr().innerHTML = '';
+    VOICE.line(mySquad()[0], ['confirm']);
     GAME.startBattle({ squad: mySquad(), arena: csel.arena, look: Object.assign({}, sel.look), clash: { rival: csel.rival, squad: theirs, look: Object.assign({}, rlook), mode: csel.mode } });
   };
 
@@ -424,13 +430,15 @@
     }
     box.append(grid, el('div', { class: 'row' },
       el('button', { class: 'btn small', onclick: () => { p.remove(); MENU.saveTuning(); if (!from) MENU.setup(); } }, 'DONE'),
-      el('button', { class: 'btn dark small', onclick: () => { Object.assign(BT.T, D.TUNING_DEFAULTS); MENU.saveTuning(); p.remove(); MENU.lab(from); } }, 'RESET TO DEFAULTS')));
+      el('button', { class: 'btn dark small', onclick: () => { Object.assign(BT.T, D.TUNING_DEFAULTS); MENU.saveTuning(); SFX.setVolume(BT.T.volume); MUSIC.setVolume(BT.T.music); VOICE.setVolume(BT.T.voice); p.remove(); MENU.lab(from); } }, 'RESET TO DEFAULTS')));
     const p = el('div', { class: 'panel' }, box); scr().append(p);
   };
   function fmt(d, v) { return d.type === 'bool' ? (v ? 'ON' : 'OFF') : (Math.round(v * 100) / 100) + ''; }
   function applied(key) {
     MENU.saveTuning();
     if (key === 'volume') SFX.setVolume(BT.T.volume);
+    if (key === 'music') MUSIC.setVolume(BT.T.music);
+    if (key === 'voice') VOICE.setVolume(BT.T.voice);
     if (key === 'auto' && BT.B) BT.B.auto = BT.T.auto;
     if (key === 'showLog' && window.HUD) HUD.applyLogPref();
   }

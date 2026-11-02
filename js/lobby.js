@@ -548,7 +548,7 @@
     eous(dt); bird(dt); pets();
     // Random Play's front comes away while you are inside
     const inside = inStore(me.x, me.z) || (me.z < -3.6 && Math.abs(me.x) < 1.3 && S.path.length && inStore(...S.path[S.path.length - 1]));
-    if (inside !== S.inside) { S.inside = inside; RP.front.visible = !inside; RP.upper.visible = !inside; RP.low.visible = inside; }
+    if (inside !== S.inside) { S.inside = inside; RP.front.visible = !inside; RP.upper.visible = !inside; RP.low.visible = inside; MUSIC.play(inside ? 'shop' : 'street'); }
     // what is close enough to use
     let near = null, nd = 1e9;
     const cand = Object.keys(STATIONS).map(id => [id, STATIONS[id].x, STATIONS[id].z, STATIONS[id].r]).concat(S.npcs.map(n => ['agent:' + n.id, n.x, n.z, 1.7]), [['sib', S.sib.x, -7.0, 1.3]]);

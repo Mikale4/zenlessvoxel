@@ -43,7 +43,7 @@
   /* ------------------------------------------------------------ tuning -- */
   const tuning = Object.assign({}, D.TUNING_DEFAULTS, U.store.get('tuning', {}));
   for (const k in tuning) if (!(k in D.TUNING_DEFAULTS)) delete tuning[k];
-  SFX.setVolume(tuning.volume);
+  SFX.setVolume(tuning.volume); MUSIC.setVolume(tuning.music); VOICE.setVolume(tuning.voice);
 
   /* ------------------------------------------------------------- world -- */
   const world = {
@@ -129,6 +129,8 @@
     startBattle(opts) {
       leaveLobby(); clearPreview(); GAME.mode = 'battle'; U.$('screens').innerHTML = '';
       quiet(false);
+      MUSIC.play(opts.clash ? 'clash_' + opts.clash.rival : opts.arena + '_' + opts.encounter);
+      VOICE.prime(opts.squad.concat(opts.clash ? opts.clash.squad : []));
       BT.T.auto = !!BT.T.auto;
       BT.start(opts);
       HUD.build(BT.B);
@@ -161,8 +163,10 @@
   function quiet(on) { SFX.quiet = on; FX.noNumbers = on; }
   BT.hooks.finish = B => {
     if (B.opts.attract) { if (GAME.mode === 'title') GAME.attract(); return; }
+    if (B.result === 'retreat') MUSIC.play('lose');   // as in the real game: Defeat plays on a lost or a quit Commission
     MENU.results(B);
   };
+  BT.hooks.phase2 = () => MUSIC.phase2();
 
   /* -------------------------------------------------------------- input --
      Q / W swap (previous / next; on a flash it is an Assist; in an All-Out
