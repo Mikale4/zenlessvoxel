@@ -89,20 +89,26 @@ The rival Proxies are this game's own characters. The notice board keeps your re
 best rank and fastest win.
 
 **Balance.** Their Agents' damage is set per rival and per mode (`data.js` RIVALS): it runs above your Agents' because
-yours carry buffs, Anomalies, Disorders, Abloom, Afterburn and the Aegis that theirs do not. It was calibrated with
-`tools/clash-test.js` (`batch=6 mode=all3`, ...): your squad on AUTO against each rival, over random matchups on all
-three battlegrounds. How often AUTO won at the final settings (pooled rounds; small samples, so read them as rough):
+yours carry buffs, Anomalies, Disorders, Abloom, Afterburn, Refringe, Subjugation, Tiger's Roar, Zeroed In and the Aegis
+that theirs do not. A rival's Hu Wei and Magus hit at half that multiplier (they fire on a timer, with no breathers),
+and a rival waits about as long for Moonlit Blossoms, the spin and Heat Charge as your Agents take to earn them. It was
+calibrated with `tools/clash-test.js` (`batch=6 mode=all3`, ...): your squad on AUTO against each rival, over random
+matchups drawn from all eight Agents on all three battlegrounds. How often AUTO won at the final settings (small
+samples, so read them as rough):
 
 | Mode | vs Patch | vs Vesper | vs Mirage | A fight lasts |
 |---|---|---|---|---|
-| 1v1 Duel | 15 of 17 | 8 of 17 | 4 of 12 | 30-50 s |
-| 2v2 Tag Team | 11 of 11 | 5 of 8 | 4 of 12 | 45-55 s |
-| 2v2 All-Out | 11 of 11 | 6 of 12 | 2 of 8 | 35-45 s |
-| 3v3 Tag Team | 11 of 11 | 3 of 6 | 4 of 11 | 60-75 s |
-| 3v3 All-Out | 11 of 11 | 7 of 15 | 4 of 12 | 30-50 s |
+| 1v1 Duel | 8 of 8 | 5 of 8 | 1 of 8 | 25-60 s |
+| 2v2 Tag Team | 6 of 6 | 5 of 6 | 1 of 6 | 40-55 s |
+| 2v2 All-Out | 5 of 6 | 4 of 6 | 1 of 6 | 35-45 s |
+| 3v3 Tag Team | 6 of 6 | 2 of 6 | 3 of 6 | 55-75 s |
+| 3v3 All-Out | 6 of 6 | 6 of 8 | 3 of 8 | 30-45 s |
 
-A single fight swings a lot with the matchup (two Anomaly Agents lean on Anomalies that do not land on Agents; a
-Yixuan and Caesar pair hits hard). You playing by hand will land somewhere else entirely: tell me what feels off.
+Vesper comes out a little easier than before the new Agents (22 of 34 overall, against about half), mostly from the
+new Agents' own mechanics on your side; Mirage still wins about three fights in four. A single fight swings a lot
+with the matchup (two Anomaly Agents lean on Anomalies that do not land on Agents; a Yixuan and Caesar pair hits hard;
+a Remielle needs a teammate's Anomaly to Refringe). You playing by hand will land somewhere else entirely: tell me what
+feels off.
 
 ## How the enemies fight
 
