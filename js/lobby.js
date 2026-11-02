@@ -19,8 +19,11 @@
    turns by itself to face the shopfronts on your side. The day runs in the real
    game's four slots, from your clock (the sofa moves it on).
 
-     Lobby.start({ me: 'wise'|'belle', chooser, onUse(id, who), tags: el, spawn, slot })
-     Lobby.stop()  Lobby.update(dt)  Lobby.tap(x, y)  Lobby.choose(id)  Lobby.turn(dir)
+   Other hubs (hubs.js, js/hubs/) are walked the same way: their own stations,
+   a free camera, their own people; the metro's Travel sign goes between them.
+
+     Lobby.start({ me: 'wise'|'belle', hub, chooser, onUse(id, who), tags: el, spawn, slot })
+     Lobby.stop()  Lobby.update(dt)  Lobby.tap(x, y)  Lobby.choose(id)  Lobby.turn(dir)  Lobby.hub()
    ========================================================================== */
 (function () {
   'use strict';
@@ -28,15 +31,9 @@
   const PI = Math.PI;
   const L = { running: false };
 
-  const STATIONS = {
-    hdd: { label: 'Hollow Deep Dive', sub: 'HDD system · into the Hollow', x: 0.5, z: -11.7, sx: 1.5, sy: 2.7, sz: -13.4, r: 1.5, inside: true },
-    lab: { label: 'Battle Lab', sub: 'Shop computer', x: 2.3, z: -7.0, sx: 2.3, sy: 2.2, sz: -8.2, r: 1.0, inside: true },
-    howto: { label: 'How to Play', sub: 'Tutorial tapes', x: -4.7, z: -8.5, sx: -5.5, sy: 2.7, sz: -8.5, r: 1.2, inside: true },
-    rest: { label: 'Rest', sub: 'Sofa · pass the time', x: 4.9, z: -4.75, sx: 4.9, sy: 1.6, sz: -5.5, r: 1.0, inside: true },
-    records: { label: 'Proxy Records', sub: 'Poster board', x: -4.4, z: -2.9, sx: -4.4, sy: 2.95, sz: -3.9, r: 1.2 },
-    clash: { label: 'Proxy Clash', sub: 'Godfinger · Agent vs Agent', x: -25.9, z: 6.25, sx: -25.9, sy: 2.95, sz: 7.4, r: 1.4 },
-  };
-  L.STATIONS = STATIONS;
+  /* the places to use in the hub you are in (hubs.js): its stations and its way out (Travel) */
+  let STATIONS = {};
+  const stationsOf = hub => Object.assign({}, hub.stations || {}, hub.travel ? { travel: hub.travel } : {});
   /* what the Agents say when you talk to them (their voice lines come first: menu.js) */
   const LINES = {
     caesar: ['Phaethon! The Sons of Calydon ride when you say ride. Point me at the Hollow and I\'ll hold the line.', 'This bike? Rebuilt her three times. Same as the gang: nothing stays broken around me.'],
@@ -48,8 +45,10 @@
     orphie: ['Orphie, Obol Squad. And this is Magus, our captain. Yes, the tail. She heard that, by the way.', 'Magus says you check out, Proxy. Give us a target and she\'ll handle the rest. I\'ll handle the aiming.'],
     remielle: ['A Proxy! The Covenant of Dayat sends its greetings. My light takes the colour of whoever stands beside me. Shall we find out yours?', 'Stay a moment... Sixth Street makes the loveliest colours.'],
     wise: ['Don\'t forget, the tapes on the bottom shelf are due back Thursday.', 'The HDD\'s running hot today. Lots of Agents, lots of Hollows. Good for business.', 'If the shop\'s quiet, that just means business is good... in the Hollow.'],
-    belle: ['Did you rewind the tapes? You never rewind the tapes.', 'Eous has been polishing the HDD all morning. I think it\'s nervous.', 'Eight Agents on Sixth Street today. Somebody\'s going to need a Proxy.'],
+    belle: ['Did you rewind the tapes? You never rewind the tapes.', 'Eous has been polishing the HDD all morning. I think it\'s nervous.', 'So many Agents on Sixth Street today. Somebody\'s going to need a Proxy.'],
   };
+  // Agents with files of their own (js/agents/) bring their talk with them: def.town.lines
+  for (const id in window.DATA.AGENTS) { const T = window.DATA.AGENTS[id].town; if (T && T.lines && !LINES[id]) LINES[id] = T.lines; }
   L.LINES = LINES;
 
   /* the four times of day: the sky, the sun, the lamps, the lit windows */
@@ -71,18 +70,20 @@
   /* ---------------------------------------------------- state -- */
   let S = null;
   let built = null, BROOT = null;
-  function build() {
-    if (built) return built;
-    BROOT = new THREE.Group();
-    built = STREET.build(BROOT);
+  const cache = {};      // each hub, built once
+  function build(hub) {
+    if (!cache[hub.id]) { const root = new THREE.Group(); cache[hub.id] = { root, b: hub.build(root) }; }
+    BROOT = cache[hub.id].root; built = cache[hub.id].b;
     return built;
   }
+  const inStore = (x, z) => !!(S && S.hub.inStore && S.hub.inStore(x, z));
 
   L.start = (opts) => {
     L.stop();
-    const W = BT.world, scene = W.scene;
+    const W = BT.world, scene = W.scene, hub = HUBS.get(opts.hub);
     while (scene.children.length) scene.remove(scene.children[0]);
-    const B = build(); scene.add(BROOT);
+    const B = build(hub); scene.add(BROOT);
+    STATIONS = stationsOf(hub);
     FX.attach(scene);
     const sun = new THREE.DirectionalLight(0xffc488, 1.05);
     sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048); sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.02;
@@ -93,12 +94,14 @@
     const pool = []; for (let i = 0; i < (GAME.lowPower ? 5 : 8); i++) { const l = new THREE.PointLight(0xffffff, 0, 8); scene.add(l); pool.push(l); }
     const me = opts.me || 'wise', sib = me === 'wise' ? 'belle' : 'wise';
     const slot = opts.slot != null ? opts.slot : LIFE.clockSlot();
-    S = { opts, t: 0, sun, hemi, pool, keys: new Set(), path: [], useOnArrive: null, near: null, tags: {}, cam: new THREE.Vector3(0, 7, 6), look: new THREE.Vector3(0, 1, -2), inside: null,
+    S = { opts, hub, t: 0, sun, hemi, pool, keys: new Set(), path: [], useOnArrive: null, near: null, tags: {}, cam: new THREE.Vector3(0, 7, 6), look: new THREE.Vector3(0, 1, -2), inside: null,
       yaw: 0, yawMan: 0, manualAt: -99, side: 0, basis: null, slot, sky: null, lightT: 0 };
-    S.me = ent(me, opts.spawn ? opts.spawn[0] : 0, opts.spawn ? opts.spawn[1] : -5.4, 0);
-    S.sib = ent(sib, 4.2, -9.4, 0); S.sib.pose = { armL: [-0.95, 0, 0.25], armR: [-0.95, 0, -0.25], torso: [0.12, 0, 0], head: [0.05, 0, 0] };
+    const at = opts.spawn || (opts.arrive && hub.arrive) || hub.spawn || [0, 0, 0];
+    S.me = ent(me, at[0], at[1], at[2] || 0);
+    // your sibling minds the counter at Random Play (Sixth Street only)
+    if (hub.sib) { S.sib = ent(sib, 4.2, -9.4, 0); S.sib.pose = { armL: [-0.95, 0, 0.25], armR: [-0.95, 0, -0.25], torso: [0.12, 0, 0], head: [0.05, 0, 0] }; } else S.sib = null;
     S.eous = ent('eous', S.me.x + 0.9, S.me.z + 0.8, 0); S.eous.walk = 0;
-    for (const e of [S.me, S.sib, S.eous]) { scene.add(e.obj); place(e); }
+    for (const e of [S.me, S.sib, S.eous]) if (e) { scene.add(e.obj); place(e); }
     if (opts.chooser) {
       S.me.x = -0.85; S.me.z = -6.3; S.sib.x = 0.85; S.sib.z = -6.3; S.me.face = S.sib.face = 0; S.sib.pose = null;
       S.eous.x = 0; S.eous.z = -5.4; S.choice = null; S.inside = true;
@@ -106,13 +109,13 @@
     }
     setSky(slot);
     S.focus = new THREE.Vector3(S.me.x, 0, S.me.z);
-    if (!opts.chooser) LIFE.start(S, { built: B, scene, ent, place, tags: opts.tags, slot, camFocus: S.focus });
+    if (!opts.chooser) LIFE.start(S, { built: B, hub, scene, ent, place, tags: opts.tags, slot, camFocus: S.focus });
     // the signs over the places you can use
     S.tagLayer = opts.tags || null;
     if (S.tagLayer && !opts.chooser) {
       S.tagLayer.innerHTML = '';
-      for (const id in STATIONS) mkTag(id, STATIONS[id].label, STATIONS[id].sub, id === 'hdd' || id === 'clash' ? id : '');
-      mkTag('sib', S.sib.id === 'wise' ? 'Wise' : 'Belle', 'Talk', 'npc');
+      for (const id in STATIONS) mkTag(id, STATIONS[id].label, STATIONS[id].sub, id === 'hdd' || id === 'clash' || id === 'travel' ? id : '');
+      if (S.sib) mkTag('sib', S.sib.id === 'wise' ? 'Wise' : 'Belle', 'Talk', 'npc');
     }
     S.onKey = ev => onKey(ev, true); S.offKey = ev => onKey(ev, false);
     addEventListener('keydown', S.onKey); addEventListener('keyup', S.offKey);
@@ -129,12 +132,13 @@
     if (!S) return;
     LIFE.stop();
     removeEventListener('keydown', S.onKey); removeEventListener('keyup', S.offKey); removeEventListener('blur', S.blur);
-    for (const e of [S.me, S.sib, S.eous]) { if (e.obj.parent) e.obj.parent.remove(e.obj); e.rig.dispose(); }
+    for (const e of [S.me, S.sib, S.eous]) { if (!e) continue; if (e.obj.parent) e.obj.parent.remove(e.obj); e.rig.dispose(); }
     for (const l of S.pool) if (l.parent) l.parent.remove(l);
     if (S.tagLayer) S.tagLayer.innerHTML = '';
     S = null; L.running = false;
   };
   L.player = () => S && S.me;
+  L.hub = () => S ? S.hub : HUBS.sixth;
   L.slot = () => S ? S.slot : LIFE.clockSlot();
   /* the time of day: the sky dome, fog, the sun and the sky light, the lamps, the lit windows */
   function setSky(slot) {
@@ -172,6 +176,7 @@
       return;
     }
     if (down && (k === 'e' || k === 'Enter') && !blocked() && !S.opts.chooser && S.near) { ev.preventDefault(); use(S.near); }
+    if (down && k === 'm' && !blocked() && !S.opts.chooser && S.opts.onUse) S.opts.onUse('travel', null);   // the Travel map
   }
   /* a right-button drag turns the camera */
   let drag = null;
@@ -185,7 +190,7 @@
     if (!S || S.opts.chooser || blocked()) return;
     v2.set(x / innerWidth * 2 - 1, -(y / innerHeight) * 2 + 1); ray.setFromCamera(v2, BT.world.camera);
     let best = null, bd = 0.5;
-    for (const p of LIFE.people().concat([{ key: 'sib', e: S.sib }])) { const d = ray.ray.distanceSqToPoint(_q.set(p.e.x, 1.0 + (p.e.airY || 0), p.e.z)); if (d < bd) { bd = d; best = p.key; } }
+    for (const p of LIFE.people().concat(S.sib ? [{ key: 'sib', e: S.sib }] : [])) { const d = ray.ray.distanceSqToPoint(_q.set(p.e.x, 1.0 + (p.e.airY || 0), p.e.z)); if (d < bd) { bd = d; best = p.key; } }
     if (best) return L.goUse(best);
     if (!ray.ray.intersectPlane(plane, hit)) return;
     const b = built.bounds;
@@ -197,7 +202,7 @@
   function spotOf(id) {
     if (STATIONS[id]) return [STATIONS[id].x, STATIONS[id].z];
     if (id.startsWith('place:')) { const pl = TOWN.places().find(q => 'place:' + q.id === id); return pl ? [pl.x, pl.z] : null; }
-    if (id === 'sib') return [S.sib.x, -6.95];
+    if (id === 'sib') return S.sib ? [S.sib.x, -6.95] : null;
     const p = person(id); if (!p) return null;
     const e = p.e, d = Math.hypot(S.me.x - e.x, S.me.z - e.z) || 1, off = p.kind === 'staff' ? 2.4 : 1.0;   // a shopkeeper is served across the counter
     return [e.x + (S.me.x - e.x) / d * off, e.z + (S.me.z - e.z) / d * off];
@@ -210,7 +215,7 @@
   };
   /* the way there: through Random Play's door if it is on the other side of the front */
   function route(x, z, useId) {
-    const a = STREET.inStore(S.me.x, S.me.z), b = STREET.inStore(x, z), path = [], outP = [0, -2.9], inP = [0, -5.1];
+    const a = inStore(S.me.x, S.me.z), b = inStore(x, z), path = [], outP = [0, -2.9], inP = [0, -5.1];
     const street = (ax, az, bx, bz) => LIFE.path(ax, az, bx, bz);      // round the benches, poles and tables
     if (a && b) path.push([x, z]);
     else if (a) path.push(inP, outP, ...street(outP[0], outP[1], x, z));
@@ -222,7 +227,7 @@
     if (!S) return;
     S.path = []; S.useOnArrive = null;
     let who = null;
-    if (id === 'sib') { who = { id: S.sib.id, name: S.sib.id === 'wise' ? 'Wise' : 'Belle', kind: 'sib' }; S.me.face = Math.atan2(S.sib.x - S.me.x, S.sib.z - S.me.z); }
+    if (id === 'sib' && S.sib) { who = { id: S.sib.id, name: S.sib.id === 'wise' ? 'Wise' : 'Belle', kind: 'sib' }; S.me.face = Math.atan2(S.sib.x - S.me.x, S.sib.z - S.me.z); }
     else if (STATIONS[id]) S.me.face = Math.atan2(STATIONS[id].sx - S.me.x, STATIONS[id].sz - S.me.z);
     else if (id.startsWith('place:')) { /* town.js */ }
     else { const p = person(id); if (!p) return; who = { id: p.id, name: p.name, kind: p.kind }; S.me.face = Math.atan2(p.e.x - S.me.x, p.e.z - S.me.z); LIFE.talked(id); }
@@ -238,10 +243,11 @@
     const me = S.me, cam = BT.world.camera;
     if (S.opts.chooser) return chooserFrame(dt);
     // the camera's heading: toward the shopfronts on your side of the street, or where you turned it
-    const inside = STREET.inStore(me.x, me.z) || (me.z < -3.6 && Math.abs(me.x) < 1.3 && S.path.length && STREET.inStore(...S.path[S.path.length - 1]));
-    if (me.z > 3.4) S.side = PI; else if (me.z < 0.8) S.side = 0;
+    const street = S.hub.cam === 'street';
+    const inside = inStore(me.x, me.z) || (me.z < -3.6 && Math.abs(me.x) < 1.3 && S.path.length && inStore(...S.path[S.path.length - 1]));
+    if (street) { if (me.z > 3.4) S.side = PI; else if (me.z < 0.8) S.side = 0; } else S.side = S.hub.yaw0 || 0;
     if (S.keys.has('z')) { S.yawMan += dt * 1.8; S.manualAt = S.t; } if (S.keys.has('c')) { S.yawMan -= dt * 1.8; S.manualAt = S.t; }
-    if (S.t - S.manualAt > 6) S.yawMan = U.smooth(S.yawMan, 0, 0.8, dt);
+    if (street && S.t - S.manualAt > 6) S.yawMan = U.smooth(S.yawMan, 0, 0.8, dt);     // (elsewhere the view stays where you turned it)
     const wantYaw = inside ? 0 : S.side + S.yawMan;
     S.yaw = U.turn(S.yaw, wantYaw, 1 - Math.exp(-2.6 * dt));
     // doing something (eating at the counter, a coffee, a can from the machine): there first, then a while at it
@@ -272,7 +278,7 @@
     const ox = me.x, oz = me.z;
     me.x += vx * sp * dt; me.z += vz * sp * dt;
     collide(me, 0.32);
-    for (const p of LIFE.people().concat([{ e: S.sib }])) { const n = p.e, dx = me.x - n.x, dz = me.z - n.z, d = Math.hypot(dx, dz), r = p.kind === 'cat' ? 0.35 : 0.65; if (d < r && d > 1e-4) { me.x = n.x + dx / d * r; me.z = n.z + dz / d * r; } }
+    for (const p of LIFE.people().concat(S.sib ? [{ e: S.sib }] : [])) { const n = p.e, dx = me.x - n.x, dz = me.z - n.z, d = Math.hypot(dx, dz), r = p.kind === 'cat' ? 0.35 : 0.65; if (d < r && d > 1e-4) { me.x = n.x + dx / d * r; me.z = n.z + dz / d * r; } }
     const moved = Math.hypot(me.x - ox, me.z - oz) / Math.max(dt, 1e-4);
     if (S.path.length && moved < 0.3 && sp > 0) {
       S.stuck = (S.stuck || 0) + dt;
@@ -283,35 +289,56 @@
     if (S.act && S.act.t >= 0) { const sp = S.act.sp; me.anim.state = 'pose'; me.posePreset = LIFE.poseFor(S.act.o.act, S.t, 1); me.airY = sp && sp.seat != null ? sp.seat + 0.06 - 9 * me.rig.scale : 0; }
     animate(me, dt);
     // your sibling at the counter turns to you when you come close
-    { const n = S.sib, d = Math.hypot(me.x - n.x, me.z - n.z), talking = n.talkT != null && S.t - n.talkT < 4; n.face = U.turn(n.face, talking || d < 2.2 ? Math.atan2(me.x - n.x, me.z - n.z) : 0, 1 - Math.exp(-4 * dt)); n.anim.state = 'pose'; n.posePreset = n.pose; animate(n, dt); }
+    if (S.sib) { const n = S.sib, d = Math.hypot(me.x - n.x, me.z - n.z), talking = n.talkT != null && S.t - n.talkT < 4; n.face = U.turn(n.face, talking || d < 2.2 ? Math.atan2(me.x - n.x, me.z - n.z) : 0, 1 - Math.exp(-4 * dt)); n.anim.state = 'pose'; n.posePreset = n.pose; animate(n, dt); }
     eous(dt);
     S.focus.set(me.x, 0, me.z);
     LIFE.update(dt, S);
     // Random Play's front comes away while you are inside
-    if (inside !== S.inside) { S.inside = inside; STREET.RP.front.visible = !inside; STREET.RP.upper.visible = !inside; STREET.RP.low.visible = inside; MUSIC.play(inside ? 'shop' : 'street'); }
+    if (inside !== S.inside) {
+      S.inside = inside;
+      const RP = S.hub.rp && S.hub.rp(); if (RP) { RP.front.visible = !inside; RP.upper.visible = !inside; RP.low.visible = inside; }
+      MUSIC.play(inside ? S.hub.inMusic || 'shop' : S.hub.music || 'street');
+    }
     // what is close enough to use
     let near = null, nd = 1e9;
-    const cand = Object.keys(STATIONS).map(id => [id, STATIONS[id].x, STATIONS[id].z, STATIONS[id].r]).concat(LIFE.people().map(p => [p.key, p.e.x, p.e.z, p.kind === 'staff' ? 3.0 : p.kind === 'cat' ? 1.0 : 1.6]), [['sib', S.sib.x, -7.0, 1.3]], TOWN.places().map(q => ['place:' + q.id, q.x, q.z, 1.4]));
+    const cand = Object.keys(STATIONS).map(id => [id, STATIONS[id].x, STATIONS[id].z, STATIONS[id].r]).concat(LIFE.people().map(p => [p.key, p.e.x, p.e.z, p.kind === 'staff' ? 3.0 : p.kind === 'cat' ? 1.0 : 1.6]), S.sib ? [['sib', S.sib.x, -7.0, 1.3]] : [], TOWN.places().map(q => ['place:' + q.id, q.x, q.z, 1.4]));
     for (const [id, x, z, r] of cand) { const d = Math.hypot(me.x - x, me.z - z); if (d < r && d < nd) { nd = d; near = id; } }
     S.near = near;
     ambient(dt); lights(dt);
     // the camera: behind and above you along its heading, closer inside the shop
     // it stays over the street (never inside the buildings across it): held short, it rises instead
-    const k = inside ? 0.78 : 1, fx = clamp(me.x, -56, 18), cz = Math.cos(S.yaw);
-    let dist = 9.6 * k;
-    if (!inside) { if (cz > 0.05) dist = Math.min(dist, (7.6 - me.z) / cz); else if (cz < -0.05) dist = Math.min(dist, (me.z + 3.7) / -cz); dist = Math.max(dist, 4.5); }
+    const k = inside ? 0.78 : 1, fx = street ? clamp(me.x, -56, 18) : me.x, cz = Math.cos(S.yaw);
+    let dist = (S.hub.camDist || 9.6) * k;
+    if (!inside && street) { if (cz > 0.05) dist = Math.min(dist, (7.6 - me.z) / cz); else if (cz < -0.05) dist = Math.min(dist, (me.z + 3.7) / -cz); dist = Math.max(dist, 4.5); }
+    else if (!street && built.tall && built.tall.length) dist = Math.max(3.2, clearDist(me.x, me.z, S.yaw, dist));   // (closer and higher, short of a tall building)
     const wantCam = _p.set(fx + Math.sin(S.yaw) * dist, 7.0 * k + (9.6 * k - dist) * 0.6, me.z + cz * dist);
     S.cam.lerp(wantCam, 1 - Math.exp(-4 * dt));
     S.look.lerp(_q.set(me.x * 0.9 + fx * 0.1 - Math.sin(S.yaw) * 1.4 * k, 0.9, me.z - Math.cos(S.yaw) * 1.4 * k), 1 - Math.exp(-5 * dt));
     cam.position.copy(S.cam); cam.lookAt(S.look);
+    // (the light pool and sky follow you in any hub)
     const sd = S.sunDir || [-16, 18, 10]; S.sun.position.set(me.x + sd[0], sd[1], me.z + sd[2]); S.sun.target.position.set(me.x, 0, me.z - 2);
     tags();
     if (S.pendingUse) { const id = S.pendingUse; S.pendingUse = null; use(id); }
   };
+  /* how far back the camera can be and still see you over the buildings (built.tall: [x0, z0, x1, z1, height]):
+     closer is higher, as the camera's arc has it */
+  function clearDist(x, z, yaw, dist) {
+    const sx = Math.sin(yaw), sz = Math.cos(yaw);
+    for (let t = dist; t > 3.2; t -= 0.5) {
+      const cy = 7.0 + (9.6 - t) * 0.6; let ok = true;
+      for (let s = 0.6; s <= t && ok; s += 0.3) {
+        const px = x + sx * s, pz = z + sz * s, hy = 1.2 + (cy - 1.2) * s / t;
+        for (const b of built.tall) if (px > b[0] - 0.3 && px < b[2] + 0.3 && pz > b[1] - 0.3 && pz < b[3] + 0.3 && hy < b[4] + 0.3) { ok = false; break; }
+      }
+      if (ok) return t;
+    }
+    return 3.2;
+  }
   function snapCam() {
     const me = S.me, cam = BT.world.camera;
-    S.yaw = me.z > 3.4 ? PI : 0; S.side = S.yaw;
-    S.cam.set(clamp(me.x, -56, 18) + Math.sin(S.yaw) * 8, 6, me.z + Math.cos(S.yaw) * 8); S.look.set(me.x, 0.9, me.z - Math.cos(S.yaw) * 1.4);
+    const street = S.hub.cam === 'street';
+    S.yaw = street ? (me.z > 3.4 ? PI : 0) : (S.hub.yaw0 || 0); S.side = S.yaw; S.yawMan = 0;
+    S.cam.set((street ? clamp(me.x, -56, 18) : me.x) + Math.sin(S.yaw) * 8, 6, me.z + Math.cos(S.yaw) * 8); S.look.set(me.x, 0.9, me.z - Math.cos(S.yaw) * 1.4);
     if (S.opts.chooser) { S.cam.set(0, 1.75, -2.3); S.look.set(0, 1.15, -6.3); }
     cam.position.copy(S.cam); cam.lookAt(S.look);
   }
@@ -347,7 +374,7 @@
   }
   /* steam over General Chop's pots, the street's animated bits */
   function ambient(dt) {
-    for (const px of [-19.75, -17.25, -14.5]) if (Math.random() < dt * 2.5) FX.p({ x: px + rnd(-0.15, 0.15), y: 1.6, z: -8.1, vx: rnd(-0.1, 0.1), vy: rnd(0.4, 0.8), life: 1.6, size: 0.12, size1: 0.45, col: 0x9a9a9a, glow: false, g: -0.05, drag: 0.4 });
+    if (S.hub.ambient) S.hub.ambient(S, dt);
     for (const f of built.anims) f(S.t, dt);
   }
   /* hand the light pool to the nearest of the street's lights (lamps only from dusk; the shop's own while you are in it) */
@@ -379,7 +406,7 @@
       else show(id, st.sx, st.sy, st.sz, !(st.inside && !S.inside) && !(id === 'records' && S.inside) && d < 30, d > 9);
     }
     const mark = (id, m) => { const t = S.tags[id]; if (t && t.dataset.mk !== m) { t.dataset.mk = m; t.firstChild.textContent = m; t.classList.toggle('marked', !!m); } };
-    show('sib', S.sib.x, 2.35, S.sib.z, Math.hypot(S.me.x - S.sib.x, S.me.z - S.sib.z) < 7 || !!TOWN.mark('sib'), false); mark('sib', TOWN.mark('sib'));
+    if (S.sib) { show('sib', S.sib.x, 2.35, S.sib.z, Math.hypot(S.me.x - S.sib.x, S.me.z - S.sib.z) < 7 || !!TOWN.mark('sib'), false); mark('sib', TOWN.mark('sib')); }
     // people: a sign when you are near, or from across the street when they have something for you (! or ?)
     for (const p of LIFE.people()) {
       const d = Math.hypot(S.me.x - p.e.x, S.me.z - p.e.z), m = p.kind === 'walker' ? '' : TOWN.mark(p.id);
@@ -414,7 +441,7 @@
     }
     const E = S.eous; E.face = U.smooth(E.face, S.choice ? (S.choice === S.me.id ? -0.6 : 0.6) : 0, 4, dt);
     const R = E.rig.parts; R.earL.rotation.z = -0.15 + Math.sin(S.t * 3.1) * 0.12; R.earR.rotation.z = 0.15 + Math.sin(S.t * 2.7 + 1) * 0.12; E.body.position.y = Math.abs(Math.sin(S.t * 4)) * 0.03; place(E);
-    STREET.RP.front.visible = false; STREET.RP.upper.visible = false; STREET.RP.low.visible = true;
+    const RP = S.hub.rp && S.hub.rp(); if (RP) { RP.front.visible = false; RP.upper.visible = false; RP.low.visible = true; }
     lights(dt);
     S.cam.set(Math.sin(S.t * 0.25) * 0.3, 1.75, -2.3); cam.position.copy(S.cam); cam.lookAt(S.look);
   }

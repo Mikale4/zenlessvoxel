@@ -546,3 +546,14 @@ table.keys { border-collapse: collapse; font-size: 13px; } table.keys td { paddi
 @media (max-width: 820px) and (orientation: portrait) { .tut { top: auto; left: 8px; right: 8px; width: auto; bottom: calc(max(12px, env(safe-area-inset-bottom)) + 250px); } }
 @media (max-height: 520px) { .tut { top: 64px; left: 0; right: 0; margin: 0 auto; width: min(400px, 46vw); padding: 7px 10px; } .tut h3 { font-size: 20px; } .tut p { font-size: 11px; } }
 .tutdone .stats { display: grid; grid-template-columns: 1fr auto; gap: 4px 20px; margin: 10px 0; font-size: 13px; } .tutdone .stats b { color: var(--yel2); }
+
+/* TRAVEL: New Eridu's areas */
+.travel .tr-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; margin: 8px 0 12px; }
+.tr-hub { position: relative; text-align: left; background: #1a1a22; border: 1px solid #33333f; border-left: 4px solid var(--yel); padding: 10px 12px; color: #dedee6; cursor: pointer; display: flex; flex-direction: column; gap: 3px; }
+.tr-hub:hover { border-color: var(--yel); }
+.tr-hub small { font: 800 10px var(--font); letter-spacing: 1px; color: var(--dim); }
+.tr-hub b { font: 22px/1 var(--disp); letter-spacing: 1px; color: #fff; }
+.tr-hub span { font-size: 12px; line-height: 1.4; color: #b8b8c4; }
+.tr-hub em { font-style: normal; font: 700 11px var(--font); color: var(--yel2); }
+.tr-hub i { position: absolute; right: 10px; top: 10px; font: 800 10px var(--font); font-style: normal; color: #5be37a; }
+.tr-hub.here { opacity: .65; cursor: default; border-left-color: #5be37a; }

@@ -143,7 +143,7 @@
     if (th && vigT <= 0 && E.vig) E.vig.className = (th.flash === 'gold' && B.assist > 0) ? 'gold' : 'red';
     else if (!th && vigT <= 0 && E.vig && E.vig.className !== '') E.vig.className = '';
     E.bars.classList.toggle('on', !!B.cutin || !!B.chain || !!(ag && ag.act && ['ult', 'ult2', 'chain'].includes(ag.act.kind)));
-    if (B.chain && E.chainTb) { E.chainTb.style.width = pct(B.chain.timer, BT.T.chainWindow); E.chainUlt.textContent = ag && (ag.decibels >= R.decibelMax) ? `${KEYS.short('ult')}: ULTIMATE` : ''; }
+    if (B.chain && E.chainTb) { E.chainTb.style.width = pct(B.chain.timer, BT.T.chainWindow); E.chainUlt.textContent = ag && BT.ultReady(ag) ? `${KEYS.short('ult')}: ULTIMATE` : ''; }
     floats(B);
     if (acc < 1 / 30) return; acc = 0;
     // main panel
@@ -171,6 +171,7 @@
       if (ag.id === 'jufufu') r.push(`MIGHT ${Math.floor(ag.might)}/200${ag.might >= 100 ? ' · READY' : ''}`, `MOMENTUM ${ag.momentum}`);
       if (ag.id === 'orphie') r.push(`BOTTLED HEAT ${Math.floor(ag.bheat)}${ag.bheat >= 100 ? ' · HEAT CHARGE' : ''}`);
       if (ag.id === 'remielle') { r.push(`RADIANCE ${Math.floor(ag.radiance)}/120`, `VOIDFLARE ${'◆'.repeat(ag.flares) || '—'}`); if (ag.reflect > B.t) r.push('LUMINOUS REFLECTION'); }
+      if (ag.def.mech && ag.def.mech.hud) r.push(...(ag.def.mech.hud(ag, B) || []));   // her own gauges (js/agents/)
       // squad-wide: Tiger's Roar, Zeroed In, Phase Flow, Hu Wei's Might from the bench
       if (B.roar > B.t) r.push(`TIGER'S ROAR ${Math.ceil(B.roar - B.t)}s`);
       if (B.zeroIn > B.t) r.push(`ZEROED IN ${Math.ceil(B.zeroIn - B.t)}s`);
@@ -265,7 +266,7 @@
     E.cmds.classList.toggle('fight', me);
     E.cBasic.hidden = E.cDodge.hidden = !me;
     if (ag) {
-      const K = ag.def.kit, ultReady = ag.decibels >= R.decibelMax || (ag.id === 'yixuan' && ag.tp >= 120);
+      const K = ag.def.kit, ultReady = BT.ultReady(ag);
       E.cUlt.className = 'cmd pe ult' + (ultReady ? ' ready' : ' off');
       if (!me) { E.cEx.className = 'cmd pe' + (ag.energy >= K.ex.cost ? ' ready' : ' off') + (ag.exCall ? ' assist' : ''); setBtn(E.cEx, 'EX', null, 'special'); }
       else {

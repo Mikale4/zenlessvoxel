@@ -82,7 +82,7 @@
     { id: 'chalky', name: 'Chalky', slots: { 0: 'box:cats', 1: 'box:cats', 2: 'box:cats', 3: 'box:statue' } },
   ];
   const WALKERS = [['office_m', 'office_f', 'office_m', 'builder', 'office_f'], ['office_f', 'courier', 'student_f', 'office_m'], ['student_m', 'student_f', 'student_f', 'office_m', 'student_m'], ['dude', 'office_m']];
-  const WALKER_NAMES = { office_m: 'Office Worker', office_f: 'Office Worker', builder: 'Builder', courier: 'Courier', student_f: 'Student', student_m: 'Student', dude: 'Night Owl', raider: 'Hollow Raider' };
+  const WALKER_NAMES = { office_m: 'Office Worker', office_f: 'Office Worker', builder: 'Builder', courier: 'Courier', student_f: 'Student', student_m: 'Student', dude: 'Night Owl', raider: 'Hollow Raider', biker: 'Biker' };
   /* where the passers-by come from and go to */
   const ENDS = [[-56.25, -6.3], [-58.5, -2.4], [-58.5, 6.3], [21.5, -2.6], [21.5, 6.4], [-13.2, 16.6], [-8.4, -11.0]];
   /* conversations: up to three on a ring round each */
@@ -122,6 +122,9 @@
     caesar: ['Engine sounds good today.', 'Hey, Proxy!'], burnice: ['Nitro-Fuel break!', 'Heyyy!'], aria: ['La-la-la...', 'Hi hi!'], yixuan: ['...', 'Breathe.'],
     qingyi: ['Patrol status: normal.', 'Proxy.'], jufufu: ['Noodles, noodles, noodles!', 'Hu Wei, heel!'], orphie: ['Magus, stop growling.', 'Proxy.'], remielle: ['What lovely light.', 'Good evening!'],
   };
+  // Agents with files of their own (js/agents/) bring their routines with them: def.town.routine
+  for (const id in window.DATA.AGENTS) { const T = window.DATA.AGENTS[id].town; if (T && T.routine && !ROUTINE[id]) ROUTINE[id] = T.routine; }
+  for (const id in window.DATA.AGENTS) { const T = window.DATA.AGENTS[id].town; if (T && T.chatter && !CHATTER[id]) CHATTER[id] = T.chatter; }
 
   /* ------------------------------------------------- the street's grid --
      half-metre cells, blocked where any collider comes within a person's
@@ -212,10 +215,14 @@
   let L = null;
   LIFE.start = (S, ctx) => {
     LIFE.stop();
-    const built = ctx.built;
-    L = { S, ctx, built, nav: navGrid(built), spots: Object.assign({}, built.spots), taken: new Map(), people: [], slot: ctx.slot, t: 0, chatterAt: 0, sync: 0 };
-    for (const k in EXTRA) { const [x, z, face, act, seat] = EXTRA[k]; L.spots[k] = { id: k, x, z, face, act, seat }; }
-    if (L.spots['bardic:bench1']) { L.spots['bardic:bench1'].act = 'sit'; }
+    const built = ctx.built, hub = ctx.hub || window.HUBS.sixth, sixth = hub.id === 'sixth';
+    L = { S, ctx, built, hub, nav: navGrid(built), spots: Object.assign({}, built.spots), taken: new Map(), people: [], slot: ctx.slot, t: 0, chatterAt: 0, sync: 0,
+      // who is here: Sixth Street's own people, or the hub's (hubs.js); its Agents: Sixth Street's are those no other hub claims
+      staff: sixth ? STAFF : hub.staff || [], regulars: sixth ? REGULARS : hub.regulars || [], pets: sixth ? PETS : hub.pets || [],
+      walkers: sixth ? WALKERS : hub.walkers || [[], [], [], []], ends: sixth ? ENDS : hub.ends || [], huddles: sixth ? HUDDLES : hub.huddles || [],
+      routine: sixth ? Object.fromEntries(Object.keys(ROUTINE).filter(id => window.HUBS.homeOf(id) === 'sixth').map(id => [id, ROUTINE[id]])) : Object.assign({}, hub.agents || {}) };
+    if (hub.lines) Object.assign(LINES, hub.lines);
+    if (sixth) { for (const k in EXTRA) { const [x, z, face, act, seat] = EXTRA[k]; L.spots[k] = { id: k, x, z, face, act, seat }; } if (L.spots['bardic:bench1']) L.spots['bardic:bench1'].act = 'sit'; }
     populate();
     return L;
   };
@@ -227,7 +234,7 @@
   LIFE.setSlot = slot => { if (!L || L.slot === slot) return; L.slot = slot; for (const p of L.people.slice()) drop(p); L.people.length = 0; L.taken.clear(); populate(); };
 
   function make(id, o) {
-    const e = L.ctx.ent(id, o.x, o.z, o.face || 0); e.stance = 'casual';
+    const e = L.ctx.ent(o.model || id, o.x, o.z, o.face || 0); e.stance = 'casual';
     L.ctx.scene.add(e.obj); L.ctx.place(e);
     const p = Object.assign({ key: o.key || id, id, e, name: o.name || id, state: 'idle', until: 0, path: null, goal: null, perch: 0, act: o.act || 'stand', speed: rnd(1.25, 1.6), seed: rnd(0, 9), lineAt: -99, kind: o.kind }, o);
     L.people.push(p);
@@ -241,40 +248,42 @@
   }
   function populate() {
     const slot = L.slot;
-    for (const st of STAFF) {
+    for (const st of L.staff) {
       if (!st.hours.includes(slot)) continue;
       const sp = st.at ? L.spots[st.at] : { x: st.x, z: st.z, face: st.face };
       if (!sp) continue;
-      const p = make(st.id, { x: sp.x, z: sp.z, face: sp.face, name: st.name, kind: 'staff', act: st.act, state: 'post', key: 'npc:' + st.id });
+      const p = make(st.id, { x: sp.x, z: sp.z, face: sp.face, name: st.name, kind: 'staff', act: st.act, state: 'post', key: 'npc:' + st.id, model: st.model });
       if (st.at) L.taken.set(st.at, p);
       if (st.id === 'howl' && slot === 3) p.act = 'sleep';
     }
-    for (const id of Object.keys(ROUTINE)) {
-      const s = choose(ROUTINE[id][slot]), sp = s && L.spots[s];
-      const p = make(id, { x: sp ? sp.x : rnd(-30, 10), z: sp ? sp.z + 0.8 : -2.5, face: 0, name: DATA.AGENTS[id].short, kind: 'agent', key: 'agent:' + id });
+    for (const id of Object.keys(L.routine)) {
+      if (!DATA.AGENTS[id] || !MODELS[BT.modelFor(id)]) continue;
+      const s = choose(L.routine[id][slot]), sp = s && L.spots[s], h0 = L.hub.spawn || [0, 0];
+      const p = make(id, { x: sp ? sp.x : (L.hub.id === 'sixth' ? rnd(-30, 10) : h0[0] + rnd(-3, 3)), z: sp ? sp.z + 0.8 : (L.hub.id === 'sixth' ? -2.5 : h0[1] + rnd(-2, 2)), face: 0, name: DATA.AGENTS[id].short, kind: 'agent', key: 'agent:' + id });
       if (sp) arrive(p, s, true); else p.until = 0;
       if (id === 'jufufu' && MODELS.huwei) p.pet = { e: L.ctx.ent('huwei', p.x, p.z, 0), kind: 'huwei' };
       if (id === 'yixuan' && MODELS.inkbird) p.pet = { e: L.ctx.ent('inkbird', p.x, p.z, 0), kind: 'bird' };
       if (p.pet) { L.ctx.scene.add(p.pet.e.obj); p.pet.x = p.e.x; p.pet.z = p.e.z; }
     }
-    for (const r of REGULARS) {
+    for (const r of L.regulars) {
       const spec = r.slots[slot]; if (!spec) continue;
       const s = choose(spec), sp = s && L.spots[s]; if (!sp) continue;
-      const p = make(r.id, { x: sp.x, z: sp.z, face: sp.face, name: r.name, kind: 'regular', key: 'npc:' + r.id, spec });
+      const p = make(r.id, { x: sp.x, z: sp.z, face: sp.face, name: r.name, kind: 'regular', key: 'npc:' + r.id, spec, model: r.model });
       arrive(p, s, true);
     }
-    for (const a of PETS) {
+    for (const a of L.pets) {
       const s = a.slots[slot], sp = s && L.spots[s]; if (!sp) continue;
-      const p = make(a.id, { x: sp.x + rnd(-0.3, 0.3), z: sp.z + rnd(-0.2, 0.3), face: sp.face + rnd(-0.6, 0.6), name: a.name, kind: 'cat', key: 'npc:' + a.id, state: 'post', act: sp.act === 'nap' ? 'nap' : 'sitcat', y: sp.y || 0 });
+      const p = make(a.id, { x: sp.x + rnd(-0.3, 0.3), z: sp.z + rnd(-0.2, 0.3), face: sp.face + rnd(-0.6, 0.6), name: a.name, kind: 'cat', key: 'npc:' + a.id, state: 'post', act: sp.act === 'nap' ? 'nap' : 'sitcat', y: sp.y || 0, model: a.model });
       p.e.airY = p.y;
     }
-    const n = GAME.lowPower ? Math.ceil(WALKERS[slot].length * 0.6) : WALKERS[slot].length;
-    for (let i = 0; i < n; i++) walker(WALKERS[slot][i], i * 3.5 + rnd(0, 2), true);
+    const W = L.walkers[slot] || [], n = GAME.lowPower ? Math.ceil(W.length * 0.6) : W.length;
+    if (L.ends.length > 1) for (let i = 0; i < n; i++) walker(W[i], i * 3.5 + rnd(0, 2), true);
   }
   /* a passer-by: from one end of the street to another, stopping somewhere on the way, now and then */
   function walker(model, delay, initial) {
-    const from = pick(ENDS); let to = pick(ENDS); while (to === from) to = pick(ENDS);
-    const p = make(model, { x: initial ? rnd(-50, 15) : from[0], z: initial ? pick([-2.6, 6.2]) : from[1], name: WALKER_NAMES[model] || 'Passer-by', kind: 'walker', key: 'npc:w' + Math.floor(Math.random() * 1e6), state: 'wait', until: L.t + (delay || 0), dest: to });
+    const E = L.ends, from = pick(E); let to = pick(E); while (to === from) to = pick(E);
+    const sixth = L.hub.id === 'sixth', k = Math.random();     // (elsewhere: somewhere along the way from one end to the other)
+    const p = make(model, { x: initial ? (sixth ? rnd(-50, 15) : from[0] + (to[0] - from[0]) * k) : from[0], z: initial ? (sixth ? pick([-2.6, 6.2]) : from[1] + (to[1] - from[1]) * k) : from[1], name: WALKER_NAMES[model] || 'Passer-by', kind: 'walker', key: 'npc:w' + Math.floor(Math.random() * 1e6), state: 'wait', until: L.t + (delay || 0), dest: to });
     p.e.obj.visible = !(delay > 0);
     p.speed = rnd(1.15, 1.55);
   }
@@ -292,14 +301,14 @@
     return null;
   }
   function huddleSlot() {
-    const order = HUDDLES.map((h, i) => i).sort(() => Math.random() - 0.5);
+    const H = L.huddles, order = H.map((h, i) => i).sort(() => Math.random() - 0.5);
     // prefer one somebody is already in
     order.sort((a, b) => countIn(b) - countIn(a));
     for (const i of order) {
       if (countIn(i) >= 3) continue;
       for (let k = 0; k < 3; k++) {
         const id = `huddle:${i}:${k}`; if (L.taken.has(id)) continue;
-        const [hx, hz] = HUDDLES[i], a = k * (PI * 2 / 3) + i;
+        const [hx, hz] = H[i], a = k * (PI * 2 / 3) + i;
         L.spots[id] = { id, x: hx + Math.sin(a) * 0.75, z: hz + Math.cos(a) * 0.75, face: a + PI, act: 'chat', huddle: i };
         return id;
       }
@@ -351,7 +360,7 @@
     if (p.state === 'walk') follow(p, dt);
   }
   function plan(p) {
-    const spec = p.kind === 'agent' ? ROUTINE[p.id][L.slot] : (p.spec || '');
+    const spec = p.kind === 'agent' ? (L.routine[p.id] || [])[L.slot] : (p.spec || '');
     const id = spec ? choose(spec) : null;
     if (!id) { p.state = 'stay'; p.until = L.t + rnd(6, 14); return; }
     arrive(p, id, false);
@@ -390,7 +399,7 @@
   }
   function gone(p) {
     p.state = 'gone'; drop(p); L.people.splice(L.people.indexOf(p), 1);
-    const pool = WALKERS[L.slot]; walker(pick(pool), rnd(4, 14));
+    const pool = L.walkers[L.slot] || []; if (pool.length && L.ends.length > 1) walker(pick(pool), rnd(4, 14));
   }
   /* Hu Wei trots after Ju Fufu; the ink bird circles over Yixuan */
   function stepPet(p, dt, far) {

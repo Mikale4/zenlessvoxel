@@ -155,7 +155,7 @@
         chip('DENNY', U.fmt(TOWN.denny()), 'lbDenny'), chip('FIGHTS WON', `${acc.clears}/${acc.battles}`), chip('DIVES CLEARED', `${acc.diveClears}/${acc.dives}`), chip('CLASH WINS', `${acc.duelWins}/${acc.duels}`),
         el('span', { style: { flex: 1 } }),
         el('button', { class: 'lb-out', onclick: () => { Auth.logout(); U.store.ns = null; MENU.loadAccount(); MENU.title(); } }, 'SIGN OUT')),
-      el('div', { class: 'lb-help' }, GAME.touch ? 'Tap where to go, or drag to steer · tap a sign to use it · the arrows turn the view' : 'WASD / arrows to walk · Shift to run · E to use · Z / C or right-drag to turn the view'),
+      el('div', { class: 'lb-help' }, GAME.touch ? 'Tap where to go, or drag to steer · tap a sign to use it · the arrows turn the view' : 'WASD / arrows to walk · Shift to run · E to use · M to travel · Z / C or right-drag to turn the view'),
       el('div', { class: 'lb-clock', id: 'lbClock' }),
       el('div', { class: 'lb-cam' }, el('button', { title: 'Turn the view', onpointerdown: ev => { ev.preventDefault(); Lobby.turn(1); } }, '⟲'), el('button', { title: 'Turn the view', onpointerdown: ev => { ev.preventDefault(); Lobby.turn(-1); } }, '⟳')),
       el('nav', { class: 'lb-dock' },
@@ -164,15 +164,33 @@
         dock('AGENTS', 'Who is in town', () => MENU.agents()),
         dock('REQUESTS', 'Errands & stories', () => TOWN.journal()),
         dock('BATTLE LAB', 'Rules & numbers', () => MENU.lab('lobby')),
-        dock('HOW TO PLAY', 'Tutorial tapes', () => MENU.howto())));
+        dock('HOW TO PLAY', 'Tutorial tapes', () => MENU.howto()),
+        dock('TRAVEL', 'Around New Eridu', () => MENU.travel())));
     scr().append(ui);
-    GAME.toLobby({ me: acc.proxy, tags, onUse: lobbyUse, spawn: o.spawn, slot: slotNow() });
+    GAME.toLobby({ me: acc.proxy, hub: (MENU._hub = o.hub || (o.spawn ? 'sixth' : MENU._hub) || 'sixth'), arrive: !!o.arrive, tags, onUse: lobbyUse, spawn: o.spawn, slot: slotNow() });
     clock();
     if (o.intro || !acc.seenIntro) setTimeout(() => intro(acc), 450);
   };
   /* the time of day: your clock's slot, moved on by however often you have rested on the sofa */
   const slotNow = () => (LIFE.clockSlot() + (U.store.get('slotShift', 0) || 0)) % 4;
-  function clock() { const c = $('lbClock'); if (c) { const s = Lobby.slot(); c.innerHTML = ''; c.append(LIFE.SLOT_LABEL[s], el('small', null, `Sixth Street · ${LIFE.SLOT_TIME[s]}`)); } }
+  function clock() { const c = $('lbClock'); if (c) { const s = Lobby.slot(); c.innerHTML = ''; c.append(LIFE.SLOT_LABEL[s], el('small', null, `${Lobby.hub().name} · ${LIFE.SLOT_TIME[s]}`)); } }
+
+  /* ------------------------------------------------------------ travel --
+     New Eridu's areas (hubs.js), as the real game's Travel map: from the metro's sign, the TRAVEL button or M.
+     Each says who lives there. */
+  MENU.travel = () => {
+    if (document.querySelector('.panel')) return;
+    const cur = Lobby.hub().id;
+    const box = el('div', { class: 'box travel' }, el('h2', null, 'TRAVEL'), el('p', null, 'New Eridu is a lot of places. Where to?'));
+    const list = el('div', { class: 'tr-list' });
+    for (const id of HUBS.order()) {
+      const H = HUBS[id], here = id === cur, who = Object.keys(D.AGENTS).filter(a => HUBS.homeOf(a) === id).map(a => D.AGENTS[a].short);
+      list.append(el('button', { class: 'tr-hub' + (here ? ' here' : ''), disabled: here || null, onclick: () => { SFX.play('ui'); p.remove(); MENU.lobby({ hub: id, arrive: true }); } },
+        el('small', null, H.region.toUpperCase()), el('b', null, H.name), el('span', null, H.blurb || ''), who.length ? el('em', null, who.join(' · ')) : null, here ? el('i', null, 'YOU ARE HERE') : null));
+    }
+    box.append(list, el('div', { class: 'row' }, el('button', { class: 'btn dark small', onclick: () => p.remove() }, 'STAY HERE')));
+    const p = el('div', { class: 'panel' }, box); scr().append(p);
+  };
   const REST = ['Morning! The shutters are going up all along the street.', 'Afternoon already. The lunch crowd\'s queuing at Waterfall Soup.', 'Evening. This is when Sixth Street really wakes up.', 'Past midnight. Only the night owls are out now... and the cat.'];
   function rest() {
     const acc = Auth.current() || {}, s0 = sibOf(acc.proxy);
@@ -188,6 +206,7 @@
     if (id === 'howto') return MENU.howto();
     if (id === 'records') return MENU.records();
     if (id === 'rest') return rest();
+    if (id === 'travel') return MENU.travel();
     if (id.startsWith('place:')) return TOWN.usePlace(id.slice(6));
     // errands, stories and shops first (town.js); then just a word
     if (id === 'sib') { if (TOWN.talk('sib', who)) return; const s = sibOf(acc.proxy); return MENU.say([{ who: s, name: NAME[s], text: U.pick(Lobby.LINES[s]) }]); }
@@ -200,7 +219,7 @@
     MENU.say([
       { who: s, name: sn, text: `Morning, ${me}. Random Play's open, the tapes are rewound, and Eous has the Hollow Deep Dive System warmed up in the back room.` },
       { who: 'eous', name: 'Eous', text: 'Ehn-ne! Ehn-nu-nu!' },
-      { who: s, name: sn, text: 'Eight Agents are out on Sixth Street, and every one of them wants a Proxy: Caesar, Burnice, Aria, Yixuan, Qingyi, Ju Fufu, Orphie and Remielle. They get about: Waterfall Soup, the 141, Godfinger, Turbo... Go and say hello.' },
+      { who: s, name: sn, text: `${Object.keys(D.AGENTS).length} Agents are out on Sixth Street, and every one of them wants a Proxy: ${(n => n.slice(0, -1).join(', ') + ' and ' + n[n.length - 1])(Object.values(D.AGENTS).map(A => A.short))}. They get about: Waterfall Soup, the 141, Godfinger, Turbo... Go and say hello.` },
       { who: s, name: sn, text: 'When you\'re ready, sit down at the HDD. You guide them through the Hollow; they do the fighting.' },
       { who: s, name: sn, text: 'Oh, and Godfinger across the street? Two of Asha\'s cabinets run Proxy Clash. Other Proxies dial in with their own Agents and fight yours. Somebody called Mirage keeps topping the board...' },
       { who: s, name: sn, text: `The shop computer has the Battle Lab, the tutorial tapes are on the shelf, the poster board by the door keeps your records, and the sofa's there when you want to let the day go by. ${GAME.touch ? 'Tap where you want to go, or drag to steer,' : 'Walk with WASD or the arrow keys,'} and use anything with a sign over it.` },
@@ -347,8 +366,9 @@
     add('Counter', K.counter); add('Chain', K.chain); add('Ultimate', K.ult); if (K.ult2) add('Ultimate', K.ult2);
     add('Assist', K.assist); add('Follow-Up', K.followup); add('Quick', K.quick);
     if (K.hold) add('Core', K.hold); if (K.charged) add('Core', K.charged); if (K.auric) add('Core', K.auric); if (K.deadEnd) add('Core', K.deadEnd);
+    for (const [lbl, k] of A.kitShow || []) add(lbl, K[k]);                 // (an Agent's own extra moves: js/agents/)
     return el('div', { class: 'kit' }, el('h3', null, A.name),
-      el('div', { class: 'tags' }, el('span', null, A.rank + '-Rank'), el('span', { style: { color: D.ATTR[A.attr].color } }, D.ATTR[A.attr].name), el('span', null, A.spec), el('span', null, A.faction), el('span', null, 'Defensive Assist')),
+      el('div', { class: 'tags' }, el('span', null, A.rank + '-Rank'), el('span', { style: { color: D.ATTR[A.attr].color } }, D.ATTR[A.attr].name), el('span', null, A.spec), el('span', null, A.faction), el('span', null, A.assist === 'evasive' ? 'Evasive Assist' : 'Defensive Assist')),
       el('p', null, A.blurb), el('dl', null, ...A.core.flatMap(([t, d]) => [el('dt', null, t), el('dd', null, d)])), el('ul', null, ...names));
   }
 
@@ -590,7 +610,8 @@
         el('li', null, 'Each Agent fills her own Decibels (some spills to the squad). At 3,000 (MAXIMUM) you can call her Ultimate.'),
         el('li', null, 'Attribute damage builds Anomalies: Physical → Assault (heavy blow, Flinch), Fire → Burn (damage over time), Ether → Corruption (extra damage on every hit), Auric Ink → its own Corruption. A second, different Anomaly on the same enemy triggers Disorder, cashing in the first one\'s remaining time.'),
         el('li', null, 'Caesar: Perfect Block / guard stance and Retaliation; Radiant Aegis shields the squad. Burnice: Heat and Nitro-Fuel; Scorched enemies take Afterburn whenever a teammate hits them. Aria: Fandom Power on the stage, charged Perfect Pitch, Abloom on enemies already suffering an Anomaly. Yixuan: Sheer DMG, Adrenaline, Technique Points, Auric Array; her ink bird flies with her.'),
-        el('li', null, 'Qingyi: Electric hits build Flash Connect Voltage; at 75% her next Basic Attack is Enchanted Moonlit Blossoms, whose finish leaves Subjugation (a Stunned enemy takes more DMG). Ju Fufu: Hu Wei, her cauldron, rolls along beside whoever is fighting and attacks on its own, building Might; she swings it on its tail, rides it, drops it from the sky; with 100, it answers a teammate\'s Chain Attack with Suppressing Tiger Cauldron and the squad gets Tiger\'s Roar. Orphie: Magus is her tail (and her squad\'s captain): it whips the fire blade and fires the lasers; with 100 Bottled Heat she kneels for Heat Charge (Zeroed In: +ATK for the squad), and off the field she flashes in so Magus can fire Corrosive Flash at whatever your Agent is hitting. Remielle: she fights with her wings; her Lumiflux takes the attribute of the next Agent in the squad and leaves Lumiflux Buildup; a teammate\'s Anomaly on it Refringes and stores a Voidflare, which Rainbow\'s End and her Ultimate spend (Luminize). Swap her out with full Radiance for Phase Flow; she comes back with Flower & Feather Dance.')),
+        el('li', null, 'Qingyi: Electric hits build Flash Connect Voltage; at 75% her next Basic Attack is Enchanted Moonlit Blossoms, whose finish leaves Subjugation (a Stunned enemy takes more DMG). Ju Fufu: Hu Wei, her cauldron, rolls along beside whoever is fighting and attacks on its own, building Might; she swings it on its tail, rides it, drops it from the sky; with 100, it answers a teammate\'s Chain Attack with Suppressing Tiger Cauldron and the squad gets Tiger\'s Roar. Orphie: Magus is her tail (and her squad\'s captain): it whips the fire blade and fires the lasers; with 100 Bottled Heat she kneels for Heat Charge (Zeroed In: +ATK for the squad), and off the field she flashes in so Magus can fire Corrosive Flash at whatever your Agent is hitting. Remielle: she fights with her wings; her Lumiflux takes the attribute of the next Agent in the squad and leaves Lumiflux Buildup; a teammate\'s Anomaly on it Refringes and stores a Voidflare, which Rainbow\'s End and her Ultimate spend (Luminize). Swap her out with full Radiance for Phase Flow; she comes back with Flower & Feather Dance.'),
+        ...Object.values(D.AGENTS).filter(A => A.howto).map(A => el('li', null, A.howto))),   // (Agents from js/agents/ explain themselves)
       el('h4', null, 'Proxy Clash: Agent against Agent'),
       el('p', null, 'At the arcade cabinets on Sixth Street, a rival Proxy dials in with a squad of their own. Their Agents use the same kits as yours, and their Proxy swaps, assists and fires Ultimates as you do. Five modes:'),
       el('ul', null,
@@ -621,7 +642,7 @@
     const act = (label, fn, dis) => row.append(el('button', { class: 'btn small' + (dis ? ' dark' : ''), disabled: dis || null, onclick: () => { MENU.closeTactics(); fn(); } }, label));
     act('RESUME', () => { });
     for (const a of B.squad) if (a !== ag) act(`${B.allOut ? 'LEAD' : 'SWAP'}: ${a.def.short.toUpperCase()}`, () => BT.cmdSwap(a), !a.alive);
-    act('ULTIMATE', () => BT.cmdUlt(), !(ag.decibels >= D.RULES.decibelMax || (ag.id === 'yixuan' && ag.tp >= 120)));
+    act('ULTIMATE', () => BT.cmdUlt(), !BT.ultReady(ag));
     if (!BT.isPlayer(ag)) act('CALL EX', () => BT.cmdEx(), ag.energy < ag.def.kit.ex.cost);   // (you fight: the Special key is the EX)
     act('NEXT TARGET', () => BT.cmdFocus());
     if (!B.opts.tutorial) act(B.auto ? 'AUTO: TURN OFF' : 'AUTO: TURN ON', () => { BT.setAuto(!B.auto); MENU.saveTuning(); });

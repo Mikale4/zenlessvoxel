@@ -64,6 +64,12 @@
     { id: 'spicy', name: 'Spicy noodles', price: 30, buff: { daze: 1.15, dmg: 1.04 }, note: '+15% Daze, +4% damage' },
     { id: 'seafood', name: 'Seafood noodles', price: 30, buff: { db: 1.2, energy: 1.1 }, note: '+20% Decibels, +10% Energy' },
   ];
+  // Kasa's Cheesetopia in Blazewood: the same three kinds of meal, Outer Ring style
+  const CHEESE = [
+    { id: 'burger', name: 'Outer Ring cheeseburger', price: 30, buff: { dmg: 1.08, hp: 1.08 }, note: '+8% damage, +8% HP' },
+    { id: 'fries', name: 'Boundless Blaze chili cheese fries', price: 30, buff: { daze: 1.15, dmg: 1.04 }, note: '+15% Daze, +4% damage' },
+    { id: 'pizza', name: 'Triple-cheese pizza', price: 30, buff: { db: 1.2, energy: 1.1 }, note: '+20% Decibels, +10% Energy' },
+  ];
   const COFFEE = { price: 15, buff: { energy: 1.2, assist: 1 }, note: '+20% Energy, +1 Assist Point' };
   const RIDU = ['Ridu Weekly: "Godfinger high score changes hands three times in one night. Mirage suspected."', 'Ridu Weekly: "Waterfall Soup\'s spicy noodles: Obol Squad challenge still unbeaten."', 'Ridu Weekly: "Bangboo statue outside Box Galaxy: residents divided."', 'Ridu Weekly: "Roadworks at the east end enter their third month. Workers unavailable for comment."', 'Ridu Weekly: "Angels of Delusion spotted at the 404. Fans queue round the block."'];
 
@@ -157,11 +163,13 @@
         scene: [['A', 'There. Do you see how it falls across the street?'], ['A', 'My light takes the colour of whoever stands beside me. Tonight it\'s yours.'], ['P', 'What colour is it?'], ['A', 'Hmm... a colour I don\'t have a name for yet. I think I\'d like to find one. With you.']] },
     ],
   };
+  // Agents with files of their own (js/agents/) bring their story chapters with them: def.town.chapters
+  for (const id in window.DATA.AGENTS) { const T = window.DATA.AGENTS[id].town; if (T && T.chapters && !CH[id]) CH[id] = T.chapters; }
 
   /* --------------------------------------------------------- bookkeeping -- */
   const me = () => { const a = Auth.current() || {}; return { who: a.proxy || 'wise', name: a.proxy === 'belle' ? 'Belle' : 'Wise' }; };
   const agentName = id => D.AGENTS[id] ? D.AGENTS[id].short : id;
-  const nameOf = id => ({ sib: (me().who === 'wise' ? 'Belle' : 'Wise'), cookie: 'Cookie', owner: '???', yani: 'Mrs. Yani', mewmew: 'Officer Mewmew', tinmaster: 'Tin Master', chop: 'General Chop', susie: 'Susie', elfy: 'Elfy', asha: 'Asha', enzo: 'Enzo', jonah: 'Jonah', courier: 'Courier' })[id] || agentName(id);
+  const nameOf = id => ({ kasa: 'Kasa', clerk747: '747 Clerk', howl: 'Howl', ashuo: 'A-Shuo', sweety: 'Sweety', reed: 'Reed', vince: 'Vince', ginger: 'Ginger', lee: 'Lee', chopjr: 'Chop Junior', tinlumina: 'Tin Master', eve: 'Eve', orchidea: 'Orchidea', mia: 'Mia', sage: 'Sage in a Barrel', sib: (me().who === 'wise' ? 'Belle' : 'Wise'), cookie: 'Cookie', owner: '???', yani: 'Mrs. Yani', mewmew: 'Officer Mewmew', tinmaster: 'Tin Master', chop: 'General Chop', susie: 'Susie', elfy: 'Elfy', asha: 'Asha', enzo: 'Enzo', jonah: 'Jonah', courier: 'Courier' })[id] || agentName(id);
   const whoOf = id => id === 'sib' ? (me().who === 'wise' ? 'belle' : 'wise') : id;
   const chState = id => (S().ch[id] = st.ch[id] || { n: 0, active: false, step: 0 });
   const trust = id => S().trust[id] || 0;
@@ -266,53 +274,74 @@
   }
 
   /* -------------------------------------------------------------- shopping -- */
+  /* who keeps each shop: Sixth Street's, or another hub's (Chop Junior's Waterfall Soup, Eve's newsstand) */
+  const keeper = { soup: 'chop', cafe: 'tinmaster', news: 'howl', shop: 'buy' };
   function shopFor(id) {
-    if (id === 'chop') return noodles;
-    if (id === 'tinmaster') return coffee;
-    if (id === 'buy' || id === 'ask' || id === 'change') return shop141;
-    if (id === 'howl') return newsstand;
+    if (id === 'chop' || id === 'chopjr' || id === 'kasa') { keeper.soup = id; return noodles; }
+    if (id === 'tinmaster' || id === 'tinlumina') { keeper.cafe = id; return coffee; }
+    if (id === 'buy' || id === 'ask' || id === 'change' || id === 'reed' || id === 'clerk747') { keeper.shop = id; return shop141; }
+    if (id === 'howl' || id === 'eve' || id === 'ashuo') { keeper.news = id; return newsstand; }
+    if (id === 'sweety') return yumcha;
     return null;
   }
   const afford = n => { if (S().denny >= n) return true; MENU.say([{ who: me().who, name: me().name, text: `(Not enough Denny. You have ${st.denny}.)` }]); return false; };
   function noodles() {
     const meal = S().meal;
-    MENU.say([{ who: 'chop', name: 'General Chop', text: (meal ? `You've still got the ${meal.name} in you! Another? ` : 'What\'ll it be? ') + `(You have ${st.denny} Denny.)`, choices: NOODLES.map(d => ({ label: `${d.name}, ${d.price} Denny (${d.note})`, fn: () => order(d) })).concat([{ label: 'Just looking', fn: () => {} }]) }]);
+    MENU.say([{ who: keeper.soup, name: nameOf(keeper.soup), text: (meal ? `You've still got the ${meal.name} in you! Another? ` : 'What\'ll it be? ') + `(You have ${st.denny} Denny.)`, choices: (keeper.soup === 'kasa' ? CHEESE : NOODLES).map(d => ({ label: `${d.name}, ${d.price} Denny (${d.note})`, fn: () => order(d) })).concat([{ label: 'Just looking', fn: () => {} }]) }]);
   }
   function order(d) {
     if (!afford(d.price)) return;
     pay(-d.price);
-    Lobby.perform({ prefix: 'soup:stool', act: 'eat', dur: 4.5 }, () => {
+    Lobby.perform({ prefix: keeper.soup === 'kasa' ? 'cheese:seat' : 'soup:stool', act: 'eat', dur: 4.5 }, () => {
       S().meal = { id: d.id, name: d.name, buff: d.buff, note: d.note }; save();
       const notes = []; for (const q of quests()) { const s = stepOf(q); if (s && s.t === 'order' && (!s.dish || s.dish === d.id)) advance(q, notes); }
-      MENU.say([{ who: 'chop', name: 'General Chop', text: `Clean bowl! That ${d.name.toLowerCase()} will see you through your next fight. (${d.note})` }].concat(notes.map(n => ({ who: me().who, name: me().name, text: n }))));
+      MENU.say([{ who: keeper.soup, name: nameOf(keeper.soup), text: `${keeper.soup === 'kasa' ? 'Clean plate!' : 'Clean bowl!'} That ${d.name.toLowerCase()} will see you through your next fight. (${d.note})` }].concat(notes.map(n => ({ who: me().who, name: me().name, text: n }))));
     });
   }
   function coffee() {
     const done = S().coffeeDay === today();
-    MENU.say([{ who: 'tinmaster', name: 'Tin Master', text: `Welcome to Coff Cafe. (You have ${st.denny} Denny.)`, choices: [
-      ...(done ? [] : [{ label: `Coffee of the day, ${COFFEE.price} Denny (${COFFEE.note}, once a day)`, fn: () => { if (!afford(COFFEE.price)) return; pay(-COFFEE.price); Lobby.perform({ prefix: 'cafe:t', act: 'drink', dur: 4 }, () => { S().coffee = { buff: COFFEE.buff, note: COFFEE.note }; st.coffeeDay = today(); save(); MENU.say([{ who: 'tinmaster', name: 'Tin Master', text: `Properly made. It will steady you in your next fight. (${COFFEE.note})` }]); }); } }]),
-      { label: `Coffee to go, ${ITEMS.coffee.price} Denny`, fn: () => { if (!afford(ITEMS.coffee.price)) return; pay(-ITEMS.coffee.price); give('coffee'); const n = bought('coffee'); MENU.say([{ who: 'tinmaster', name: 'Tin Master', text: 'One to go. Mind, it is hot.' + n }]); } },
+    MENU.say([{ who: keeper.cafe, name: nameOf(keeper.cafe), text: `Welcome to Coff Cafe. (You have ${st.denny} Denny.)`, choices: [
+      ...(done ? [] : [{ label: `Coffee of the day, ${COFFEE.price} Denny (${COFFEE.note}, once a day)`, fn: () => { if (!afford(COFFEE.price)) return; pay(-COFFEE.price); Lobby.perform({ prefix: 'cafe:t', act: 'drink', dur: 4 }, () => { S().coffee = { buff: COFFEE.buff, note: COFFEE.note }; st.coffeeDay = today(); save(); MENU.say([{ who: keeper.cafe, name: nameOf(keeper.cafe), text: `Properly made. It will steady you in your next fight. (${COFFEE.note})` }]); }); } }]),
+      { label: `Coffee to go, ${ITEMS.coffee.price} Denny`, fn: () => { if (!afford(ITEMS.coffee.price)) return; pay(-ITEMS.coffee.price); give('coffee'); const n = bought('coffee'); MENU.say([{ who: keeper.cafe, name: nameOf(keeper.cafe), text: 'One to go. Mind, it is hot.' + n }]); } },
       { label: 'Just looking', fn: () => {} }] }]);
   }
   function shop141() {
-    MENU.say([{ who: 'buy', name: 'Buy', text: `Ehn-ne! (The till is open. You have ${S().denny} Denny.)`, choices: SHOP141.map(k => ({ label: `${ITEMS[k].name}, ${ITEMS[k].price} Denny`, fn: () => { if (!afford(ITEMS[k].price)) return; pay(-ITEMS[k].price); give(k); const n = bought(k); MENU.say([{ who: 'change', name: 'Give Change', text: `Ehn-na! (You got: ${ITEMS[k].name}.)${n}` }]); } })).concat([{ label: 'Nothing, thanks', fn: () => {} }]) }]);
+    // the 141's Bangboo, Reed at Good Goods, the 747's clerks in Blazewood
+    const K = keeper.shop === 'reed' ? { who: 'reed', name: 'Reed', hi: 'Welcome to Good Goods! Have a look around.', by: 'reed', byName: 'Reed', got: 'Here you go!' }
+      : keeper.shop === 'clerk747' ? { who: 'clerk747', name: '747 Clerk', hi: 'Ehn-na! (The 747 is open: drinks, snacks, odds and ends.)', by: 'clerk747', byName: '747 Clerk', got: 'Ehn!' }
+      : { who: 'buy', name: 'Buy', hi: 'Ehn-ne! (The till is open.)', by: 'change', byName: 'Give Change', got: 'Ehn-na!' };
+    MENU.say([{ who: K.who, name: K.name, text: `${K.hi} (You have ${S().denny} Denny.)`, choices: SHOP141.map(k => ({ label: `${ITEMS[k].name}, ${ITEMS[k].price} Denny`, fn: () => { if (!afford(ITEMS[k].price)) return; pay(-ITEMS[k].price); give(k); const n = bought(k); MENU.say([{ who: K.by, name: K.byName, text: `${K.got} (You got: ${ITEMS[k].name}.)${n}` }]); } })).concat([{ label: 'Nothing, thanks', fn: () => {} }]) }]);
+  }
+  /* Yum Cha Sin: the neighbourhood's commission board (the errands and the stories) */
+  function yumcha() {
+    MENU.say([{ who: 'sweety', name: 'Sweety', text: 'Welcome to Yum Cha Sin! Tea, dim sum, and every bit of news in Failume Heights. The board has the neighbours\' requests.', choices: [
+      { label: 'See the commission board', fn: () => T.journal() }, { label: 'Just the tea, thanks', fn: () => {} }] }]);
   }
   function bought(item) { const notes = []; for (const q of quests()) { const s = stepOf(q); if (s && s.t === 'buy' && s.item === item) advance(q, notes); } save(); return notes.length ? ` (${notes.join(' · ')})` : ''; }
+  /* the daily luck: Howl's or Eve's scratch card, or A-Shuo's divination (one of them a day, as in the game) */
+  const LUCK = {
+    howl: { hi: '*boop* Do you need anything else?', card: 'A scratch card (one a day, free)', won: n => `*scratch scratch* ...${n} Denny! *boop* Congratulations!`, paper: true },
+    eve: { hi: 'Papers, magazines, and a scratch card a day. Feeling lucky?', card: 'A scratch card (one a day, free)', won: n => `...${n} Denny! Not bad at all.`, paper: true },
+    ashuo: { hi: 'Woof. (A-Shuo pushes the trigram mat toward you. One reading a day.)', card: 'A divination (one a day, free)', won: n => `(The trigrams settle.) Good fortune: ${n} Denny. Woof!` },
+  };
   function newsstand() {
-    const done = S().scratchDay === today();
-    MENU.say([{ who: 'howl', name: 'Howl', text: '*boop* Do you need anything else?', choices: [
-      ...(done ? [] : [{ label: 'A scratch card (one a day, free)', fn: () => { const won = pick([5, 5, 10, 10, 15, 20, 30, 50]); st.scratchDay = today(); pay(won); MENU.say([{ who: 'howl', name: 'Howl', text: `*scratch scratch* ...${won} Denny! *boop* Congratulations!` }]); } }]),
-      { label: 'Read the Ridu Weekly', fn: () => MENU.say([{ who: 'howl', name: 'Howl', text: pick(RIDU) }]) },
-      { label: 'Pet Howl', fn: () => MENU.say([{ who: 'howl', name: 'Howl', text: '*boop* Woof. (His tail thumps against the rack.)' }]) },
-      { label: 'Nothing', fn: () => {} }] }]);
+    const done = S().scratchDay === today(), dog = keeper.news === 'howl', Lk = LUCK[keeper.news] || LUCK.howl, K = t => ({ who: keeper.news, name: nameOf(keeper.news), text: t });
+    MENU.say([Object.assign(K(Lk.hi), { choices: [
+      ...(done ? [] : [{ label: Lk.card, fn: () => { const won = pick([5, 5, 10, 10, 15, 20, 30, 50]); st.scratchDay = today(); pay(won); MENU.say([K(Lk.won(won))]); } }]),
+      ...(Lk.paper ? [{ label: 'Read the Ridu Weekly', fn: () => MENU.say([K(pick(RIDU))]) }] : []),
+      ...(dog ? [{ label: 'Pet Howl', fn: () => MENU.say([K('*boop* Woof. (His tail thumps against the rack.)')]) }] : []),
+      { label: 'Nothing', fn: () => {} }] })]);
   }
 
   /* --------------------------------------------- places on the street -- */
-  const VENDS = { 'alley:vend': 'Vending machine', '141:icecream': 'Ice Cream Kingdom', 'east:vend': 'Vending machine' };
+  const VENDS = { 'alley:vend': 'Vending machine', '141:icecream': 'Ice Cream Kingdom', 'east:vend': 'Vending machine', 'lum:vend': 'Vending machine' };
   T.places = () => {
     const out = [];
     for (const id in VENDS) { const sp = LIFE.spot(id); if (sp) out.push({ id: 'vend:' + id, label: VENDS[id], sub: id === '141:icecream' ? 'Ice cream · 6 Denny' : 'A drink · 5 Denny', x: sp.x, z: sp.z, y: 2.3 }); }
     for (const q of quests()) { const s = stepOf(q); if (s && s.t === 'pick') { const sp = LIFE.spot(s.at); if (sp) out.push({ id: 'pick:' + q.key, label: s.label, sub: 'Look', x: sp.x, z: sp.z, y: 1.5, quest: true }); } }
+    // things in this hub to look at (hub.looks: the Section 6 office's desks and boards)
+    const hub = window.Lobby && Lobby.hub && Lobby.hub();
+    for (const k of (hub && hub.looks) || []) out.push({ id: 'look:' + k.id, label: k.label, sub: 'Look', x: k.x, z: k.z, y: k.y || 1.6 });
     return out;
   };
   T.usePlace = id => {
@@ -321,6 +350,11 @@
       if (!afford(price)) return;
       pay(-price); SFX.play('ui');
       Lobby.perform({ act: 'vend', dur: 1.2 }, () => Lobby.perform({ act: ice ? 'drink' : 'drink', dur: 3 }, () => MENU.say([{ who: me().who, name: me().name, text: ice ? '(Strawberry. It drips down your wrist.)' : pick(['(A can of TANKA Cola. Fizzy.)', '(Lemon soda. The can is ice cold.)', '(Something called "Nitro-Fuel Zero". Hm.)']) }])));
+      return;
+    }
+    if (id.startsWith('look:')) {
+      const k = ((Lobby.hub() || {}).looks || []).find(q => 'look:' + q.id === id);
+      if (k) MENU.say(k.text.map(t => ({ who: me().who, name: me().name, text: t })));
       return;
     }
     if (id.startsWith('pick:')) {

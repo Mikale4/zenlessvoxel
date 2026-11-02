@@ -180,6 +180,7 @@
      Named hit effects, chosen by a skill hit's `fx` and its attribute. */
   const ATTR_COL = { physical: [0xfff2c0, 0xf4d35e, 0xffffff], fire: [0xffd060, 0xff8a2a, 0xff4a1a], ether: [0xff9af0, 0xe45cff, 0xa040ff], auric: [0xfff0a0, 0xffcf4a, 0x1a1a1a], ice: [0xe0ffff, 0x8fe4ff], electric: [0xd0f0ff, 0x5ec8ff], lumiflux: [0xffe0f8, 0xff9ae6, 0xb8a4e8] };
   FX.colors = a => ATTR_COL[a] || ATTR_COL.physical;
+  FX.ATTR_COL = ATTR_COL;   // (an attribute of an Agent's own, e.g. Miyabi's Frost, brings its colours: js/agents/)
   FX.hitSpark = (x, y, z, attr, heavy, crit) => {
     const cols = FX.colors(attr);
     FX.burst(x, y, z, heavy ? 22 : 10, { col: cols, speed: heavy ? 6 : 4, size: heavy ? 0.13 : 0.09, life: 0.35, g: 4 });

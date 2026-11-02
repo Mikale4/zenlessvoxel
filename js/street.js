@@ -97,7 +97,7 @@
   const inStore = (x, z) => x > STORE.x0 && x < STORE.x1 && z < STORE.z1 - 0.05 && z > STORE.z0;
 
   /* what the build collects for the lobby */
-  let COL, SPOTS, LIGHTS, NIGHT, ANIMS;
+  let COL, SPOTS, LIGHTS, NIGHT, ANIMS, TALL;
   const solid = (x0, z0, x1, z1) => COL.push([Math.min(x0, x1), Math.min(z0, z1), Math.max(x0, x1), Math.max(z0, z1)]);
   /* a place someone can be: act (what they do there), face (the way they look), seat (how high they sit) */
   const spot = (id, x, z, face, act, o) => { SPOTS[id] = Object.assign({ id, x, z, face, act }, o || {}); };
@@ -751,8 +751,11 @@
   }
 
   /* ---------------------------------------------------------- build -- */
+  /* another hub built with this kit (js/hubs/): a fresh set of colliders, spots and lights, then hand them over */
+  ST.begin = () => { COL = []; SPOTS = {}; LIGHTS = []; NIGHT = []; ANIMS = []; TALL = []; };
+  ST.finish = bounds => ({ col: COL, spots: SPOTS, lights: LIGHTS, night: NIGHT, anims: ANIMS, tall: TALL, bounds });
   ST.build = (root) => {
-    COL = []; SPOTS = {}; LIGHTS = []; NIGHT = []; ANIMS = [];
+    ST.begin();
     ground(root); poles(root); skyline(root);
     randomPlay(root); turbo(root); waterfallSoup(root); alleys(root); coffCafe(root); boxGalaxy(root); metro(root); northFill(root);
     for (const f of ST.parts) f(root, KIT);
@@ -760,6 +763,7 @@
   };
   /* what street2.js (and others) build with */
   const KIT = { piece, sign, put, glass, font, text, poster, hash, solid: (...a) => solid(...a), spot: (...a) => spot(...a), light: (...a) => light(...a), night: m => NIGHT.push(m), anim: f => ANIMS.push(f),
+    tall: (x0, z0, x1, z1, h) => TALL.push([Math.min(x0, x1), Math.min(z0, z1), Math.max(x0, x1), Math.max(z0, z1), h || 99]),   // (a free camera keeps you in sight over it)
     acUnit, windowAt, upper, payphone, vending, bench, bin, tires, cone, aframe, planter, pot, scooter, BRICK, GREYBRICK, DISP, CJK, CHROME, CONC, N, S, NC, SC, X0, X1 };
   ST.KIT = KIT; ST.RP = RP; ST.STORE = STORE; ST.inStore = inStore;
   window.STREET = ST;

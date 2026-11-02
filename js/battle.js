@@ -30,10 +30,17 @@
     if (BT.B.aegis && BT.B.aegis.atkUntil > BT.B.t && a === active()) atk += 600;  // Radiant Aegis: the bearer's ATK
     if (BT.B.veil > BT.B.t) atk += 290;                                          // Ether Veil: Delusion Reprise
     if (BT.B.zeroIn > BT.B.t) atk += 255;                                        // Orphie & Magus: Zeroed In
+    for (const s of BT.B.squad) if (s.def.mech && s.def.mech.atkFor) atk += s.def.mech.atkFor(s, a) || 0;   // a teammate's buff (js/agents/)
     return atk;
   };
   const active = () => BT.B && BT.B.squad[BT.B.active];
   BT.active = active;
+  /* an Agent's own mechanics, from her file in js/agents/ (def.mech): init, squad, start, hit, mods, tick, swap,
+     anomaly, resolve, ai, hud. mech(a, 'hit', ...) calls the one she has, if she has it */
+  const mech = (a, k, ...args) => { const M = a && a.def && a.def.mech; return M && M[k] ? M[k](a, ...args) : undefined; };
+  BT.mech = mech;
+  /* can she fire her Ultimate now: MAXIMUM Decibels, Yixuan's Technique Points, or her own file's rule (mech.ult) */
+  BT.ultReady = ag => !!ag && (ag.decibels >= R.decibelMax || (ag.id === 'yixuan' && ag.tp >= 120) || !!mech(ag, 'ult'));
   /* the Agents on the field: the one you lead, or (an All-Out Proxy Clash) every one still standing */
   const fielded = () => { const B = BT.B; if (!B) return []; if (B.allOut) return B.squad.filter(a => a.alive); const a = active(); return a && a.alive ? [a] : []; };
   BT.fielded = fielded;
@@ -79,6 +86,7 @@
       voltage: 0, might: 0, momentum: 0, bheat: 100, radiance: 0, flares: 0, pflow: false, ffdReady: false, refr: 0, reflect: 0, huweiT: 2.5, corrT: 2, phaseT: 0,
     });
     if (def.id === 'aria') a.st.ap += 45;                              // Innate Stage Presence
+    mech(a, 'init');
     if (def.sheer) a.st.sheer = 0.3 * a.st.atk + 0.1 * a.hpMax;       // Grandmaster of Mysticism
     a.obj.visible = false;
     return a;
@@ -119,6 +127,7 @@
       // Orphie's Forged in Flames: with a Stun or Support Agent, Aftershocks under Zeroed In ignore 25% DEF
       if (a.id === 'orphie' && S.some(s => s !== a && (s.def.spec === 'Stun' || s.def.spec === 'Support'))) a.orFIF = true;
     });
+    for (const a of S) mech(a, 'squad', B);                              // the Additional Abilities in the Agents' own files
     // Remielle's Invitation to Bloom: the squad's ATK rises with each other Anomaly Agent
     const rem = S.find(s => s.id === 'remielle');
     if (rem) {
@@ -265,7 +274,8 @@
 
   /* ----------------------------------------------------------- damage -- */
   const defMult = def => 794 / (794 + def);
-  function resMult(v, attr) { const d = v.def; if (!d || !d.weak) return 1; const a = attr === 'auric' ? 'ether' : attr; return d.weak.includes(a) || d.weak.includes(attr) ? 1.2 : d.resist.includes(a) || d.resist.includes(attr) ? 0.8 : 1; }
+  // (D.ATTR[x].as: an attribute that counts as another for weakness and resistance, e.g. Miyabi's Frost as Ice)
+  function resMult(v, attr) { const d = v.def; if (!d || !d.weak) return 1; const a = attr === 'auric' ? 'ether' : (D.ATTR[attr] && D.ATTR[attr].as) || attr; return d.weak.includes(a) || d.weak.includes(attr) ? 1.2 : d.resist.includes(a) || d.resist.includes(attr) ? 0.8 : 1; }
   function stunMult(v) { if (!(v.stun > 0)) return 1; return R.stunMult + (v.rank === 'boss' ? 0.25 * v.chainsUsed : 0) + 0.04 * (v.subj || 0); }   // (+ Qingyi's Subjugation)
   BT.stunMult = stunMult;
   BT.resMult = resMult;
@@ -274,7 +284,8 @@
     const T = BT.T, B = BT.B;
     const sheer = !!a.def.sheer, base = sheer ? (0.3 * atkOf(a) + 0.1 * (a.baseHp || a.hpMax)) : atkOf(a);
     let dmg = base * h.mult / 100;
-    let cr = a.st.cr, cd = a.st.cd + (a.meditation > B.t ? 0.4 : 0) + (B.roar > B.t ? B.roarCd : 0);
+    const M = mech(a, 'mods', v, h, A) || {};                                // her own file's DMG bonus, CRIT, DEF ignored (js/agents/)
+    let cr = a.st.cr + (M.cr || 0), cd = a.st.cd + (M.cd || 0) + (a.meditation > B.t ? 0.4 : 0) + (B.roar > B.t ? B.roarCd : 0);
     const crit = Math.random() < cr; if (crit) dmg *= 1 + cd;
     let bonus = 1;
     if (h.stunBonus && v.stun > 0) bonus += h.stunBonus;
@@ -286,7 +297,8 @@
     if (A && A.def.aftershock && a.id === 'orphie') bonus += 0.25;           // Orphie: Aftershock DMG
     if (A && B.roar > B.t) bonus += A.kind === 'chain' ? 0.117 : (A.kind === 'ult' || A.kind === 'ult2') ? 0.233 : 0;   // Tiger's Roar
     if (B.squad.some(s => s.pflow)) bonus += 0.1;                            // Remielle's Phase Flow
-    const defK = A && A.def.aftershock && a.orFIF && B.zeroIn > B.t ? 0.75 : 1;   // Forged in Flames
+    bonus += M.dmg || 0;
+    const defK = (A && A.def.aftershock && a.orFIF && B.zeroIn > B.t ? 0.75 : 1) * (1 - (M.defIgnore || 0));   // Forged in Flames
     dmg *= bonus * (sheer ? 1 : defMult(v.def_ * defK)) * resMult(v, attr) * stunMult(v) * T.agentDmg * BUFF('dmg');
     return { dmg: Math.max(1, Math.round(dmg)), crit };
   }
@@ -347,7 +359,7 @@
     v.daze = v.dazeMax; v.stun = v.stunMax; v.act = null; v.state = 'stun'; v.anim.state = 'stun'; v.stT = 0;
     v.chainsLeft = Math.min(R.chains[v.rank] || 1, alive(B.squad).length); v.chainsUsed = 0;
     B.threats = B.threats.filter(t => t.e !== v);
-    B.stats.stuns++; BT.emit('stun', { v, a }); callout('STUNNED', 'stun', v.def.name); log(`${v.def.name} is Stunned! (${v.chainsLeft} Chain Attack${v.chainsLeft > 1 ? 's' : ''})`, 'stun');
+    B.stats.stuns++; BT.emit('stun', { v, a }); mech(a, 'stunned', v); callout('STUNNED', 'stun', v.def.name); log(`${v.def.name} is Stunned! (${v.chainsLeft} Chain Attack${v.chainsLeft > 1 ? 's' : ''})`, 'stun');
     SFX.play('stun'); gainDecibels(a, 150);
     FX.glow(v.x, v.height * 0.8, v.z, 2.5, 0xfff0a0, 0.4, { size1: 4 });
   }
@@ -394,6 +406,8 @@
     if (v.bu[type] >= max) { v.bu[type] = 0; v.buMul[type] = Math.min(2, (v.buMul[type] || 1) * 1.2); triggerAnomaly(a, v, type); }
   }
   BT.addBuildup = addBuildup;
+  BT.triggerAnomaly = (a, v, type) => triggerAnomaly(a, v, type);   // (an Anomaly set off without its buildup: Alice's Polarized Assault)
+  BT.gainAssist = gainAssist; BT.atkOf = a => atkOf(a);
   function squadHas(test) { return BT.B.squad.some(test); }
   function triggerAnomaly(a, v, type) {
     const B = BT.B, A = D.ANOMALY[type];
@@ -411,6 +425,7 @@
     if (type === 'assault') { v.flinch = A.flinch; interrupt(v, 0.8, true); }
     else if (resMult(v, A.attr) > 1 || v.poise < 2) interrupt(v, 0.5, true);
     if (type === 'auric' && a.id === 'yixuan' && a.auricAnomCd <= B.t) { a.auricAnomCd = B.t + 10; gainEnergy(a, 10, true); }
+    for (const s of B.squad) if (s.alive && v.alive) mech(s, 'anomaly', a, v, type);   // (whoever triggered it: some Agents answer a teammate's Anomaly)
     // Remielle: a teammate's Anomaly on an enemy carrying Lumiflux Buildup Refringes
     const rem = B.squad.find(s => s.id === 'remielle' && s.alive);
     if (rem && a !== rem && v.lumi > 0 && v.alive) refringe(rem, v, A);
@@ -450,6 +465,7 @@
   }
   function disorder(a, v, old) {
     const B = BT.B, A = D.ANOMALY[old.type];
+    for (const s of B.squad) if (s.alive) mech(s, 'disorder', a, v, old);
     const pct = A.disorderBase + A.disorderPerSec * Math.max(0, old.t);
     const dmg = anomalyDamage(a, v, pct, A.attr, atkOf(a), a.st.ap);
     v.anom = null; B.stats.disorders++;
@@ -518,6 +534,7 @@
     const res = agentDamage(a, v, h, attr, A), guard = ex ? ex.guardMult(v) : 1;
     if (guard < 1) { res.dmg = Math.max(1, Math.round(res.dmg * guard)); if (T.dmgNumbers && Math.random() < 0.5) FX.number(v.x, v.height + 0.3, v.z, 'GUARD', 'miss'); }
     hurtEnemy(v, res.dmg, { attr, crit: res.crit, src: a, big: A.kind === 'ult' || A.kind === 'chain' });
+    for (const s of B.squad) if (s !== a && s.alive && v.alive && !a.rival) mech(s, 'allyHit', a, v, h, A);
     const p = new THREE.Vector3(); sockWorld(v, 'chest', p);
     FX.hitSpark(p.x, p.y, p.z, attr, h.heavy, res.crit);
     if (!v.alive) { gainDecibels(a, 40); return; }
@@ -576,6 +593,8 @@
       if (A.def.luminize && h.heavy && !A.data.lumDone) { A.data.lumDone = true; luminize(a, v, A.def.luminize); if (!v.alive) return; }
       if (A.def.stunExtend && v.stun > 0 && !A.data.extDone) { A.data.extDone = true; v.stun += A.def.stunExtend; log(`${v.def.name}'s Stun lasts ${A.def.stunExtend} s longer.`, 'skill'); }
     }
+    mech(a, 'hit', v, h, A, attr);
+    if (!v.alive) return;
     // Orphie & Magus: the fire blade restores Bottled Heat; the Heat Charge laser puts the squad in Zeroed In
     if (a.id === 'orphie') {
       if (A.kind === 'basic' && h.heavy && !A.data.bhDone) { A.data.bhDone = true; a.bheat = Math.min(125, a.bheat + 10); }
@@ -728,6 +747,7 @@
       if (def.reflection) a.reflect = B.t + 12;
       if (def === K.ffd) { a.ffdReady = false; a.refr = 0; a.energy = Math.max(a.energy, 60); if (B.allOut || alive(B.squad).length < 2) a.radiance = 0; log(`Remielle: ${def.name}!`, 'skill'); callout('FLOWER & FEATHER DANCE', 'skill', 'Remielle'); }
     }
+    mech(a, 'start', def, A);
   }
   BT.onSkillStart = onSkillStart;
   function absorbFandom(a, A) {
@@ -794,6 +814,7 @@
     if (why === 'swap') say(ag, B.focus && B.focus.stun > 0 ? 'assist_stunned' : 'assist', { with: out && out.id, p: 0.4 });
     else if (why === 'forced') say(ag, 'assist_down');
     for (const th of B.threats) { th.plan = null; if (th.target === out && !th.hazard) th.target = ag; } // the new Agent faces what was coming, with her own plans
+    if (out) mech(out, 'swap', false, why); mech(ag, 'swap', true, why);
     if (BT.hooks.swap) BT.hooks.swap(out, ag, why);
     BT.emit('swap', { out, a: ag, why });
     BT.planDefense && BT.B.threats.forEach(th => BT.planDefense(ag, th));
@@ -866,7 +887,8 @@
   function doAssist(ag, th) {
     const B = BT.B, out = B.allOut ? th.target : active();
     const cost = th.hit && th.hit.freeAssist ? 0 : (th.heavy || th.launch) ? (ag.id === 'caesar' ? 1 : R.assistCostHeavy) : R.assistCostLight;
-    const e = th.e, defensive = th.flash === 'gold' && B.assist >= cost;
+    // an Evasive Assist Agent (def.assist 'evasive') does not parry: she dodges the blow in Vital View and follows up
+    const e = th.e, evasive = ag.def.assist === 'evasive' && B.assist >= cost, defensive = !evasive && th.flash === 'gold' && B.assist >= cost;
     if (B.allOut) pullIn(ag); else swapIn(ag, 'assist', e);
     const toward = ang(e, B.allOut ? th.target : ag), dd = e.rad + 1.1;     // (All-Out: between the attacker and her teammate)
     ag.x = e.x + Math.sin(toward) * dd; ag.z = e.z + Math.cos(toward) * dd; ag.face = ang(ag, e);
@@ -875,6 +897,14 @@
       B.assist -= cost; th.assist = { agent: ag, type: 'defensive' };
       startAct(ag, def, { tgt: e, kind: 'assist', dur: Math.max(def.dur, th.impactAt - B.t + 0.12) });
       callout('DEFENSIVE ASSIST', 'assist', def.name.replace('Defensive Assist: ', '')); say(ag, 'assist', { with: out.id, p: 0.8 });
+      log(`${ag.def.short}: ${def.name} (${cost ? `${cost} Assist Point${cost > 1 ? 's' : ''}` : 'free'})`, 'assist');
+    } else if (evasive) {
+      B.assist -= cost; th.assist = { agent: ag, type: 'evasive' };
+      const who = B.allOut ? th.target : ag;
+      if (who.act && window.CHOREO) CHOREO.end(who, who.act); who.act = null;
+      who.dodge = { t0: th.impactAt - 0.05, until: th.impactAt + 0.3, assist: 'evasive', helper: ag };
+      who.state = 'dodge'; who.anim.state = 'dodge'; who.anim.t = 0; who.anim.side = 1; who.stT = 0;
+      callout('EVASIVE ASSIST', 'assist', def.name.replace('Evasive Assist: ', '')); say(ag, 'assist', { with: out.id, p: 0.8 });
       log(`${ag.def.short}: ${def.name} (${cost ? `${cost} Assist Point${cost > 1 ? 's' : ''}` : 'free'})`, 'assist');
     } else {
       th.assist = { agent: ag, type: 'evade' };
@@ -910,14 +940,16 @@
     let ag = agent || active();
     if (!ag || !ag.alive || ag.stun > 0) return false;
     const yix = ag.id === 'yixuan' && ag.tp >= 120;            // Endless Talisman Suppression (Technique Points) has priority
-    if (!yix && ag.decibels < R.decibelMax) return false;
+    const own = mech(ag, 'ult');                                // her own file's: { def, kind, free } (an Ultimate without Decibels)
+    if (!yix && !own && ag.decibels < R.decibelMax) return false;
     if (B.chain) { if (ag !== active()) return false; B.chain = null; if (BT.hooks.chainClose) BT.hooks.chainClose(); }
     if (ag !== active() && !B.allOut) swapIn(ag, 'ult');
     ag.act = null; ag.dodge = null; ag.queue.length = 0;
-    const def = yix ? ag.def.kit.ult2 : ag.def.kit.ult;
-    if (!yix) ag.decibels -= R.decibelMax;
+    const def = own ? own.def : yix ? ag.def.kit.ult2 : ag.def.kit.ult;
+    if (!yix && !(own && own.free)) ag.decibels -= R.decibelMax;
     gainAssist(R.assistGain); B.stats.ults++; BT.emit('ult', { a: ag });
-    B.cutin = { agent: ag, def, t: 0, dur: BT.T.cutins ? 1.15 : 0.01, kind: yix ? 'ult2' : 'ult' };
+    B.cutin = { agent: ag, def, t: 0, dur: BT.T.cutins ? 1.15 : 0.01, kind: own ? own.kind || 'ult' : yix ? 'ult2' : 'ult' };
+    if (own) mech(ag, 'ultUsed', own);
     if (BT.hooks.cutin) BT.hooks.cutin(ag, def);
     SFX.play('ult'); say(ag, yix ? 'ult2' : 'ult');
     log(`${ag.def.short}: ${def.name}!`, 'ult');
@@ -952,6 +984,7 @@
     // Caesar's Perfect Block and guard stance (Yixuan's Ink Manifestation blocks too)
     if (ag.act && ag.act.def.perfectBlock && ag.act.t <= ag.act.def.perfectBlock) { EH.block++; return BT.perfectBlock(ag, e, h); }
     if (ag.guardUntil > B.t && h.flash !== 'red') { EH.block++; return BT.guardBlock(ag, e, h); }
+    if (mech(ag, 'incoming', e, h)) { EH.block++; return; }
     EH.hit++;
     hurtAgent(ag, e, h);
   };
@@ -986,6 +1019,15 @@
   function perfectDodge(ag, e, viaAssist) {
     const B = BT.B, T = BT.T;
     ag.dodge.perfectDone = true; B.stats.perfect++; BT.emit('perfect', { a: ag, e });
+    // an Evasive Assist: Vital View, then her Assist Follow-Up (yours to press, as after a parry)
+    if (viaAssist === 'evasive') {
+      const h = ag.dodge.helper || ag; B.slow = { s: 0.2, t: 0.6 };
+      if (BT.isPlayer(h)) { h.followUntil = B.t + 1.6; h.followTgt = e && e.type === 'enemy' ? e : null; }
+      else h.queue.unshift({ def: h.def.kit.followup, kind: 'followup', tgt: e && e.alive ? e : null, delay: 0.1 });
+      callout('VITAL VIEW', 'perfect', h.def.short); gainDecibels(h, 250); gainEnergy(h, 8);
+      log(`${h.def.short}: Evasive Assist! Vital View.`, 'perfect');
+      return;
+    }
     callout('PERFECT DODGE', 'perfect'); SFX.play('perfect'); if (!viaAssist) say(ag, 'perfect_dodge');
     B.slow = { s: viaAssist ? 0.2 : 0.3, t: 0.5 };
     ag.counterUntil = B.t + 1.0; ag.counterTgt = e && e.type === 'enemy' ? e : null;
@@ -1193,6 +1235,7 @@
       else gainEnergy(a, a.st.er * (on ? 1 : 0.45) * dt);
       if (a.id === 'burnice' && !a.nitro && a.heat >= 50) a.nitro = true;
       if (a.pflow && B.phase === 'fight') phaseFlow(a, dt);
+      if (B.phase === 'fight') mech(a, 'tick', dt, on);
     }
     // the Radiant Aegis
     if (B.aegis && B.aegis.until <= B.t && B.aegis.hp > 0) { B.aegis.hp = 0; B.aegis.atkUntil = B.t + 5; }
@@ -1213,7 +1256,7 @@
       if (v.lumi && v.lumiT <= B.t) v.lumi = 0;
       if (v.stun > 0) {
         v.stun -= dt; v.daze = v.dazeMax * clamp(v.stun / v.stunMax, 0, 1);
-        if (v.stun <= 0) { v.stun = 0; v.daze = 0; v.subj = 0; v.state = 'idle'; v.anim.state = 'idle'; v.chainsLeft = 0; log(`${v.def.name} recovers from Stun.`, 'sys'); if (B.chain && B.chain.tgt === v) closeChain(); say(active(), 'stun_recover'); }
+        if (v.stun <= 0) endStun(v);
       }
       // boss adds and phases
       if (v.rank === 'boss' && !B.addsDone && B.enc.adds && v.hp / v.hpMax <= B.enc.adds.at) {
@@ -1246,6 +1289,13 @@
       }
     }
   }
+  /* an enemy is out of its Stun (time's up, or something ends it early: Hugo's Totalize) with `daze` left in its bar */
+  function endStun(v, daze) {
+    const B = BT.B;
+    v.stun = 0; v.daze = daze || 0; v.subj = 0; v.state = 'idle'; v.anim.state = 'idle'; v.chainsLeft = 0;
+    log(`${v.def.name} recovers from Stun.`, 'sys'); if (B.chain && B.chain.tgt === v) closeChain(); say(active(), 'stun_recover');
+  }
+  BT.endStun = endStun;
   function finish(result) {
     const B = BT.B; if (B.result) return;
     B.result = result; B.phase = 'end'; closeChain();

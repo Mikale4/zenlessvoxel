@@ -339,6 +339,8 @@
       if (id === 'jufufu' && K.spin && (e.cds.spin || 0) <= B.t && Math.random() < 0.25) return { def: K.spin, kind: 'core' };
       if (id === 'orphie' && K.heatCharge && (e.cds.heat || 0) <= B.t && Math.random() < 0.25) return { def: K.heatCharge, kind: 'ex2' };
       if (id === 'remielle' && K.rainbow && (e.cds.rainbow || 0) <= B.t && Math.random() < 0.3) return { def: K.rainbow, kind: 'charged' };
+      // the special moves her own file lists for a rival's hands: [{ k: kit key, kind, p: chance, cd }]
+      for (const s of e.def.agent.rivalMoves || []) if (K[s.k] && (e.cds[s.k] || 0) <= B.t && Math.random() < s.p) { e.cds[s.k] = B.t + (s.cd || 4); return { def: K[s.k], kind: s.kind }; }
       if (e.energy >= K.ex.cost && (e.energy >= e.def.agent.energyMax * 0.85 || ag.stun > 0 || Math.random() < 0.3)) return pickEx(e);
       if ((e.cds.special || 0) <= B.t && Math.random() < 0.35) return { def: K.special, kind: 'special' };
     }

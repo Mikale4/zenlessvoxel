@@ -228,5 +228,7 @@
     head(g) { g.box(-4, 5, -4, 4, 8, 4, 0xf2c230); g.box(-4, 5, 5, 4, 5, 5, 0xf2c230); }, torso(g) { g.box(-3, 0, 2, 3, 6, 2, (x, y) => y === 3 ? 0xe8e8e0 : 0xf08a2a); } });
 
   /* the townsfolk whose busts the menus show */
+  // for the other hubs' townsfolk (js/hubs/)
+  H.person = person; H.bangboo = bangboo; H.animal = animal;
   window.TOWN_FACES = ['chop', 'tinmaster', 'elfy', 'asha', 'susie', 'enzo', 'howl', 'buy', 'ask', 'change', 'bb6', 'mewmew', 'yani', 'jonah', 'roy', 'luo', 'phil', 'owner', 'cookie', 'chalky', 'office_m', 'office_f', 'student_f', 'student_m', 'courier', 'raider', 'dude', 'builder'];
 })();

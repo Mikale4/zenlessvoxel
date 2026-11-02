@@ -221,10 +221,13 @@
      Ultimate, Dodge and Switch are BT.cmdUlt, BT.playerDodge, BT.cmdSwap.
      o.dash: as if she had just dodged (AUTO dashing in); o.step: that step of her string */
   function resolve(a, btn, hold, o) {
-    const B = B_(), K = a.def.kit, id = a.id, t = B.t;
+    const B = B_(), K = a.def.kit, id = a.id, t = B.t, M = a.def.mech;
     o = o || {};
+    // her own file's rules first (js/agents/): { def, kind } or nothing. dash: just after a dodge, or sprinting
+    const own = M && M.resolve ? (b, h) => M.resolve(a, b, h, { t, B, dash: !!(o.dash || a.dashUntil > t), step: o.step }) : null;
     if (btn === 'special') {
       if (id === 'caesar' && a.retaliate > t && (a.retFree || a.energy >= K.osb.cost)) return { def: K.osb, kind: 'ex2', free: a.retFree, aegis: true };
+      { const r = own && own('special', hold); if (r) return r; }
       if (hold && id === 'orphie' && a.bheat >= 100) return { def: K.heatCharge, kind: 'ex2' };
       if (K.ex2 && a.ex2Until > t && a.energy >= K.ex2.cost) return { def: K.ex2, kind: 'ex2' };
       if (a.energy >= K.ex.cost) return { def: hold && K.exAlt ? K.exAlt : K.ex, kind: 'ex' };
@@ -234,6 +237,7 @@
     if (a.followUntil > t) return { def: K.followup, kind: 'followup' };
     if (a.counterUntil > t) return { def: K.counter, kind: 'counter' };
     if (id === 'caesar' && a.retaliate > t) return { def: K.thrust, kind: 'special' };
+    { const r = own && own('basic', hold); if (r) return r; }
     if (o.dash || a.dashUntil > t) return id === 'jufufu' && a.momentum >= 3 ? { def: K.spin, kind: 'core' } : { def: K.dash, kind: 'dash' };
     if (hold) {
       if (id === 'caesar' && B.assist >= 1) return { def: K.deadEnd, kind: 'core' };
@@ -295,6 +299,8 @@
       const s = S[btn]; if (!s || !s.down) continue;
       if (!s.sent && B.real - s.at >= HOLD) { s.sent = true; queuePress(a, btn, true); }
       else if (btn === 'basic' && s.tap && !a.press && (!a.act || (a.act.kind === 'basic' && a.act.t >= (a.act.def.cancel || a.act.dur)))) queuePress(a, 'basic', false);
+      // a hold move that goes on while the button stays down (Zhu Yuan's Suppressive Mode: def.holdRepeat)
+      else if (btn === 'basic' && s.sent && !s.tap && !a.press && a.state !== 'dodge' && (!a.act || (a.act.def.holdRepeat && a.act.t >= (a.act.def.cancel || a.act.dur))) && resolve(a, 'basic', true).def.holdRepeat) queuePress(a, 'basic', true);
     }
   }
   function ready(a, btn) {
@@ -368,7 +374,7 @@
     if (!fromCombo) {
       if (a.exCall && exOk) { a.exCall = false; return press('special', id === 'yixuan' && Math.random() < 0.4); }
       // (All-Out: the teammates you are not leading fire their own Ultimates)
-      if (((T.autoUlt && !B.auto) || (B.allOut && a !== BT.active() && !B.auto)) && (a.decibels >= R.decibelMax || (id === 'yixuan' && a.tp >= 120)) && (tgt.stun > 0 || Math.random() < 0.02)) { if (BT.cmdUlt(a)) return null; }
+      if (((T.autoUlt && !B.auto) || (B.allOut && a !== BT.active() && !B.auto)) && BT.ultReady(a) && (tgt.stun > 0 || Math.random() < 0.02)) { if (BT.cmdUlt(a)) return null; }
       if (id === 'yixuan' && a.auric > 0) return press('basic', true);
       if (id === 'burnice' && a.nitro && a.heat >= 20 && (a.cds.hold || 0) <= B.t && (!tgt.scorched || Math.random() < 0.25)) return press('basic', true);
       if (id === 'aria') {
@@ -387,6 +393,8 @@
         if (a.radiance >= 120 && (B.allOut || B.squad.filter(s => s.alive).length < 2)) return press('basic', true);
         if ((a.cds.rainbow || 0) <= B.t && (a.flares > 0 || a.reflect > B.t || Math.random() < 0.12)) return press('basic', true);
       }
+      // her own file's ideas of when to press what: { btn, hold, o } or nothing
+      if (a.def.mech && a.def.mech.ai) { const w = a.def.mech.ai(a, tgt, B); if (w) return press(w.btn, w.hold, w.o); }
       // with the Energy, Special is the EX (as for you): AUTO keeps it for a full bar or a Stun
       if (exOk && (a.energy >= a.def.energyMax * 0.85 || tgt.stun > 0 || Math.random() < 0.1)) return press('special', id === 'yixuan' && Math.random() < 0.4);
       if (!exOk && (a.cds.special || 0) <= B.t && Math.random() < 0.3) return press('special');
@@ -751,8 +759,8 @@
       C.next = B.t + 0.4;
       const tgt = BT.pickTarget(ag), worth = tgt && (tgt.stun > 0 || tgt.rank === 'boss' || B.enemies.filter(v => v.alive).length >= 3 || tgt.rank === 'elite');
       if (worth && !(ag.act && ['chain', 'ult', 'ult2', 'assist'].includes(ag.act.kind))) {
-        if (ag.decibels >= R.decibelMax || (ag.id === 'yixuan' && ag.tp >= 120)) { BT.cmdUlt(ag); return; }
-        const o = B.squad.find(s => s.alive && s !== ag && (s.decibels >= R.decibelMax || (s.id === 'yixuan' && s.tp >= 120)));
+        if (BT.ultReady(ag)) { BT.cmdUlt(ag); return; }
+        const o = B.squad.find(s => s.alive && s !== ag && BT.ultReady(s));
         if (o && tgt.stun > 0 && !BT.assistThreat()) { BT.cmdUlt(o); return; }
       }
     }
@@ -783,7 +791,7 @@
     if (B.t < C.next) return;
     C.next = B.t + 0.4;
     for (const a of BT.fielded()) {
-      if (!(a.decibels >= R.decibelMax || (a.id === 'yixuan' && a.tp >= 120)) || (a.act && ['chain', 'ult', 'ult2', 'assist'].includes(a.act.kind))) continue;
+      if (!BT.ultReady(a) || (a.act && ['chain', 'ult', 'ult2', 'assist'].includes(a.act.kind))) continue;
       const tgt = BT.pickTarget(a);
       if (tgt && (tgt.stun > 0 || tgt.rank !== 'minion' || Math.random() < 0.3)) { BT.cmdUlt(a); return; }
     }
