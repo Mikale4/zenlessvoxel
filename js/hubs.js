@@ -102,8 +102,13 @@
 
   /* the order on the Travel map */
   HUBS.order = () => Object.keys(HUBS).filter(k => HUBS[k] && HUBS[k].build);
-  /* where an Agent lives: the hub that lists her, else Sixth Street */
-  HUBS.homeOf = id => { for (const k of HUBS.order()) if (k !== 'sixth' && HUBS[k].agents && HUBS[k].agents[id]) return k; return 'sixth'; };
+  /* where an Agent lives: her own file's town.home, or the hub that lists her, else Sixth Street */
+  HUBS.homeOf = id => {
+    const T = window.DATA && DATA.AGENTS[id] && DATA.AGENTS[id].town;
+    if (T && T.home && HUBS[T.home] && HUBS[T.home].build) return T.home;
+    for (const k of HUBS.order()) if (k !== 'sixth' && HUBS[k].agents && HUBS[k].agents[id]) return k;
+    return 'sixth';
+  };
   HUBS.get = id => HUBS[id] && HUBS[id].build ? HUBS[id] : HUBS.sixth;
   window.HUBS = HUBS;
 })();

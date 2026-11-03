@@ -286,6 +286,7 @@
     let dmg = base * h.mult / 100;
     const M = mech(a, 'mods', v, h, A) || {};                                // her own file's DMG bonus, CRIT, DEF ignored (js/agents/)
     let cr = a.st.cr + (M.cr || 0), cd = a.st.cd + (M.cd || 0) + (a.meditation > B.t ? 0.4 : 0) + (B.roar > B.t ? B.roarCd : 0);
+    for (const s of B.squad) if (s !== a && s.def.mech && s.def.mech.cdFor) cd += s.def.mech.cdFor(s, a, v, A) || 0;   // a teammate's CRIT DMG buff (js/agents/: Astra Yao's Idyllic Cadenza)
     const crit = Math.random() < cr; if (crit) dmg *= 1 + cd;
     let bonus = 1;
     if (h.stunBonus && v.stun > 0) bonus += h.stunBonus;
@@ -298,6 +299,7 @@
     if (A && B.roar > B.t) bonus += A.kind === 'chain' ? 0.117 : (A.kind === 'ult' || A.kind === 'ult2') ? 0.233 : 0;   // Tiger's Roar
     if (B.squad.some(s => s.pflow)) bonus += 0.1;                            // Remielle's Phase Flow
     bonus += M.dmg || 0;
+    for (const s of B.squad) if (s !== a && s.def.mech && s.def.mech.dmgFor) bonus += s.def.mech.dmgFor(s, a, v, attr, A) || 0;   // a teammate's DMG buff (js/agents/: Lighter's Elation, his RES cut)
     const defK = (A && A.def.aftershock && a.orFIF && B.zeroIn > B.t ? 0.75 : 1) * (1 - (M.defIgnore || 0));   // Forged in Flames
     dmg *= bonus * (sheer ? 1 : defMult(v.def_ * defK)) * resMult(v, attr) * stunMult(v) * T.agentDmg * BUFF('dmg');
     return { dmg: Math.max(1, Math.round(dmg)), crit };
@@ -516,7 +518,7 @@
     if (h.at === 'target' && tgt) { cx = tgt.x; cz = tgt.z; }
     else if (h.at === 'front') { cx = a.x + Math.sin(dir) * 1.3; cz = a.z + Math.cos(dir) * 1.3; }
     let victims = enemiesIn(shape, cx, cz, r, dir, h.arc, h.len);
-    if (!victims.length && tgt && shape !== 'circle' && dist(a, tgt) < reach + tgt.rad + 0.9) victims = [tgt];
+    if (!victims.length && tgt && tgt.model && shape !== 'circle' && dist(a, tgt) < reach + tgt.rad + 0.9) victims = [tgt];
     // visuals
     if (h.fx) FX.named(h.fx, { x: cx, z: cz, yaw: dir, attr, r, fromX: a.x, fromZ: a.z, len: h.len, y: 1 });
     if (shape === 'arc' && !h.fx) FX.slash(a.x, 1.0, a.z, Math.min(2.4, r), dir, cols[1], { tilt: rnd(-0.6, 0.6), arc: (h.arc || 120) * Math.PI / 180 + 0.4 });
@@ -1023,7 +1025,7 @@
     if (viaAssist === 'evasive') {
       const h = ag.dodge.helper || ag; B.slow = { s: 0.2, t: 0.6 };
       if (BT.isPlayer(h)) { h.followUntil = B.t + 1.6; h.followTgt = e && e.type === 'enemy' ? e : null; }
-      else h.queue.unshift({ def: h.def.kit.followup, kind: 'followup', tgt: e && e.alive ? e : null, delay: 0.1 });
+      else h.queue.unshift({ def: h.def.kit.followup, kind: 'followup', tgt: e && e.type === 'enemy' && e.alive ? e : null, delay: 0.1 });   // (a projectile dodged is no target)
       callout('VITAL VIEW', 'perfect', h.def.short); gainDecibels(h, 250); gainEnergy(h, 8);
       log(`${h.def.short}: Evasive Assist! Vital View.`, 'perfect');
       return;

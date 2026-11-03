@@ -220,7 +220,8 @@
       // who is here: Sixth Street's own people, or the hub's (hubs.js); its Agents: Sixth Street's are those no other hub claims
       staff: sixth ? STAFF : hub.staff || [], regulars: sixth ? REGULARS : hub.regulars || [], pets: sixth ? PETS : hub.pets || [],
       walkers: sixth ? WALKERS : hub.walkers || [[], [], [], []], ends: sixth ? ENDS : hub.ends || [], huddles: sixth ? HUDDLES : hub.huddles || [],
-      routine: sixth ? Object.fromEntries(Object.keys(ROUTINE).filter(id => window.HUBS.homeOf(id) === 'sixth').map(id => [id, ROUTINE[id]])) : Object.assign({}, hub.agents || {}) };
+      routine: sixth ? Object.fromEntries(Object.keys(ROUTINE).filter(id => window.HUBS.homeOf(id) === 'sixth').map(id => [id, ROUTINE[id]]))
+        : Object.assign({}, hub.agents || {}, Object.fromEntries(Object.keys(DATA.AGENTS).filter(id => { const T = DATA.AGENTS[id].town; return T && T.home === hub.id && T.routine; }).map(id => [id, DATA.AGENTS[id].town.routine]))) };
     if (hub.lines) Object.assign(LINES, hub.lines);
     if (sixth) { for (const k in EXTRA) { const [x, z, face, act, seat] = EXTRA[k]; L.spots[k] = { id: k, x, z, face, act, seat }; } if (L.spots['bardic:bench1']) L.spots['bardic:bench1'].act = 'sit'; }
     populate();

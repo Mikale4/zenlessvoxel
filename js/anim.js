@@ -164,7 +164,8 @@
     // breathing
     base.hipsY += Math.sin(t * 2.6 + ent.seed) * 0.012;
     base.torso[0] += Math.sin(t * 2.6 + ent.seed) * 0.02;
-    if (A.state === 'run') {
+    if (A.state === 'run' && ent.rig && ent.rig.def.ride) base = add(base, { torso: [0.08, 0, 0] });   // riding (Seed's scooter): no stride
+    else if (A.state === 'run') {
       // the gait follows the pace: a stroll (upright, arms easy) up to a run (leaning in, arms pumping). The legs take
       // their full stride (legAngle), which stride() matches to the ground; each arm swings against its leg
       const ph = A.phase, G = gait(A.speed), run = G.run, u = (ph / (2 * PI)) % 1;

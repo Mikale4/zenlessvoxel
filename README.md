@@ -11,14 +11,18 @@ Or locally: open `index.html` in a browser (no server or install needed).
 
 ## What's in it so far
 
-- **Seventeen Agents**, with kits, skill names and core passives from the official game:
+- **Twenty-five Agents**, with kits, skill names and core passives from the official game:
   **Caesar King** (Defense · Physical), **Burnice White** (Anomaly · Fire), **Aria** (Anomaly · Ether), **Yixuan** (Rupture · Auric Ink, with her ink bird),
   **Qingyi** (Stun · Electric), **Ju Fufu** (Stun · Fire, with Hu Wei, her tiger cauldron), **Orphie & Magus** (Attack · Fire: Magus is her
   sentient mechanical tail, and the Obol Squad's captain), **Remielle Dan** (Anomaly · Lumiflux), and, each in her own file in
   `js/agents/`: **Zhu Yuan** (Attack · Ether, her shotgun's Enhanced Shells), **Hoshimi Miyabi** (Anomaly · Frost),
   **Asaba Harumasa** (Attack · Electric), **Vivian Banshee** (Anomaly · Ether), **Alice Thymefield** (Anomaly · Physical),
-  **Sunna** (Support · Physical), **Hugo Vlad** (Attack · Ice), **Yidhari Murphy** (Rupture · Ice) and **Ye Shunguang**
-  (Attack · Honed Edge).
+  **Sunna** (Support · Physical), **Hugo Vlad** (Attack · Ice), **Yidhari Murphy** (Rupture · Ice), **Ye Shunguang**
+  (Attack · Honed Edge), **Tsukishiro Yanagi** (Anomaly · Electric, her two stances and Polarity Disorder), **Lighter**
+  (Stun · Fire, Morale), **Jane Doe** (Anomaly · Physical, Passion and her Salchow Jump), **Trigger** (Stun · Electric,
+  Sniper Stance and her shots from off the field), **Evelyn Chevalier** (Attack · Fire, Binding Seal and the Garrote),
+  **Astra Yao** (Support · Ether, Idyllic Cadenza), **Cissia** (Attack · Electric, Venom and Corrode Bone) and **Seed**
+  (Attack · Electric, with Seed Sr., her mech, and her Vanguard).
 - **Three battlegrounds:** **Blazewood** (the Sons of Calydon's Outer Ring camp, with explosive fuel barrels),
   **Yunkui Summit** (mountain temple, miasma pools), and a **Hollow Concert Stage** (the Angels of Delusion's venue, falling stage lights).
 - **Twelve real enemies**, three encounters per battleground (Patrol, Elite, Notorious boss):
@@ -101,16 +105,16 @@ New Eridu is not one big city in the real game: it is compact areas you travel b
 `js/hubs/`). **Travel** from the metro's sign on Sixth Street (or the TRAVEL button, or **M**); each area has its own
 way out. Each is built from the Zenless Zone Zero Wiki's map of it (its markers set where everything stands), its
 location pictures and its NPC portraits, and each has its own shopkeepers, regulars, passers-by and animals. The Agents
-live where the game's trust events put them; Sixth Street keeps Aria, Qingyi, Orphie, Remielle, Sunna and Yidhari.
+live where the game's trust events put them; Sixth Street keeps Aria, Qingyi, Orphie, Remielle, Sunna, Yidhari and Astra Yao.
 The camera turns freely in the other areas (**Z / C**),
 and closes in and rises to keep you in sight over the buildings.
 
 | Area | What's there | Who lives there |
 |---|---|---|
-| **Lumina Square** (Janus Quarter) | The N.E.P.S. tower behind its globe-lamp fence and the elevated railway; the 141 (the Bangboo trio) and JC Pharmacy (Officer Mewmew); the twisted ribbon sculpture; the **HIA Club** and its gold sphere (Combat Simulation: the **Battle Lab**), Sān-Z STUDIO (Yi), Sage in a Barrel, the red LUMINA monument; Richard Teamilk and its teapot; **Waterfall Soup** (Chop Junior's noodles) and Lumina Square Station; Gravity Cinema's neon and the round Lumina Galleria (Mia); along the river Beaverson, Dew Gardening (Orchidea), Old Duyi's, Simmer, **Coff Cafe** (this Tin Master is a tin can with a grinder crank), **Eve's newsstand** (the scratch card) and the playground | Zhu Yuan (at the N.E.P.S. gate), Vivian, Alice (at Dew Gardening), Hugo |
-| **Failume Heights** (Waifei Peninsula) | Red flagstones and green-glazed tile under the mountain: Tin Master's Coffee, **Yum Cha Sin** (Sweety and Lee: the commission board, your errands and stories), Buyan Antiques (Ginger), **Good Goods** (Reed), Devon Pawnshop (Vince), the 陶瓷市集 archway, BooBox, the bakery; the banyan square, the Random Play branch, the wooden dummies, the **cable car** (the way out); **Suibian Temple**: the skyletter tree, the incense burner, the main hall (the **HDD**), Threshold Simulation (the **Battle Lab**), **A-Shuo's divination** (the day's luck, instead of a scratch card) | Yixuan, Ju Fufu, Ye Shunguang |
-| **Blazewood** (Outer Ring) | Sand and red mesas: the camper, **the 747** (its Bangboo clerks), the covered workshop and its bikes, the WELCOME TO 无边野火 BOUNDLESS BLAZE arch, **Cheesetopia** (Kasa, the mayor: cheeseburgers, chili cheese fries and pizza, with the noodles' buffs) and its Grumpy Groundhog, the Sons' fuel truck with a bar in its trailer, Officer Mewmew, the brick block with the Sons' graffiti, the road out | Caesar, Burnice; Leigh, Dorian, Lola and Bolter, Buffy, Leif and Slowpoke the tortoise, Old Demir |
-| **Section 6 Office** (Throne Quarter) | Section 6's office high in HAND Headquarters, open to the sky: the HAND emblem, the desks (Yanagi's file piles, Soukaku's handwriting books and her drawing, Harumasa's medical file, the chief's tic-tac-toe), the Hollow board under its sticky notes, the reel-to-reel cabinets, the custom sofa; things to look at, as in the game; the lift down | Miyabi, Harumasa |
+| **Lumina Square** (Janus Quarter) | The N.E.P.S. tower behind its globe-lamp fence and the elevated railway; the 141 (the Bangboo trio) and JC Pharmacy (Officer Mewmew); the twisted ribbon sculpture; the **HIA Club** and its gold sphere (Combat Simulation: the **Battle Lab**), Sān-Z STUDIO (Yi), Sage in a Barrel, the red LUMINA monument; Richard Teamilk and its teapot; **Waterfall Soup** (Chop Junior's noodles) and Lumina Square Station; Gravity Cinema's neon and the round Lumina Galleria (Mia); along the river Beaverson, Dew Gardening (Orchidea), Old Duyi's, Simmer, **Coff Cafe** (this Tin Master is a tin can with a grinder crank), **Eve's newsstand** (the scratch card) and the playground | Zhu Yuan (at the N.E.P.S. gate), Vivian, Alice (at Dew Gardening), Hugo, Jane Doe, Trigger, Evelyn, Cissia |
+| **Failume Heights** (Waifei Peninsula) | Red flagstones and green-glazed tile under the mountain: Tin Master's Coffee, **Yum Cha Sin** (Sweety and Lee: the commission board, your errands and stories), Buyan Antiques (Ginger), **Good Goods** (Reed), Devon Pawnshop (Vince), the 陶瓷市集 archway, BooBox, the bakery; the banyan square, the Random Play branch, the wooden dummies, the **cable car** (the way out); **Suibian Temple**: the skyletter tree, the incense burner, the main hall (the **HDD**), Threshold Simulation (the **Battle Lab**), **A-Shuo's divination** (the day's luck, instead of a scratch card) | Yixuan, Ju Fufu, Ye Shunguang, Seed |
+| **Blazewood** (Outer Ring) | Sand and red mesas: the camper, **the 747** (its Bangboo clerks), the covered workshop and its bikes, the WELCOME TO 无边野火 BOUNDLESS BLAZE arch, **Cheesetopia** (Kasa, the mayor: cheeseburgers, chili cheese fries and pizza, with the noodles' buffs) and its Grumpy Groundhog, the Sons' fuel truck with a bar in its trailer, Officer Mewmew, the brick block with the Sons' graffiti, the road out | Caesar, Burnice, Lighter; Leigh, Dorian, Lola and Bolter, Buffy, Leif and Slowpoke the tortoise, Old Demir |
+| **Section 6 Office** (Throne Quarter) | Section 6's office high in HAND Headquarters, open to the sky: the HAND emblem, the desks (Yanagi's file piles, Soukaku's handwriting books and her drawing, Harumasa's medical file, the chief's tic-tac-toe), the Hollow board under its sticky notes, the reel-to-reel cabinets, the custom sofa; things to look at, as in the game; the lift down | Miyabi, Harumasa, Yanagi (at her desk, behind the file piles) |
 
 The other areas' shopkeepers run the same menus as Sixth Street's (a meal, a coffee, a shop, the day's luck), so
 whatever you buy and eat works the same everywhere. Each area plays its own music from the real game (see [Music](#music)),
@@ -290,11 +294,12 @@ The rival Proxies are this game's own, so their tracks are picks: the real game'
 
 ## Voices
 
-The Agents' English voice lines from the real game (the Zenless Zone Zero Wiki's *Voice-Overs* pages), 1,330 of them,
+The Agents' English voice lines from the real game (the Zenless Zone Zero Wiki's *Voice-Overs* pages), 2,097 of them,
 in `audio/voice/<agent>/` and listed in `js/voice-data.js`. Caesar, Burnice, Yixuan, Qingyi, Ju Fufu, Orphie, Zhu Yuan,
-Miyabi, Harumasa, Vivian, Alice and Hugo speak (about a hundred lines each); Ye Shunguang and Yidhari have the few the
-wiki has so far (seven each); Aria (no audio on the wiki yet), Remielle (no page yet) and Sunna do not. Battle Lab:
-*Voice volume*.
+Miyabi, Harumasa, Vivian, Alice, Hugo, Yanagi, Lighter, Jane Doe, Trigger, Astra Yao, Evelyn and Seed speak (about a
+hundred lines each, including what they say to each other when they assist); Ye Shunguang and Yidhari have the few the
+wiki has so far (seven each); Aria (no audio on the wiki yet), Remielle, Sunna and Cissia (no page yet) do not.
+Battle Lab: *Voice volume*.
 
 | When | She says (the wiki's category) |
 |---|---|
