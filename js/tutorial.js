@@ -12,7 +12,9 @@
    The squad: Qingyi on the field (four hits to her string, and a hold move
    once her Voltage is full), Caesar and Aria behind her.
 
-     TUTORIAL.start()   TUTORIAL.after(B) (main.js, when the fight ends)
+     TUTORIAL.start(o)  TUTORIAL.after(B) (main.js, when the fight ends)
+                        o.onboard: a new Proxy's training, part of signing up
+                        (menu.js): it ends on Sixth Street, not the Hollow
      TUTORIAL.done()    finished once on this Proxy
    ========================================================================== */
 (function () {
@@ -191,14 +193,14 @@
     const c = S.card; c.innerHTML = '';
     c.className = 'tut' + (flash ? ' ' + flash : '');
     c.append(...[
-      el('div', { class: 'n' }, el('span', null, `TRAINING · LESSON ${S.i + 1} / ${LESSONS.length}`), el('i', null, S.ok ? '' : touch() ? '' : 'Esc: Tactics')),
+      el('div', { class: 'n' }, el('span', null, `${S.onboard ? 'NEW PROXY · ' : ''}TRAINING · LESSON ${S.i + 1} / ${LESSONS.length}`), el('i', null, S.ok ? '' : touch() ? '' : 'Esc: Tactics')),
       el('h3', null, S.ok ? '✓ ' + L.title : L.title),
       el('p', null, ...(S.ok ? [S.ok] : L.text())),
       L.need > 1 ? el('div', { class: 'pips' }, ...Array.from({ length: L.need }, (_, k) => el('i', { class: k < S.got ? 'on' : '' }))) : null,
       S.note && !S.ok ? el('div', { class: 'try' }, S.note) : null,
       el('div', { class: 'row' },
         el('button', { onclick: () => { SFX.play('ui'); next(); } }, S.i + 1 < LESSONS.length ? 'SKIP LESSON ▸' : 'SKIP'),
-        el('button', { onclick: () => { SFX.play('ui'); BT.retreat(); } }, 'LEAVE TRAINING'))].filter(Boolean));
+        el('button', { onclick: () => { SFX.play('ui'); BT.retreat(); } }, S.onboard ? 'SKIP TO SIXTH STREET' : 'LEAVE TRAINING'))].filter(Boolean));
   }
   const PRAISE = ['Nice!', 'Clean.', 'That\'s it.', 'Sharp.', 'Exactly.', 'Good.'];
   function complete() {
@@ -248,13 +250,13 @@
   }
 
   /* ------------------------------------------------------- start, end -- */
-  TUTORIAL.start = () => {
+  TUTORIAL.start = o => {
     stop();
     document.querySelectorAll('.panel').forEach(p => p.remove());
     GAME.startBattle({ squad: SQUAD.slice(), arena: 'stage', encounter: 'patrol', tutorial: true, enc: { name: 'Training', waves: [['faun']] } });
     const B = BT.B, v = B.enemies[0];
     if (v) { v.noStun = true; v.floor = 0.5; }
-    S = { B, i: -1, got: 0, note: '', ok: null };
+    S = { B, i: -1, got: 0, note: '', ok: null, onboard: !!(o && o.onboard) };
     S.card = el('div', { class: 'tut' }); U.$('hud').append(S.card);
     S.off = BT.on(hear);
     next();
@@ -263,21 +265,26 @@
   TUTORIAL.done = () => !!(U.store.get('tutorial', null) || {}).done;
   /* the fight is over: the training's own last screen (true: handled) */
   TUTORIAL.after = B => {
-    const won = B.result === 'win', st = B.stats, reached = S ? S.i : 0;
+    const won = B.result === 'win', st = B.stats, reached = S ? S.i : 0, onboard = !!(S && S.onboard);
     stop();
-    if (!won) { MENU.setup(); return true; }
+    if (!won) { if (onboard) MENU.onboardDone(); else MENU.setup(); return true; }
     U.store.set('tutorial', { done: true, at: Date.now() });
     const row = (k, v) => [el('span', null, k), el('b', null, v)];
     const box = el('div', { class: 'box tutdone' },
+      onboard ? MENU.steps(3) : null,
       el('div', { class: 'rank S' }, '✓'),
       el('h2', null, 'TRAINING COMPLETE'),
       el('div', { class: 'hint' }, `All ${LESSONS.length} lessons${reached + 1 < LESSONS.length ? ' (some skipped)' : ''}. Every Agent plays by the same buttons: her own string, hold moves and EX are in her kit on the squad screen.`),
       el('div', { class: 'stats' }, ...row('Perfect Dodges', st.perfect), ...row('Perfect Assists', st.assists), ...row('Stuns / Chain Attacks', `${st.stuns} / ${st.chains}`), ...row('Ultimates', st.ults), ...row('Damage dealt', U.fmt(st.dmg))),
       el('p', null, 'Rather watch? AUTO fights for you, and the Battle Lab\'s Auto-attack lets you just move and command. KEY BINDINGS changes any key.'),
+      onboard ? el('p', null, 'Your Proxy is ready. Sixth Street is next: walk around, meet the Agents, and sit down at the HDD in Random Play\'s back room when you want a Commission. The tutorial tapes on the shelf run this training again any time.') : null,
       el('div', { class: 'row', style: { justifyContent: 'center' } },
-        el('button', { class: 'btn', onclick: () => MENU.setup() }, 'TO THE HOLLOW'),
-        el('button', { class: 'btn dark', onclick: () => TUTORIAL.start() }, 'TRAIN AGAIN'),
-        Auth.current() ? el('button', { class: 'btn dark', onclick: () => MENU.lobby({ spawn: [1.5, -11.0] }) }, 'SIXTH STREET') : null));
+        ...(onboard ? [
+          el('button', { class: 'btn', onclick: () => MENU.onboardDone() }, 'TO SIXTH STREET'),
+          el('button', { class: 'btn dark', onclick: () => TUTORIAL.start({ onboard: true }) }, 'TRAIN AGAIN')] : [
+          el('button', { class: 'btn', onclick: () => MENU.setup() }, 'TO THE HOLLOW'),
+          el('button', { class: 'btn dark', onclick: () => TUTORIAL.start() }, 'TRAIN AGAIN'),
+          Auth.current() ? el('button', { class: 'btn dark', onclick: () => MENU.lobby({ spawn: [1.5, -11.0] }) }, 'SIXTH STREET') : null])));
     U.$('screens').innerHTML = ''; U.$('screens').append(el('div', { class: 'scr results' }, box));
     return true;
   };

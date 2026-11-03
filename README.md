@@ -49,6 +49,12 @@ As in Post Parade, the title screen runs a **live battle** behind the logo (a ra
 A new Proxy chooses who they are, as in the real game: **Wise** or **Belle**, the siblings who run Random Play. The other
 one minds the shop.
 
+Signing up is four steps, shown at the top of each screen: **the account**, **who you are**, **training** and **Sixth
+Street**. Training is the interactive tutorial (see [Training](#training)): your sibling sends you into the HDD's
+simulator before your first Commission, so a new player learns to fight straight away. **Skip it** if you already know
+how (before it starts, or with SKIP TO SIXTH STREET during it); either way you arrive on Sixth Street to your sibling's
+welcome. Leave the game halfway through and the next sign-in brings you back to the training step.
+
 Home is **Sixth Street**, in voxels, to walk around in, built as it is in the real game from the Zenless Zone Zero Wiki's
 location shots, shop pictures and maps (`street.js`, `street2.js`). West to east:
 
@@ -359,7 +365,8 @@ pixels, softer shadows, fewer particles), and if the frames still run slow the g
 
 ## Training
 
-**HOW TO PLAY → START TRAINING** (`js/tutorial.js`): a fight on the Hollow Concert Stage against one Faun where nothing
+Part of signing up (see [Signing in](#signing-in-and-sixth-street)), and any time after from **HOW TO PLAY → START
+TRAINING** or the tutorial tapes in Random Play (`js/tutorial.js`): a fight on the Hollow Concert Stage against one Faun where nothing
 happens until you do it. A card over the battle gives one lesson at a time, in your own keys (on a phone, the buttons),
 and the next opens once you have done it (or SKIP): move, the Basic string, a hold move, dodging, the Dash Attack, a
 Perfect Dodge and its Dodge Counter, the Special, the EX, switching, a Defensive Assist and its Follow-Up, Stun and a

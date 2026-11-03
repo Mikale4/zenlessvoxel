@@ -54,7 +54,7 @@
     return null;
   }
   const pub = a => a && ({ id: a.id, user: a.user, proxy: a.proxy || null, created: a.created, lastLogin: a.lastLogin,
-    battles: a.battles || 0, clears: a.clears || 0, best: a.best || {}, seenIntro: !!a.seenIntro,
+    battles: a.battles || 0, clears: a.clears || 0, best: a.best || {}, seenIntro: !!a.seenIntro, onboard: a.onboard || null,
     duels: a.duels || 0, duelWins: a.duelWins || 0, clash: a.clash || {}, dives: a.dives || 0, diveClears: a.diveClears || 0 });
 
   const Auth = {

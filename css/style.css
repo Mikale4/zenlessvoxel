@@ -557,3 +557,11 @@ table.keys { border-collapse: collapse; font-size: 13px; } table.keys td { paddi
 .tr-hub em { font-style: normal; font: 700 11px var(--font); color: var(--yel2); }
 .tr-hub i { position: absolute; right: 10px; top: 10px; font: 800 10px var(--font); font-style: normal; color: #5be37a; }
 .tr-hub.here { opacity: .65; cursor: default; border-left-color: #5be37a; }
+
+/* a new Proxy's steps: the account, who you are, training, Sixth Street */
+.np-steps { display: flex; gap: 6px; flex-wrap: wrap; margin: 0 0 12px; }
+.np-steps span { display: flex; align-items: center; gap: 6px; font: 800 10px var(--font); letter-spacing: 1px; color: var(--dim); padding: 4px 8px 4px 4px; background: rgba(0,0,0,.35); border: 1px solid #33333f; }
+.np-steps i { font-style: normal; display: grid; place-items: center; width: 16px; height: 16px; border-radius: 50%; background: #2a2a34; color: #9a9aa8; font-size: 10px; }
+.np-steps .done { color: #5be37a; } .np-steps .done i { background: #5be37a; color: #101014; }
+.np-steps .on { color: #fff; border-color: var(--yel); } .np-steps .on i { background: var(--yel); color: #101014; }
+.chooser.onboard .ch-head { max-width: 640px; }

@@ -75,11 +75,15 @@
     return B.rival ? `LIVE · PROXY CLASH ${B.rival.mode.name} ${B.rival.mode.title} · ${B.arena.name} · ${mine} VS ${B.rival.squad.map(a => a.def.short).join(' / ')} (${B.rival.diff.name})` : `LIVE FROM THE HOLLOW · ${B.arena.name} · ${mine}`;
   }
   MENU.liveText = () => { const t = document.querySelector('.t-live span'); if (t) t.textContent = liveText(); };
-  /* signed in: a new account chooses its Proxy first */
+  /* signed in: a new account chooses its Proxy, trains (unless it skips), then Sixth Street;
+     one that left before the training was over picks up there */
   function enter(acc) {
     acc = MENU.loadAccount() || acc;
-    if (!acc.proxy) MENU.chooseProxy(); else MENU.lobby();
+    if (!acc.proxy) MENU.chooseProxy(); else if (acc.onboard === 'training') MENU.onboard(); else MENU.lobby();
   }
+  /* a new Proxy's way in, step by step: the account, who you are, training, Sixth Street */
+  const STEPS = ['ACCOUNT', 'WHO YOU ARE', 'TRAINING', 'SIXTH STREET'];
+  MENU.steps = n => el('div', { class: 'np-steps' }, ...STEPS.map((t, i) => el('span', { class: i < n ? 'done' : i === n ? 'on' : '' }, el('i', null, i < n ? '✓' : String(i + 1)), t)));
 
   /* -------------------------------------------------- register / sign in */
   MENU.auth = mode => {
@@ -90,8 +94,9 @@
     const err = el('div', { class: 'au-err' }), go = el('button', { class: 'btn' }, reg ? 'CREATE ACCOUNT' : 'SIGN IN');
     const fld = (label, input) => el('label', { class: 'fld' }, el('span', null, label), input);
     const box = el('div', { class: 'box auth' },
+      reg ? MENU.steps(0) : null,
       el('h2', null, reg ? 'REGISTER A PROXY' : 'PROXY SIGN-IN'),
-      el('p', null, reg ? 'Your own Proxy: your squad, your Battle Lab settings, your records. You choose who you are next.' : 'Random Play is where you left it.'),
+      el('p', null, reg ? 'Your own Proxy: your squad, your Battle Lab settings, your records. Next you choose who you are, then a training run teaches you to fight.' : 'Random Play is where you left it.'),
       fld('PROXY NAME', user), fld('PASSWORD', pass), reg ? fld('CONFIRM PASSWORD', pass2) : null,
       !reg && accounts.length ? el('div', { class: 'fld' }, el('span', null, 'ON THIS DEVICE'), el('div', { class: 'acct-list' }, ...accounts.map(a =>
         el('button', { class: 'acct', onclick: () => { user.value = a.user; pass.focus(); } }, a.proxy ? el('img', { src: portrait(a.proxy), alt: '' }) : null,
@@ -133,13 +138,36 @@
       choice = id; SFX.play('ui'); Lobby.choose(id);
       cards.forEach((c, i) => c.classList.toggle('sel', ids[i] === id)); ok.disabled = false; ok.textContent = `I'M ${PROXY[id].name.toUpperCase()}`;
     } }, el('img', { src: portrait(id), alt: '' }), el('b', null, PROXY[id].name), el('small', null, PROXY[id].line)));
-    ok.onclick = () => { if (!choice) return; Auth.update({ proxy: choice }); SFX.play('perfect'); MENU.lobby({ intro: true }); };
+    ok.onclick = () => { if (!choice) return; Auth.update({ proxy: choice, onboard: 'training' }); SFX.play('perfect'); MENU.onboard(); };
     scr().innerHTML = '';
     scr().append(el('div', { class: 'scr chooser' },
-      el('div', { class: 'ch-head' }, el('h2', null, 'WHO ARE YOU?'), el('p', null, `${acc.user}, every Proxy in New Eridu works from somewhere. Yours is Random Play, the video store on Sixth Street you run with your sibling. Which of you are you?`)),
+      el('div', { class: 'ch-head' }, MENU.steps(1), el('h2', null, 'WHO ARE YOU?'), el('p', null, `${acc.user}, every Proxy in New Eridu works from somewhere. Yours is Random Play, the video store on Sixth Street you run with your sibling. Which of you are you?`)),
       el('div', { class: 'ch-cards' }, cards[0], cards[1]),
       el('div', { class: 'ch-foot' }, ok, el('small', null, 'This is who you walk Sixth Street as; your sibling minds the shop. The battles are the same either way.'))));
   };
+
+  /* ------------------------------------------------- your first training --
+     Before a new Proxy's first Commission, your sibling sends you into the HDD's
+     training run (tutorial.js): one lesson at a time, against a Faun. Skippable;
+     either way Sixth Street and its welcome come next. */
+  MENU.onboard = () => {
+    const acc = Auth.current(); if (!acc) return MENU.title(); if (!acc.proxy) return MENU.chooseProxy();
+    const s = sibOf(acc.proxy), me = NAME[acc.proxy], sn = NAME[s];
+    if (GAME.mode !== 'lobby') GAME.toLobby({ me: acc.proxy, chooser: true });
+    if (Lobby.choose) Lobby.choose(acc.proxy);
+    scr().innerHTML = '';
+    scr().append(el('div', { class: 'scr chooser onboard' }, el('div', { class: 'ch-head' }, MENU.steps(2), el('h2', null, 'TRAINING'),
+      el('p', null, 'A real fight in the Hollow Deep Dive System\'s simulator, one lesson at a time: moving, the attack string, dodging, Specials, swapping and assists, Stuns and Chain Attacks, Ultimates. Nobody gets hurt. About ten minutes.'))));
+    MENU.say([
+      { who: s, name: sn, text: `So you're ${me} today. Good. Before you take a single Commission, you're doing a run in the HDD's training simulation.` },
+      { who: 'eous', name: 'Eous', text: 'Ehn-ne! Ehn-nu! (Eous has the simulator warmed up.)' },
+      { who: s, name: sn, text: 'Qingyi, Caesar and Aria offered to show you the ropes. The sim tells you what to press, one thing at a time, and nothing waits on a clock. Ready?', choices: [
+        { label: 'Start training', fn: () => { SFX.play('ui'); TUTORIAL.start({ onboard: true }); } },
+        { label: 'Skip it: I know how to fight', fn: () => { SFX.play('ui'); MENU.onboardDone(); } }] },
+    ]);
+  };
+  /* the training is behind you (finished, left or skipped): Sixth Street, and its welcome */
+  MENU.onboardDone = () => { Auth.update({ onboard: null }); MENU.lobby({ intro: true }); };
 
   /* -------------------------------------------------------- the lobby -- */
   MENU.lobby = (o) => {
