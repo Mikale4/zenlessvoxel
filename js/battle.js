@@ -308,7 +308,8 @@
   function anomalyDamage(src, v, pct, attr, atkSnap, apSnap) {
     const T = BT.T, B = BT.B;
     let dmg = (atkSnap || atkOf(src)) * pct / 100 * ((apSnap || src.st.ap) / 100);
-    dmg *= defMult(v.def_) * resMult(v, attr) * stunMult(v) * (v.vuln > B.t ? 1.25 : 1) * T.agentDmg * BUFF('dmg');
+    let defK = 1; for (const s of B.squad) if (s.def.mech && s.def.mech.anomDefK) defK *= s.def.mech.anomDefK(s, v, src) || 1;   // a squad DEF cut (js/agents/: Nicole's fields)
+    dmg *= defMult(v.def_ * defK) * resMult(v, attr) * stunMult(v) * (v.vuln > B.t ? 1.25 : 1) * T.agentDmg * BUFF('dmg');
     return Math.max(1, Math.round(dmg));
   }
   BT.anomalyDamage = anomalyDamage;
